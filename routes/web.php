@@ -1,56 +1,108 @@
 <?php
 
-// ════════════════════════════════════════════════════════════════════════════
-//  routes/web.php  —  AcademiaSMT-API  (backend puro)
-// ════════════════════════════════════════════════════════════════════════════
-//
-//  Este proyecto es una API pura. Las vistas Blade ya NO viven aquí.
-//  Viven en Frontend-api (otro proyecto Laravel).
-//
-//  Este web.php solo conserva:
-//    1. Una ruta de salud/status para verificar que el servidor está activo.
-//    2. Las rutas de reset de contraseña por EMAIL (el enlace del correo
-//       apunta a este dominio para validar el token y redirigir a la app).
-//
-//  Todas las demás rutas están en routes/api.php
-//
-// ════════════════════════════════════════════════════════════════════════════
-
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\LoginController;
+use App\Http\Controllers\AlumnoController;
+use App\Http\Controllers\PagoController;
+use App\Http\Controllers\TutorController;
+use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\ResetPasswordController;
+use App\Http\Controllers\CalendarioController;
+use App\Http\Controllers\EventoController;
+use App\Http\Controllers\GaleriaController;
+use App\Http\Controllers\RegistroController;
+use App\Http\Controllers\ContactoController;
+use App\Http\Controllers\PerfilController;
 
-// ── Health check ─────────────────────────────────────────────────────────────
-// GET /  →  confirma que la API está corriendo
-Route::get('/', function () {
-    return response()->json([
-        'app'     => 'Academia SMT — API',
-        'status'  => 'online',
-        'version' => '1.0',
-    ]);
+// ════════════════════════════════════════════════════════════════════════════
+//  RUTAS PÚBLICAS — sin login
+// ════════════════════════════════════════════════════════════════════════════
+
+// Landing
+Route::get('/',        fn() => view('landing'))->name('landing');
+Route::get('/landing', fn() => view('landing'));
+
+// Contacto (formulario del landing)
+Route::post('/contacto/enviar', [ContactoController::class, 'enviar'])->name('contacto.enviar');
+
+// Login / logout
+Route::get('/login',  [LoginController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [LoginController::class, 'login'])->name('login.attempt');
+Route::get('/logout', fn() => redirect()->route('login'));
+Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
+
+// Alias legacy (algunos blade usan route('verLogin'))
+Route::get('/ver-login', [LoginController::class, 'showLoginForm'])->name('verLogin');
+
+// Registro
+Route::get('/registro',  [RegistroController::class, 'create'])->name('registro.create');
+Route::post('/registro', [RegistroController::class, 'store'])->name('registro.store');
+
+// Recuperación de contraseña
+// Las 3 columnas (token_recuperacion, token_expiracion, ultima_solicitud_token)
+// ya están en la tabla usuario — no se usa tabla password_resets
+Route::get('/olvido-contrasennia',     [ResetPasswordController::class, 'showResetForm'])->name('password.request');
+Route::post('/olvido-contrasennia',    [ResetPasswordController::class, 'sendResetLinkEmail'])->name('password.email');
+Route::get('/password/reset/{token}', [ResetPasswordController::class, 'showResetFormWithToken'])->name('password.reset');
+Route::put('/password/update',        [ResetPasswordController::class, 'resetPassword'])->name('password.update');
+
+// Galería y calendario — lectura pública
+Route::get('/galeria',    [GaleriaController::class,    'index'])->name('galeria.index');
+Route::get('/calendario', [CalendarioController::class, 'index'])->name('calendario.index');
+
+// ════════════════════════════════════════════════════════════════════════════
+//  RUTAS PROTEGIDAS — requieren login (middleware 'auth')
+//  El guard 'web' usa sesión Laravel con el modelo Usuario
+// ════════════════════════════════════════════════════════════════════════════
+
+Route::middleware('auth')->group(function () {
+
+    // ── Dashboard ─────────────────────────────────────────────────────────
+    Route::get('/principal', fn() => view('usuariosViews.principal'))->name('principal');
+
+    // ── Perfil ────────────────────────────────────────────────────────────
+    Route::get('/perfil', [PerfilController::class, 'index'])->name('perfil');
+    Route::put('/perfil', [PerfilController::class, 'update'])->name('perfil.update');
+
+    // ── Galería (escritura) ───────────────────────────────────────────────
+    Route::post('/galeria',            [GaleriaController::class, 'store'])->name('galeria.store');
+    Route::delete('/galeria/{id}',     [GaleriaController::class, 'destroy'])->name('galeria.destroy');
+    Route::delete('/galeria-evento',   [GaleriaController::class, 'destroyEvento'])->name('galeria.destroyEvento');
+
+    // ── Calendario (escritura) ────────────────────────────────────────────
+    // PK real en BD: id_cal
+    Route::post('/calendario',         [CalendarioController::class, 'store'])->name('calendario.store');
+    Route::put('/calendario/{id}',     [CalendarioController::class, 'update'])->name('calendario.update');
+    Route::delete('/calendario/{id}',  [CalendarioController::class, 'destroy'])->name('calendario.destroy');
+
+    // ── Alumnos ───────────────────────────────────────────────────────────
+    Route::get('/alumnos',                    [AlumnoController::class, 'index'])->name('alumnos.index');
+    Route::post('/alumnos',                   [AlumnoController::class, 'store'])->name('alumnos.store');
+    Route::put('/alumnos/{id}',               [AlumnoController::class, 'update'])->name('alumnos.update');
+    Route::get('/alumnos/{id}/historial',     [AlumnoController::class, 'historialGrados'])->name('alumnos.historial');
+
+    // ── Pagos ─────────────────────────────────────────────────────────────
+    Route::get('/pagos',                      [PagoController::class, 'index'])->name('pagos.index');
+    Route::post('/pagos',                     [PagoController::class, 'store'])->name('pagos.store');
+    Route::get('/pagos/{id}/historial',       [PagoController::class, 'historialAlumno'])->name('pagos.historial');
+
+    // ── Tutores ───────────────────────────────────────────────────────────
+    Route::get('/tutor',                      [TutorController::class, 'index'])->name('tutor.index');
+    Route::post('/tutor',                     [TutorController::class, 'store'])->name('tutor.store');
+    Route::put('/tutor/{id}',                 [TutorController::class, 'update'])->name('tutor.update');
+
+    // ── Usuarios (CRUD completo) ──────────────────────────────────────────
+    Route::get('/usuarios',                   [UsuarioController::class, 'index'])->name('usuarios.index');
+    Route::post('/usuarios',                  [UsuarioController::class, 'store'])->name('usuarios.store');
+    Route::get('/usuarios/{id}/edit',         [UsuarioController::class, 'edit'])->name('editarUsu');
+    Route::put('/usuarios/{id}',              [UsuarioController::class, 'update'])->name('usuarios.update');
+    Route::delete('/usuarios/{id}',           [UsuarioController::class, 'destroy'])->name('usuarios.destroy');
+    Route::post('/usuarios/{id}/toggle-active', [UsuarioController::class, 'toggleActive'])->name('usuarios.toggleActive');
+
+    // ── Eventos multimedia (tabla evento: imágenes y videos) ──────────────
+    // Distinto de CalendarioController — este maneja archivos multimedia
+    Route::get('/eventos',                    [EventoController::class, 'index'])->name('eventos.index');
+    Route::post('/eventos',                   [EventoController::class, 'store'])->name('eventos.store');
+    Route::put('/eventos/{id}',               [EventoController::class, 'update'])->name('eventos.update');
+    Route::delete('/eventos/{id}',            [EventoController::class, 'destroy'])->name('eventos.destroy');
 });
-
-// ── Reset de contraseña por enlace de email ───────────────────────────────────
-// El correo de recuperación envía un enlace como:
-//   https://api.academia.com/password/reset/{token}
-//
-// Esta ruta NO devuelve una vista Blade. Redirige a la app móvil/web con el token
-// para que el usuario ingrese su nueva contraseña desde la app.
-//
-// Opción A (si solo tienes app móvil):
-//   → Redirigir a un deep link:  academia://reset-password?token={token}
-//
-// Opción B (si tienes frontend web separado):
-//   → Redirigir al Frontend-api:  http://frontend.com/nueva-contrasenna?token={token}
-//
-// Descomenta la opción que uses:
-
-Route::get('/password/reset/{token}', function (string $token) {
-
-    // ── OPCIÓN A: deep link para app móvil ─────────────────────────────
-    // return redirect('academia://reset-password?token=' . $token);
-
-    // ── OPCIÓN B: redirigir al frontend web ────────────────────────────
-    $frontendUrl = config('app.frontend_url', 'http://localhost:8001');
-    return redirect($frontendUrl . '/nueva-contrasenna?token=' . $token);
-
-})->name('password.reset');
