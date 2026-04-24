@@ -26,6 +26,11 @@ class Usuario extends Authenticatable
         'estado',
         'fecha_registro',
         'avatar',
+        // Columnas bachiller (opcionales — NULL para alumnos no bachiller)
+        'numero_control',
+        'grupo',
+        'especialidad',
+        'turno',
         // Columnas nuevas para recuperación de contraseña
         'token_recuperacion',
         'token_expiracion',

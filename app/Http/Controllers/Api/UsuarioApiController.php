@@ -20,7 +20,8 @@ class UsuarioApiController extends Controller
 
         $usuarios = DB::table('usuario')
             ->select('id_usuario', 'nombre', 'apaterno', 'amaterno',
-                     'correo', 'rol', 'estado', 'telefono', 'fecha_naci', 'fecha_registro')
+                     'correo', 'rol', 'estado', 'telefono', 'fecha_naci', 'fecha_registro',
+                     'numero_control', 'grupo', 'especialidad', 'turno')
             ->orderBy('nombre')
             ->get();
 
@@ -44,7 +45,11 @@ class UsuarioApiController extends Controller
             'pass'           => 'required|min:6',
             // ENUM real en BD: 'admin', 'sensei', 'tutor', 'alumno'
             'rol'            => 'required|in:admin,sensei,tutor,alumno',
-            'fecha_registro' => 'required|date',
+            'fecha_registro'  => 'required|date',
+            'numero_control'  => 'nullable|string|max:20',
+            'grupo'           => 'nullable|string|max:10',
+            'especialidad'    => 'nullable|string|max:100',
+            'turno'           => 'nullable|in:Matutino,Vespertino,Nocturno',
         ]);
 
         try {
@@ -112,8 +117,12 @@ class UsuarioApiController extends Controller
             'fecha_naci' => 'required|date',
             'tel'        => 'required|string|max:20',
             'correo'     => 'required|email|unique:usuario,correo,' . $id . ',id_usuario',
-            'rol'        => 'required|in:admin,sensei,tutor,alumno',
-            'pass'       => 'nullable|min:6',
+            'rol'            => 'required|in:admin,sensei,tutor,alumno',
+            'pass'           => 'nullable|min:6',
+            'numero_control' => 'nullable|string|max:20',
+            'grupo'          => 'nullable|string|max:10',
+            'especialidad'   => 'nullable|string|max:100',
+            'turno'          => 'nullable|in:Matutino,Vespertino,Nocturno',
         ]);
 
         try {

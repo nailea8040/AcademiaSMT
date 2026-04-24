@@ -22,13 +22,13 @@ class AuthApiController extends Controller
     {
         $request->validate([
             'correo'      => 'required|email',
-            'pass'      => 'required|string',
+            'contra'      => 'required|string',
             'device_name' => 'nullable|string|max:100',
         ]);
 
         $usuario = Usuario::where('correo', $request->correo)->first();
 
-        if (!$usuario || !Hash::check($request->pass, $usuario->pass)) {
+        if (!$usuario || !Hash::check($request->contra, $usuario->pass)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Correo o contraseña incorrectos.',
@@ -60,7 +60,11 @@ class AuthApiController extends Controller
                 'estado'     => $usuario->estado,
                 'telefono'   => $usuario->telefono,
                 'fecha_naci' => $usuario->fecha_naci,
-                'avatar'     => $usuario->avatar ?? null,
+                'avatar'        => $usuario->avatar ?? null,
+                'numero_control' => $usuario->numero_control ?? null,
+                'grupo'          => $usuario->grupo          ?? null,
+                'especialidad'   => $usuario->especialidad   ?? null,
+                'turno'          => $usuario->turno          ?? null,
             ],
         ]);
     }
