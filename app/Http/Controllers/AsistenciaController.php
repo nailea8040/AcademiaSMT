@@ -30,7 +30,7 @@ class AsistenciaController extends Controller
         try {
             $asistencias = $this->obtenerAsistencias($fecha);
 
-            return view('asistencia', compact('asistencias', 'fecha'));
+            return view('usuariosViews.asistencia', compact('asistencias', 'fecha'));
 
         } catch (\Exception $e) {
             Log::error('AsistenciaController@index: ' . $e->getMessage());
