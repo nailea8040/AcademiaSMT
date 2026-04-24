@@ -34,7 +34,7 @@ class AsistenciaController extends Controller
 
         } catch (\Exception $e) {
             Log::error('AsistenciaController@index: ' . $e->getMessage());
-            return view('asistencia', ['asistencias' => collect(), 'fecha' => $fecha])
+            return view('usuariosViews.asistencia', ['asistencias' => collect(), 'fecha' => $fecha])
                 ->with('error', 'Error al cargar las asistencias.');
         }
     }
