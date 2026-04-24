@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\RegistroApiController;
 use App\Http\Controllers\Api\ContactoApiController;
 use App\Http\Controllers\Api\GradoApiController;
 use App\Http\Controllers\Api\AsistenciaApiController;
+use App\Http\Controllers\AsistenciaController;
 use App\Http\Controllers\Api\UbicacionApiController;
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -80,8 +81,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/galeria/evento',  [GaleriaApiController::class, 'destroyEvento']);
 
     // ── Asistencia (escaneo QR) ───────────────────────────────────────────  ← NUEVO
-    Route::get('/asistencia',    [AsistenciaApiController::class, 'index']);   // ?fecha=
-    Route::post('/asistencia',   [AsistenciaApiController::class, 'store']);
+   // Asistencia (ya existían, actualizadas)
+Route::get('/asistencia',    [AsistenciaApiController::class, 'index']);   // ?fecha=
+Route::post('/asistencia',   [AsistenciaApiController::class, 'store']);
+ 
 
     // ── Ubicación del dojo ────────────────────────────────────────────────  ← NUEVO
     Route::get('/ubicacion',     [UbicacionApiController::class, 'index']);

@@ -49,6 +49,17 @@
             </li>
             @endif
 
+                {{-- Asistencia — admin y sensei --}}
+    @if(in_array($rol, ['admin', 'sensei']))
+    <li>
+        <a href="{{ route('asistencia.index') }}"
+        title="Asistencia"
+        class="{{ Request::routeIs('asistencia.*') ? 'activo' : '' }}">
+            <i class="bi bi-calendar-check"></i>
+        </a>
+    </li>
+    @endif
+
             {{-- Pagos — todos los roles --}}
             @if(in_array($rol, ['admin', 'sensei', 'tutor', 'alumno']))
             <li>

@@ -13,6 +13,7 @@ use App\Http\Controllers\GaleriaController;
 use App\Http\Controllers\RegistroController;
 use App\Http\Controllers\ContactoController;
 use App\Http\Controllers\PerfilController;
+use App\Http\Controllers\AsistenciaController;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RUTAS PÚBLICAS — sin login
@@ -105,4 +106,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/eventos',                   [EventoController::class, 'store'])->name('eventos.store');
     Route::put('/eventos/{id}',               [EventoController::class, 'update'])->name('eventos.update');
     Route::delete('/eventos/{id}',            [EventoController::class, 'destroy'])->name('eventos.destroy');
+
+    // Asistencia — dentro de Route::middleware('auth')->group(...)
+Route::get('/asistencia',          [AsistenciaController::class, 'index'])->name('asistencia.index');
+Route::get('/asistencia/pdf',      [AsistenciaController::class, 'descargarPdf'])->name('asistencia.pdf');
+Route::get('/asistencia/excel',    [AsistenciaController::class, 'descargarExcel'])->name('asistencia.excel');
 });
