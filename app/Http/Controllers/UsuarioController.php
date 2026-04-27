@@ -34,7 +34,6 @@ class UsuarioController extends Controller
             'pass' => 'required|min:6',
             'rol' => 'required|in:admin,sensei,tutor,alumno',
             'fecha_registro' => 'required|date',
-            'estado' => 1,
         ]);
 
         try {
