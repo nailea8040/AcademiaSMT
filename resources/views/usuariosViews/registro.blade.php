@@ -380,14 +380,7 @@
                     @error('rol')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                 </div>
 
-                <div class="form-group full">
-                    <label>Fecha de registro <span class="req">*</span></label>
-                    <div class="input-wrap">
-                        <span class="ico-cell"><i class="bi bi-calendar-check"></i></span>
-                        <input type="date" name="fecha_registro" required value="{{ old('fecha_registro', date('Y-m-d')) }}">
-                    </div>
-                    @error('fecha_registro')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
-                </div>
+
 
             </div>
             <div class="btn-row">
@@ -628,6 +621,77 @@
                             <input type="file" name="documento_medico" accept=".pdf">
                         </div>
                         @error('documento_medico')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                    </div>
+
+                    {{-- ── Sección Bachiller ─────────────────────────── --}}
+                    <div class="form-group full">
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                            <input type="checkbox"
+                                   name="es_bachiller"
+                                   id="esBachillerCheck"
+                                   value="1"
+                                   onchange="toggleBachiller(this.checked)"
+                                   {{ old('es_bachiller') ? 'checked' : '' }}
+                                   style="width:18px;height:18px;accent-color:#c62828;cursor:pointer;">
+                            <span style="font-size:14px;font-weight:600;color:#333;">
+                                ¿El alumno pertenece al bachiller?
+                            </span>
+                        </label>
+                    </div>
+
+                    <div id="bachillerFields" style="display:{{ old('es_bachiller') ? 'contents' : 'none' }};">
+                        <div class="form-group">
+                            <label>Número de Control</label>
+                            <div class="input-wrap">
+                                <span class="ico-cell"><i class="bi bi-123"></i></span>
+                                <input type="text" name="numero_control"
+                                       id="numero_control"
+                                       placeholder="Ej: 12345678"
+                                       maxlength="20"
+                                       value="{{ old('numero_control') }}">
+                            </div>
+                            @error('numero_control')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                        </div>
+
+                        <div class="form-group">
+                            <label>Grupo</label>
+                            <div class="input-wrap">
+                                <span class="ico-cell"><i class="bi bi-people-fill"></i></span>
+                                <input type="text" name="grupo"
+                                       id="grupo"
+                                       placeholder="Ej: 3A, 2B"
+                                       maxlength="10"
+                                       value="{{ old('grupo') }}">
+                            </div>
+                            @error('grupo')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                        </div>
+
+                        <div class="form-group">
+                            <label>Especialidad</label>
+                            <div class="input-wrap">
+                                <span class="ico-cell"><i class="bi bi-mortarboard-fill"></i></span>
+                                <input type="text" name="especialidad"
+                                       id="especialidad"
+                                       placeholder="Ej: Informática, Contabilidad"
+                                       maxlength="100"
+                                       value="{{ old('especialidad') }}">
+                            </div>
+                            @error('especialidad')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                        </div>
+
+                        <div class="form-group">
+                            <label>Turno</label>
+                            <div class="input-wrap">
+                                <span class="ico-cell"><i class="bi bi-clock-fill"></i></span>
+                                <select name="turno" id="turno">
+                                    <option value="">— Selecciona —</option>
+                                    <option value="Matutino"   {{ old('turno')=='Matutino'   ?'selected':'' }}>Matutino</option>
+                                    <option value="Vespertino" {{ old('turno')=='Vespertino' ?'selected':'' }}>Vespertino</option>
+                                    <option value="Nocturno"   {{ old('turno')=='Nocturno'   ?'selected':'' }}>Nocturno</option>
+                                </select>
+                            </div>
+                            @error('turno')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                        </div>
                     </div>
 
                 </div>
@@ -992,6 +1056,21 @@ function togglePass(inputId, iconId) {
 @endif
 
 /* ── Validar contraseñas de sub-registros antes de enviar ── */
+/* ── Toggle campos bachiller ── */
+function toggleBachiller(checked) {
+    const fields = document.getElementById('bachillerFields');
+    if (!fields) return;
+    fields.style.display = checked ? 'contents' : 'none';
+
+    // Limpiar campos si se desmarca
+    if (!checked) {
+        ['numero_control','grupo','especialidad','turno'].forEach(function(name) {
+            const el = document.getElementById(name) || document.querySelector('[name="'+name+'"]');
+            if (el) el.value = '';
+        });
+    }
+}
+
 document.getElementById('regForm').addEventListener('submit', function(e) {
     // Validar contraseña alumno extra (dentro de tutor)
     if (alumnoOpen) {
