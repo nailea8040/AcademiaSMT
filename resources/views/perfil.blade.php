@@ -633,7 +633,76 @@
                     </div>
                 </div>
 
-                <!-- Actividad Reciente (Ejemplo) -->
+                {{-- ── Sección Bachiller (solo si tiene datos) ── --}}
+                @if(auth()->user()->numero_control)
+                <div class="row g-4 mt-0">
+                    <div class="col-12">
+                        <div class="info-section" style="border-top:4px solid #1565c0;">
+                            <div class="section-header">
+                                <div class="section-icon" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);">
+                                    <i class="bi bi-mortarboard-fill" style="color:#1565c0"></i>
+                                </div>
+                                <h2 class="section-title" style="color:#1565c0">Datos Académicos — Bachiller</h2>
+                            </div>
+
+                            <div class="info-grid">
+                                <div class="info-item" style="border-left-color:#1565c0">
+                                    <div class="info-label">
+                                        <i class="bi bi-123"></i>
+                                        Número de Control
+                                    </div>
+                                    <div class="info-value">{{ auth()->user()->numero_control }}</div>
+                                </div>
+
+                                @if(auth()->user()->grupo)
+                                <div class="info-item" style="border-left-color:#1565c0">
+                                    <div class="info-label">
+                                        <i class="bi bi-people-fill"></i>
+                                        Grupo
+                                    </div>
+                                    <div class="info-value">{{ auth()->user()->grupo }}</div>
+                                </div>
+                                @endif
+
+                                @if(auth()->user()->especialidad)
+                                <div class="info-item" style="border-left-color:#1565c0">
+                                    <div class="info-label">
+                                        <i class="bi bi-mortarboard-fill"></i>
+                                        Especialidad
+                                    </div>
+                                    <div class="info-value">{{ auth()->user()->especialidad }}</div>
+                                </div>
+                                @endif
+
+                                @if(auth()->user()->turno)
+                                <div class="info-item" style="border-left-color:#1565c0">
+                                    <div class="info-label">
+                                        <i class="bi bi-clock-fill"></i>
+                                        Turno
+                                    </div>
+                                    <div class="info-value">
+                                        @php
+                                            $turnoColor = match(auth()->user()->turno) {
+                                                'Matutino'   => '#1565c0',
+                                                'Vespertino' => '#e65100',
+                                                'Nocturno'   => '#212121',
+                                                default      => '#757575',
+                                            };
+                                        @endphp
+                                        <span style="background:{{ $turnoColor }}20;color:{{ $turnoColor }};
+                                                     padding:4px 12px;border-radius:20px;font-size:14px;font-weight:600">
+                                            {{ auth()->user()->turno }}
+                                        </span>
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
+                {{-- Actividad Reciente (Ejemplo) --}}
                 
 
             </div>

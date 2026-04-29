@@ -112,7 +112,7 @@
                             <label class="form-label">Teléfono <span class="required">*</span></label>
                             <div class="form-input-wrapper">
                                 <i class="bi bi-telephone input-icon"></i>
-                                <input type="text" class="form-input" id="telefono" name="telefono" placeholder="10 dígitos" required 
+                                <input type="text" class="form-input" id="tel" name="tel" placeholder="10 dígitos" required 
                                 minlength="10" 
                                 maxlength="10" 
                                 pattern="[0-9]{10}">
@@ -157,16 +157,66 @@
                         </div>
                     </div>
 
-                    <div class="form-grid full-width">
-                        <div class="form-group">
-                            <label class="form-label">Fecha de Registro <span class="required">*</span></label>
-                            <div class="form-input-wrapper">
-                                <i class="bi bi-calendar-check input-icon"></i>
-                                <input type="date" class="form-input" id="fecha_registro" name="fecha_registro" required value="{{ date('Y-m-d') }}" readonly>
+                    {{-- fecha_registro generado en servidor --}}
+                    
+                    {{-- Sección bachiller --}}
+                    <div id="bachillerRegistroWrapper" style="display:none">
+                        <h3 style="margin:20px 0 15px;color:#2d2d2d;font-size:16px;display:flex;align-items:center;gap:8px;">
+                            <i class="bi bi-mortarboard-fill"></i> Datos de Bachiller
+                        </h3>
+                        <div style="border:1px solid #dee2e6;border-radius:8px;padding:16px;background:#f8f9fa;margin-bottom:20px">
+                            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;color:#333;margin-bottom:12px">
+                                <input type="checkbox" name="es_bachiller" id="esBachillerReg" value="1"
+                                       onchange="toggleBachillerReg(this.checked)"
+                                       style="width:18px;height:18px;accent-color:#c62828">
+                                ¿El alumno pertenece al bachiller?
+                            </label>
+                            <div id="bachillerRegFields" style="display:none">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label class="form-label">Número de Control</label>
+                                        <div class="form-input-wrapper">
+                                            <i class="bi bi-123 input-icon"></i>
+                                            <input type="text" class="form-input" name="numero_control"
+                                                   placeholder="Ej: 12345678" maxlength="20"
+                                                   value="{{ old('numero_control') }}">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Grupo</label>
+                                        <div class="form-input-wrapper">
+                                            <i class="bi bi-people-fill input-icon"></i>
+                                            <input type="text" class="form-input" name="grupo"
+                                                   placeholder="Ej: 3A, 2B" maxlength="10"
+                                                   value="{{ old('grupo') }}">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Especialidad</label>
+                                        <div class="form-input-wrapper">
+                                            <i class="bi bi-mortarboard-fill input-icon"></i>
+                                            <input type="text" class="form-input" name="especialidad"
+                                                   placeholder="Ej: Informática" maxlength="100"
+                                                   value="{{ old('especialidad') }}">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Turno</label>
+                                        <div class="form-input-wrapper">
+                                            <i class="bi bi-clock-fill input-icon"></i>
+                                            <select class="form-select" name="turno">
+                                                <option value="">— Selecciona —</option>
+                                                <option value="Matutino"   {{ old('turno')=='Matutino'   ?'selected':'' }}>Matutino</option>
+                                                <option value="Vespertino" {{ old('turno')=='Vespertino' ?'selected':'' }}>Vespertino</option>
+                                                <option value="Nocturno"   {{ old('turno')=='Nocturno'   ?'selected':'' }}>Nocturno</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" onclick="document.getElementById('registroForm').reset();">
                             <i class="bi bi-x-lg"></i>
@@ -229,6 +279,7 @@
                                 <th>Usuario</th>
                                 <th>Rol</th>
                                 <th>Teléfono</th>
+                                <th>Bachiller</th>
                                 <th>Fecha Nac.</th>
                                 <th>Fecha Reg.</th>
                                 <th class="text-center">Estado</th> 
@@ -263,6 +314,15 @@
                                     </td>
                                     
                                     <td>{{ $usuario->telefono }}</td>
+                                    <td>
+                                        @if($usuario->numero_control)
+                                            <span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:8px;font-size:12px;font-weight:600">
+                                                {{ $usuario->numero_control }}
+                                            </span>
+                                        @else
+                                            <span style="color:#bdbdbd;font-size:12px">—</span>
+                                        @endif
+                                    </td>
                                     <td>{{ date('d/m/Y', strtotime($usuario->fecha_naci)) }}</td>
                                     <td>{{ date('d/m/Y', strtotime($usuario->fecha_registro)) }}</td>
                                     
@@ -471,6 +531,33 @@
                 toggleIcon.classList.remove('bi-eye-slash');
                 toggleIcon.classList.add('bi-eye');
             }
+        }
+
+        // Mostrar/ocultar sección bachiller según rol en formulario de registro
+        document.getElementById('rol').addEventListener('change', function() {
+            const wrapper = document.getElementById('bachillerRegistroWrapper');
+            wrapper.style.display = (this.value === 'alumno') ? 'block' : 'none';
+            if (this.value !== 'alumno') {
+                document.getElementById('esBachillerReg').checked = false;
+                toggleBachillerReg(false);
+            }
+        });
+
+        function toggleBachillerReg(checked) {
+            document.getElementById('bachillerRegFields').style.display = checked ? 'block' : 'none';
+            if (!checked) {
+                ['numero_control','grupo','especialidad'].forEach(function(n) {
+                    const el = document.querySelector('#bachillerRegFields [name="'+n+'"]');
+                    if (el) el.value = '';
+                });
+                const t = document.querySelector('#bachillerRegFields [name="turno"]');
+                if (t) t.value = '';
+            }
+        }
+
+        // Mostrar bachiller si old() ya lo tenía marcado
+        if (document.getElementById('rol').value === 'alumno') {
+            document.getElementById('bachillerRegistroWrapper').style.display = 'block';
         }
 
         $(document).ready(function() {

@@ -5,12 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Editar Usuario - {{ $usuario->nombre }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/estiloU.css') }}"> 
-    <link rel="stylesheet" href="{{ asset('css/estilo2.css') }}"> 
+    <link rel="stylesheet" href="{{ asset('css/estiloU.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/estilo2.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        #bachillerSection {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 8px;
+            background: #f8f9fa;
+        }
+        .bachiller-toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #333;
+        }
+        .bachiller-toggle-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #c62828;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-    @include('includes.menu') 
+    @include('includes.menu')
 
     <div class="main-content">
         <header>
@@ -18,17 +41,18 @@
         </header>
 
         <div class="content p-4">
-            
-            <div class="card p-4 mx-auto" style="max-width: 600px;">
+            <div class="card p-4 mx-auto" style="max-width: 650px;">
                 <h2 class="text-center mb-4" style="color: #111;">Formulario de Edición</h2>
 
-                <form id="edicionForm" action="{{ route('usuarios.update', $usuario->id_usuario) }}" method="POST">
+                <form id="edicionForm"
+                      action="{{ route('usuarios.update', $usuario->id_usuario) }}"
+                      method="POST">
                     @csrf
-                    @method('PUT') 
+                    @method('PUT')
 
                     @if ($errors->any())
                         <div class="alert alert-danger">
-                            <ul>
+                            <ul class="mb-0">
                                 @foreach ($errors->all() as $error)
                                     <li>{{ $error }}</li>
                                 @endforeach
@@ -36,56 +60,125 @@
                         </div>
                     @endif
 
+                    {{-- ── Datos personales ── --}}
                     <label for="nombre" class="form-label mt-2">Nombre(s)</label>
-                    <input type="text" id="nombre" name="nombre" class="form-control" 
+                    <input type="text" id="nombre" name="nombre" class="form-control"
                            value="{{ old('nombre', $usuario->nombre) }}" required>
 
                     <label for="apaterno" class="form-label mt-2">Apellido Paterno</label>
-                    <input type="text" id="apaterno" name="apaterno" class="form-control" 
+                    <input type="text" id="apaterno" name="apaterno" class="form-control"
                            value="{{ old('apaterno', $usuario->apaterno) }}" required>
 
                     <label for="amaterno" class="form-label mt-2">Apellido Materno</label>
-                    <input type="text" id="amaterno" name="amaterno" class="form-control" 
+                    <input type="text" id="amaterno" name="amaterno" class="form-control"
                            value="{{ old('amaterno', $usuario->amaterno) }}" required>
 
                     <label for="correo" class="form-label mt-2">Correo electrónico</label>
-                    <input type="email" id="correo" name="correo" class="form-control" 
+                    <input type="email" id="correo" name="correo" class="form-control"
                            value="{{ old('correo', $usuario->correo) }}" required>
 
                     <label for="tel" class="form-label mt-2">Teléfono</label>
+                    {{-- ✅ columna real en BD es 'telefono', no 'tel' --}}
                     <input type="text" id="tel" name="tel" class="form-control" maxlength="20"
-                           value="{{ old('tel', $usuario->tel) }}" required>
+                           value="{{ old('tel', $usuario->telefono) }}" required>
 
+                    {{-- ── Rol ── --}}
                     <label for="rol" class="form-label mt-2">Rol</label>
-                    <select id="rol" name="rol" class="form-select" required>
+                    <select id="rol" name="rol" class="form-select" required
+                            onchange="mostrarBachiller()">
                         <option value="">Selecciona tipo de usuario</option>
-                        
                         @php $currentRol = old('rol', $usuario->rol); @endphp
-                        
-                        <option value="administrador" {{ $currentRol == 'administrador' ? 'selected' : '' }}>Administrador</option>
-                        <option value="sensei" {{ $currentRol == 'sensei' ? 'selected' : '' }}>Sensei</option>
-                        <option value="tutor" {{ $currentRol == 'tutor' ? 'selected' : '' }}>Tutor</option>
-                        <option value="alumno" {{ $currentRol == 'alumno' ? 'selected' : '' }}>Alumno</option>
+                        {{-- ✅ BD usa 'admin', no 'administrador' --}}
+                        <option value="admin"   {{ $currentRol == 'admin'   ? 'selected' : '' }}>Administrador</option>
+                        <option value="sensei"  {{ $currentRol == 'sensei'  ? 'selected' : '' }}>Sensei</option>
+                        <option value="tutor"   {{ $currentRol == 'tutor'   ? 'selected' : '' }}>Tutor</option>
+                        <option value="alumno"  {{ $currentRol == 'alumno'  ? 'selected' : '' }}>Alumno</option>
                     </select>
 
                     <label for="fecha_naci" class="form-label mt-2">Fecha de Nacimiento</label>
                     <input type="date" id="fecha_naci" name="fecha_naci" class="form-control"
-                           value="{{ old('fecha_naci', $usuario->fecha_naci) }}" required>
+                           value="{{ old('fecha_naci', $usuario->fecha_naci instanceof \Carbon\Carbon ? $usuario->fecha_naci->format('Y-m-d') : $usuario->fecha_naci) }}"
+                           required>
 
-                    <label for="pass" class="form-label mt-2">Nueva Contraseña (Dejar vacío para no cambiar)</label>
-                    <input type="password" id="pass" name="pass" class="form-control" 
-                           placeholder="Contraseña (mín. 6 caracteres)" minlength="6">
+                    <label for="pass" class="form-label mt-2">
+                        Nueva Contraseña
+                        <small class="text-muted">(dejar vacío para no cambiar)</small>
+                    </label>
+                    <input type="password" id="pass" name="pass" class="form-control"
+                           placeholder="Mínimo 6 caracteres" minlength="6">
 
-                    <label for="fecha_registro" class="form-label mt-2">Fecha de Registro</label>
-                    <input type="date" id="fecha_registro" class="form-control" 
+                    {{-- Fecha de registro solo lectura --}}
+                    <label class="form-label mt-2">Fecha de Registro</label>
+                    <input type="text" class="form-control"
                            value="{{ $usuario->fecha_registro }}" disabled>
 
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                        <a href="{{ route('usuarios.index') }}" class="btn btn-secondary me-md-2">Cancelar</a>
-                        <button type="submit" class="btn btn-primary" style="background-color: #e56717; border-color: #e56717;">Guardar Cambios</button>
-                    </div>
-                </form>
+                    {{-- ── Sección bachiller (solo visible si rol = alumno) ── --}}
+                    <div class="mt-3" id="bachillerWrapper"
+                         style="display: {{ old('rol', $usuario->rol) === 'alumno' ? 'block' : 'none' }}">
 
+                        <label class="bachiller-toggle-label">
+                            @php
+                                $tieneBachiller = !empty($usuario->numero_control);
+                            @endphp
+                            <input type="checkbox"
+                                   name="es_bachiller"
+                                   id="esBachillerCheck"
+                                   value="1"
+                                   onchange="toggleBachiller(this.checked)"
+                                   {{ old('es_bachiller', $tieneBachiller) ? 'checked' : '' }}>
+                            ¿El alumno pertenece al bachiller?
+                        </label>
+
+                        <div id="bachillerSection"
+                             style="display: {{ old('es_bachiller', $tieneBachiller) ? 'block' : 'none' }}">
+
+                            <div class="row g-3 mt-1">
+                                <div class="col-md-6">
+                                    <label class="form-label">Número de Control</label>
+                                    <input type="text" name="numero_control" class="form-control"
+                                           placeholder="Ej: 12345678" maxlength="20"
+                                           value="{{ old('numero_control', $usuario->numero_control) }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Grupo</label>
+                                    <input type="text" name="grupo" class="form-control"
+                                           placeholder="Ej: 3A, 2B" maxlength="10"
+                                           value="{{ old('grupo', $usuario->grupo) }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Especialidad</label>
+                                    <input type="text" name="especialidad" class="form-control"
+                                           placeholder="Ej: Informática" maxlength="100"
+                                           value="{{ old('especialidad', $usuario->especialidad) }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Turno</label>
+                                    <select name="turno" class="form-select">
+                                        <option value="">— Selecciona —</option>
+                                        @foreach(['Matutino','Vespertino','Nocturno'] as $t)
+                                            <option value="{{ $t }}"
+                                                {{ old('turno', $usuario->turno) == $t ? 'selected' : '' }}>
+                                                {{ $t }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+
+                        </div>{{-- /bachillerSection --}}
+                    </div>{{-- /bachillerWrapper --}}
+
+                    {{-- ── Botones ── --}}
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{{ route('usuarios.index') }}"
+                           class="btn btn-secondary me-md-2">Cancelar</a>
+                        <button type="submit" class="btn btn-primary"
+                                style="background-color:#c62828; border-color:#c62828;">
+                            Guardar Cambios
+                        </button>
+                    </div>
+
+                </form>
             </div>
         </div>
 
@@ -95,5 +188,34 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Mostrar/ocultar sección bachiller según el rol seleccionado
+        function mostrarBachiller() {
+            const rol     = document.getElementById('rol').value;
+            const wrapper = document.getElementById('bachillerWrapper');
+            wrapper.style.display = (rol === 'alumno') ? 'block' : 'none';
+
+            // Si cambia de alumno, limpiar bachiller
+            if (rol !== 'alumno') {
+                document.getElementById('esBachillerCheck').checked = false;
+                toggleBachiller(false);
+            }
+        }
+
+        // Mostrar/ocultar campos bachiller
+        function toggleBachiller(checked) {
+            const section = document.getElementById('bachillerSection');
+            section.style.display = checked ? 'block' : 'none';
+
+            if (!checked) {
+                ['numero_control','grupo','especialidad'].forEach(function(name) {
+                    const el = document.querySelector('[name="' + name + '"]');
+                    if (el) el.value = '';
+                });
+                const turno = document.querySelector('[name="turno"]');
+                if (turno) turno.value = '';
+            }
+        }
+    </script>
 </body>
 </html>
