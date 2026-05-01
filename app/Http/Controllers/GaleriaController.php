@@ -8,13 +8,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
-/**
- * GaleriaController
- *
- * Tabla 'evento' con columna nueva: nombre_evento VARCHAR(255) NULL
- *   nombre_evento IS NULL  → archivo individual
- *   nombre_evento = valor  → pertenece a galería de evento
- */
 class GaleriaController extends Controller
 {
     private function esAdmin(): bool
@@ -22,10 +15,10 @@ class GaleriaController extends Controller
         return Auth::check() && Auth::user()->rol === 'admin';
     }
 
+    // ── index ─────────────────────────────────────────────────────────────────
     public function index()
     {
         try {
-            // Eventos agrupados por nombre_evento
             $nombresEventos = DB::table('evento')
                 ->whereNotNull('nombre_evento')
                 ->select('nombre_evento')
@@ -47,10 +40,11 @@ class GaleriaController extends Controller
                     'total_fotos'  => $archivosEvento->where('tipo', 'imagen')->count(),
                     'total_videos' => $archivosEvento->where('tipo', 'video')->count(),
                     'miniaturas'   => $archivosEvento->take(8),
+                    // Si algún archivo del evento está destacado, el evento lo es
+                    'destacado'    => $archivosEvento->where('destacado', 1)->count() > 0,
                 ];
             }
 
-            // Archivos individuales (nombre_evento NULL)
             $individuales = DB::table('evento')
                 ->whereNull('nombre_evento')
                 ->orderBy('created_at', 'desc')
@@ -59,23 +53,24 @@ class GaleriaController extends Controller
             $imagenes_ind = $individuales->where('tipo', 'imagen')->values();
             $videos_ind   = $individuales->where('tipo', 'video')->values();
 
-                        // ===============================
-            // Generar estructura para JS
-            // ===============================
-            $eventosData = collect($eventos)->mapWithKeys(function($e) {
+            $eventosData = collect($eventos)->mapWithKeys(function ($e) {
                 return [
-                    $e->nombre => collect($e->archivos)->map(function($a) {
+                    $e->nombre => collect($e->archivos)->map(function ($a) {
                         return [
-                            'id'     => $a->id_evento,
-                            'titulo' => $a->titulo,
-                            'tipo'   => $a->tipo,
-                            'src'    => asset('storage/' . $a->ruta),
+                            'id'         => $a->id_evento,
+                            'titulo'     => $a->titulo,
+                            'tipo'       => $a->tipo,
+                            'src'        => asset('storage/' . $a->ruta),
+                            'destacado'  => $a->destacado ?? 0,
                         ];
                     })->values()
                 ];
             });
 
-            return view('galeria', compact('eventos', 'individuales', 'imagenes_ind', 'videos_ind', 'eventosData'));
+            return view('galeria', compact(
+                'eventos', 'individuales', 'imagenes_ind',
+                'videos_ind', 'eventosData'
+            ));
 
         } catch (\Exception $e) {
             Log::error('GaleriaController@index: ' . $e->getMessage());
@@ -84,10 +79,12 @@ class GaleriaController extends Controller
                 'individuales' => collect(),
                 'imagenes_ind' => collect(),
                 'videos_ind'   => collect(),
+                'eventosData'  => collect(),
             ])->with('error', 'Error al cargar la galería.');
         }
     }
 
+    // ── store ─────────────────────────────────────────────────────────────────
     public function store(Request $request)
     {
         if (!$this->esAdmin()) {
@@ -102,6 +99,7 @@ class GaleriaController extends Controller
             'descripcion'   => 'nullable|string|max:1000',
             'archivos'      => 'required|array|min:1',
             'archivos.*'    => 'required|file|max:51200',
+            'destacado'     => 'nullable|boolean',
         ]);
 
         if ($request->tipo === 'imagen') {
@@ -114,6 +112,7 @@ class GaleriaController extends Controller
             $archivos     = $request->file('archivos');
             $modoEvento   = $request->modo === 'evento';
             $nombreEvento = $modoEvento ? trim($request->nombre_evento) : null;
+            $destacado    = $request->boolean('destacado') ? 1 : 0;
             $subidos      = 0;
 
             DB::beginTransaction();
@@ -123,11 +122,14 @@ class GaleriaController extends Controller
                 $ruta = $archivo->storeAs('galeria', time() . '_' . $index . '_' . $safe, 'public');
 
                 DB::table('evento')->insert([
-                    'titulo'        => $modoEvento ? $archivo->getClientOriginalName() : ($request->titulo ?? $archivo->getClientOriginalName()),
+                    'titulo'        => $modoEvento
+                        ? $archivo->getClientOriginalName()
+                        : ($request->titulo ?? $archivo->getClientOriginalName()),
                     'nombre_evento' => $nombreEvento,
                     'tipo'          => $request->tipo,
                     'ruta'          => $ruta,
                     'descripcion'   => $request->descripcion,
+                    'destacado'     => $destacado,
                     'id_usuario'    => Auth::id(),
                     'created_at'    => now(),
                     'updated_at'    => now(),
@@ -150,6 +152,7 @@ class GaleriaController extends Controller
         }
     }
 
+    // ── destroy ───────────────────────────────────────────────────────────────
     public function destroy($id)
     {
         if (!$this->esAdmin()) {
@@ -169,7 +172,7 @@ class GaleriaController extends Controller
         }
     }
 
-    /** Eliminar evento completo (todos sus archivos) */
+    // ── destroyEvento ─────────────────────────────────────────────────────────
     public function destroyEvento(Request $request)
     {
         if (!$this->esAdmin()) {
@@ -191,6 +194,44 @@ class GaleriaController extends Controller
             DB::rollBack();
             Log::error('GaleriaController@destroyEvento: ' . $e->getMessage());
             return back()->with('error', 'Error al eliminar el evento.');
+        }
+    }
+
+    // ── toggleDestacado ───────────────────────────────────────────────────────
+    /**
+     * POST /galeria/{id}/destacado
+     * Marca o desmarca un archivo como destacado en el landing
+     */
+    public function toggleDestacado($id)
+    {
+        if (!$this->esAdmin()) {
+            return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
+        }
+
+        try {
+            $archivo = DB::table('evento')->where('id_evento', $id)->first();
+
+            if (!$archivo) {
+                return response()->json(['success' => false, 'message' => 'No encontrado.'], 404);
+            }
+
+            $nuevoValor = $archivo->destacado ? 0 : 1;
+
+            DB::table('evento')
+                ->where('id_evento', $id)
+                ->update(['destacado' => $nuevoValor]);
+
+            return response()->json([
+                'success'    => true,
+                'destacado'  => $nuevoValor,
+                'message'    => $nuevoValor
+                    ? 'Marcado como destacado en el landing.'
+                    : 'Quitado de destacados.',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('GaleriaController@toggleDestacado: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error.'], 500);
         }
     }
 }

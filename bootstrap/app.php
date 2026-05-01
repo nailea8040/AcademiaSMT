@@ -14,6 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+    $middleware->web(append: [
+        \App\Http\Middleware\StorageLinkCheck::class,
+    ]);
+})
+    ->withMiddleware(function (Middleware $middleware) {
         // Combinamos los middleware en un solo bloque
         $middleware->alias([
             'rol' => \App\Http\Middleware\VerificarRol::class,
