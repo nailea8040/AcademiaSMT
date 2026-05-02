@@ -69,6 +69,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/galeria',            [GaleriaController::class, 'store'])->name('galeria.store');
     Route::delete('/galeria/{id}',     [GaleriaController::class, 'destroy'])->name('galeria.destroy');
     Route::delete('/galeria-evento',   [GaleriaController::class, 'destroyEvento'])->name('galeria.destroyEvento');
+    // ← AGREGAR ESTA RUTA NUEVA:
+    Route::post('/galeria/{id}/destacado', [GaleriaController::class, 'toggleDestacado'])
+     ->name('galeria.destacado');
 
     // ── Calendario (escritura) ────────────────────────────────────────────
     // PK real en BD: id_cal

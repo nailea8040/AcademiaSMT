@@ -79,9 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/galeria',           [GaleriaApiController::class, 'store']);
     Route::delete('/galeria/{id}',    [GaleriaApiController::class, 'destroy']);
     Route::delete('/galeria/evento',  [GaleriaApiController::class, 'destroyEvento']);
-    // ← AGREGAR ESTA RUTA NUEVA:
-Route::post('/galeria/{id}/destacado', [GaleriaController::class, 'toggleDestacado'])
-     ->name('galeria.destacado');
+    
 
     // ── Asistencia (escaneo QR) ───────────────────────────────────────────  ← NUEVO
    // Asistencia (ya existían, actualizadas)
