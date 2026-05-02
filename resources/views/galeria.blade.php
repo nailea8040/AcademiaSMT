@@ -386,12 +386,13 @@
                             onclick="eliminarEvento('{{ addslashes($evento->nombre) }}')">
                         <i class="bi bi-trash3"></i>
                     </button>
-                    <button onclick="toggleDestacadoEvento('{{ addslashes($evento->nombre) }}', this)"
-                            title="{{ ($evento->destacado ?? false) ? 'Quitar del landing' : 'Mostrar en landing' }}"
-                            style="background:{{ ($evento->destacado ?? false) ? '#ffd700' : 'rgba(80,80,80,0.85)' }};border:none;border-radius:8px;padding:8px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:{{ ($evento->destacado ?? false) ? '#333' : 'white' }}">
-                        <i class="bi bi-star-fill" style="color:{{ ($evento->destacado ?? false) ? '#333' : 'white' }}"></i>
-                        {{ ($evento->destacado ?? false) ? 'En landing' : 'Al landing' }}
-                    </button>
+                    @endif
+                    {{-- Indicador de destacado del evento (lectura) --}}
+                    @if($evento->destacado ?? false)
+                    <span title="Tiene archivos destacados en el landing"
+                          style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#b8860b;font-weight:600;padding:4px 10px;background:#fff9e6;border-radius:20px;border:1px solid #ffd700;">
+                        <i class="bi bi-star-fill"></i> En landing
+                    </span>
                     @endif
                 </div>
             </div>
@@ -461,9 +462,11 @@
                             <i class="bi bi-trash3"></i>
                         </button>
                         <button class="btn-ind"
-                                onclick="toggleDestacado({{ $archivo->id_evento }}, this)"
-                                title="{{ $archivo->destacado ?? 0 ? 'Quitar del landing' : 'Mostrar en landing' }}"
-                                style="background:{{ ($archivo->destacado ?? 0) ? '#ffd700' : 'rgba(80,80,80,0.85)' }};">
+                                onclick="toggleDestacado(this)"
+                                data-url="{{ route('galeria.destacado', $archivo->id_evento) }}"
+                                data-destacado="{{ $archivo->destacado ?? 0 }}"
+                                title="{{ ($archivo->destacado ?? 0) ? 'Quitar del landing' : 'Mostrar en landing' }}"
+                                style="background:{{ ($archivo->destacado ?? 0) ? '#ffd700' : 'rgba(255,255,255,0.2)' }};">
                             <i class="bi bi-star-fill" style="color:{{ ($archivo->destacado ?? 0) ? '#333' : 'white' }}"></i>
                         </button>
                         @endif
@@ -860,92 +863,100 @@ document.getElementById('uploadModal')?.addEventListener('hidden.bs.modal', () =
     setModo('individual');
 });
 
-        // ── Toggle destacado ─────────────────────────────────────────────────
+        // ── Toggle destacado (marcar para landing) ────────────────
         async function toggleDestacado(id, btn) {
             try {
+                const token = document.querySelector('meta[name="csrf-token"]');
+                const csrfToken = token ? token.content : '';
                 const res = await fetch(`/galeria/${id}/destacado`, {
                     method: 'POST',
                     headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                        'Accept': 'application/json',
                         'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json',
                     },
                 });
                 const data = await res.json();
                 if (data.success) {
-                    const ico = btn.querySelector('i');
+                    const estrella = btn.querySelector('i');
                     if (data.destacado) {
                         btn.style.background = '#ffd700';
                         btn.title = 'Quitar del landing';
-                        if (ico) ico.style.color = '#333';
+                        if (estrella) estrella.style.color = '#333';
                     } else {
-                        btn.style.background = 'rgba(80,80,80,0.85)';
+                        btn.style.background = 'rgba(255,255,255,0.2)';
                         btn.title = 'Mostrar en landing';
-                        if (ico) ico.style.color = 'white';
+                        if (estrella) estrella.style.color = 'white';
                     }
-                    mostrarToast(data.message);
+                    // Toast de confirmación
+                    const toast = document.createElement('div');
+                    toast.textContent = data.message;
+                    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#222;color:#fff;padding:10px 20px;border-radius:8px;z-index:9999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.3)';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 2500);
                 }
-            } catch(e) { alert('Error al actualizar destacado.'); }
+            } catch(e) {
+                alert('Error al actualizar destacado. Intenta de nuevo.');
+            }
         }
+    
+                async function toggleDestacado(btn) {
+            const url        = btn.getAttribute('data-url');
+            const csrfMeta   = document.querySelector('meta[name="csrf-token"]');
+            const csrfToken  = csrfMeta ? csrfMeta.content : '';
+            const estrella   = btn.querySelector('i');
 
-        async function toggleDestacadoEvento(nombre, btn) {
-            // Marcar/desmarcar TODOS los archivos del evento
-            const archivos = eventosData[nombre] || [];
-            if (!archivos.length) return;
+            // Deshabilitar mientras procesa
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
 
-            // Determinar estado actual — si el botón es dorado, está destacado
-            const estaDestacado = btn.style.background.includes('255, 215, 0') ||
-                                  btn.style.background === 'rgb(255, 215, 0)';
-            const nuevoEstado   = !estaDestacado;
+            try {
+                const res = await fetch(url, {
+                    method:  'POST',
+                    headers: {
+                        'Content-Type':  'application/json',
+                        'X-CSRF-TOKEN':  csrfToken,
+                        'Accept':        'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
 
-            let ok = 0;
-            for (const a of archivos) {
-                try {
-                    const res = await fetch(`/galeria/${a.id}/destacado`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json',
-                        },
-                    });
-                    const d = await res.json();
-                    // Si el estado resultante no coincide con lo que queremos, llamar de nuevo
-                    if (d.success && d.destacado !== (nuevoEstado ? 1 : 0)) {
-                        await fetch(`/galeria/${a.id}/destacado`, {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                                'Accept': 'application/json',
-                                'Content-Type': 'application/json',
-                            },
-                        });
+                if (!res.ok) {
+                    const txt = await res.text();
+                    console.error('Error HTTP', res.status, txt);
+                    alert('Error ' + res.status + ': ' + res.statusText);
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (data.success) {
+                    btn.setAttribute('data-destacado', data.destacado);
+                    if (data.destacado) {
+                        btn.style.background = '#ffd700';
+                        btn.title = 'Quitar del landing';
+                        if (estrella) estrella.style.color = '#333';
+                    } else {
+                        btn.style.background = 'rgba(255,255,255,0.2)';
+                        btn.title = 'Mostrar en landing';
+                        if (estrella) estrella.style.color = 'white';
                     }
-                    ok++;
-                } catch(e) {}
+                    // Toast de confirmación
+                    const toast = document.createElement('div');
+                    toast.textContent = data.message;
+                    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#222;color:#fff;padding:10px 20px;border-radius:8px;z-index:9999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.3);transition:opacity .3s';
+                    document.body.appendChild(toast);
+                    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 2200);
+                } else {
+                    alert(data.message || 'Error al actualizar.');
+                }
+            } catch(e) {
+                console.error('toggleDestacado error:', e);
+                alert('Error de conexión. Revisa la consola.');
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '1';
             }
-
-            if (nuevoEstado) {
-                btn.style.background = '#ffd700';
-                btn.style.color = '#333';
-                btn.title = 'Quitar del landing';
-                btn.querySelector('i').style.color = '#333';
-                mostrarToast(`Evento marcado en el landing (${ok} archivos)`);
-            } else {
-                btn.style.background = 'rgba(80,80,80,0.85)';
-                btn.style.color = 'white';
-                btn.title = 'Mostrar en landing';
-                btn.querySelector('i').style.color = 'white';
-                mostrarToast(`Evento quitado del landing (${ok} archivos)`);
-            }
-        }
-
-        function mostrarToast(msg) {
-            const t = document.createElement('div');
-            t.textContent = msg;
-            t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#333;color:white;padding:10px 20px;border-radius:8px;z-index:9999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
-            document.body.appendChild(t);
-            setTimeout(() => t.remove(), 2800);
         }
     </script>
 </body>
