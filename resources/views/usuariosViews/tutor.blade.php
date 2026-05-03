@@ -81,7 +81,6 @@
                         </label>
                         <div class="form-input-wrapper">
                             <i class="bi bi-person-badge input-icon"></i>
-                            {{-- Variable corregida: $usuarios_sin_perfil (TutorController@index) --}}
                             <select name="id_Tutor" id="id_Tutor" class="form-select" required>
                                 <option value="">Seleccione un usuario</option>
                                 @foreach($usuarios_sin_perfil as $u)
@@ -100,7 +99,6 @@
                 </h3>
                 <div class="form-grid full-width">
                     <div class="form-group">
-                        {{-- Campo corregido: id_ocupacion (del catálogo BD, no texto libre) --}}
                         <label class="form-label" for="id_ocupacion">
                             Ocupación <span class="required">*</span>
                         </label>
@@ -108,13 +106,11 @@
                             <i class="bi bi-briefcase input-icon"></i>
                             <select name="id_ocupacion" id="id_ocupacion" class="form-select" required>
                                 <option value="">Seleccione una ocupación</option>
-                                {{-- $ocupaciones viene del controller: id_ocupacion, nombre_ocupacion --}}
                                 @foreach($ocupaciones as $ocu)
                                     <option value="{{ $ocu->id_ocupacion }}">{{ $ocu->nombre_ocupacion }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        {{-- NOTA: columna 'empresa' NO existe en BD. Si se necesita, hacer ALTER TABLE --}}
                     </div>
                 </div>
 
@@ -148,6 +144,27 @@
                     </div>
                 </div>
 
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label class="form-label">
+                            <i class="bi bi-person-badge"></i> Alumno Relacionado
+                            <span style="font-size:12px;color:#9e9e9e;font-weight:400;margin-left:6px">(opcional)</span>
+                        </label>
+                        <div class="form-input-wrapper">
+                            <i class="bi bi-person-badge input-icon"></i>
+                            <select name="id_alumno_relacionado" id="id_alumno_relacionado" class="form-select">
+                                <option value="">— Sin alumno asignado —</option>
+                                @foreach($alumnos as $alumno)
+                                    <option value="{{ $alumno->id_usuario }}"
+                                        {{ old('id_alumno_relacionado') == $alumno->id_usuario ? 'selected' : '' }}>
+                                        {{ $alumno->nombre_completo }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-actions">
                     <button type="reset" class="btn btn-secondary">
                         <i class="bi bi-x-lg"></i> Limpiar
@@ -177,7 +194,8 @@
                         <tr>
                             <th>Tutor</th>
                             <th>Ocupación</th>
-                            <th>Relación</th>
+                            <th>Parentesco</th>
+                            <th>Alumno Relacionado</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -191,19 +209,26 @@
                                     </div>
                                     <div class="tutor-details">
                                         <span class="tutor-name">{{ $t->nombre_completo }}</span>
-                                        {{-- Campo: correo (usuario.correo) --}}
                                         <span class="tutor-email">{{ $t->correo }}</span>
                                     </div>
                                 </div>
                             </td>
-                            {{-- Campo: ocupacion (ocupacion.nombre_ocupacion) --}}
                             <td><span class="badge badge-occupation">{{ $t->ocupacion ?? '—' }}</span></td>
                             <td><span class="badge badge-relation">{{ $t->relacion_estudiante }}</span></td>
                             <td>
+                                @if($t->nombre_alumno_relacionado && $t->id_alumno_relacionado)
+                                    <span style="display:inline-flex;align-items:center;gap:6px;background:#e8f5e9;color:#2e7d32;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">
+                                        <i class="bi bi-person-badge-fill"></i>
+                                        {{ $t->nombre_alumno_relacionado }}
+                                    </span>
+                                @else
+                                    <span style="color:#bdbdbd;font-size:13px">—</span>
+                                @endif
+                            </td>
+                            <td>
                                 <div class="action-buttons">
-                                    {{-- Pasa id_ocupacion (no texto) al modal de edición --}}
                                     <button class="action-btn btn-edit"
-                                        onclick="openEditModal({{ $t->id_Tutor }}, {{ $t->id_ocupacion ?? 'null' }}, '{{ $t->relacion_estudiante }}')"
+                                        onclick="openEditModal({{ $t->id_Tutor }}, {{ $t->id_ocupacion ?? 'null' }}, '{{ $t->relacion_estudiante }}', {{ $t->id_alumno_relacionado ?? 'null' }})"
                                         title="Editar">
                                         <i class="bi bi-pencil-fill"></i>
                                     </button>
@@ -212,7 +237,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="4" class="text-center">No hay tutores registrados.</td>
+                            <td colspan="5" class="text-center">No hay tutores registrados.</td>
                         </tr>
                         @endforelse
                     </tbody>
@@ -224,7 +249,7 @@
     @include('includes.pie')
 </div>
 
-{{-- MODAL EDICIÓN --}}
+{{-- MODAL EDICIÓN EDICIÓN --}}
 <div class="modal-overlay" id="editModal">
     <div class="modal-container">
         <div class="modal-header">
@@ -237,7 +262,6 @@
             </button>
         </div>
 
-        {{-- TutorController@update recibe: id (ruta), id_ocupacion, relacion_estudiante --}}
         <form id="editForm" method="POST" action="">
             @csrf
             @method('PUT')
@@ -250,7 +274,6 @@
                     </h3>
                     <div class="form-row full-width">
                         <div class="form-field">
-                            {{-- Campo corregido: id_ocupacion (catálogo, no texto libre) --}}
                             <label class="field-label">Ocupación <span class="required">*</span></label>
                             <div class="field-wrapper">
                                 <i class="bi bi-briefcase field-icon"></i>
@@ -261,7 +284,6 @@
                                     @endforeach
                                 </select>
                             </div>
-                            {{-- Campo 'empresa' eliminado — no existe en BD --}}
                         </div>
                     </div>
                 </div>
@@ -282,6 +304,26 @@
                                 <div class="relation-option" data-value="Tutor Legal"><i class="bi bi-shield-check"></i><span>Tutor Legal</span></div>
                             </div>
                             <input type="hidden" name="relacion_estudiante" id="edit_relacion_estudiante" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row full-width">
+                        <div class="form-field">
+                            <label class="field-label">
+                                Alumno Relacionado
+                                <span style="font-size:11px;color:#9e9e9e;font-weight:400">(opcional)</span>
+                            </label>
+                            <div class="field-wrapper">
+                                <i class="bi bi-person-badge field-icon"></i>
+                                <select name="id_alumno_relacionado" id="edit_id_alumno_relacionado" class="field-input">
+                                    <option value="">— Sin alumno asignado —</option>
+                                    @foreach($alumnos as $alumno)
+                                        <option value="{{ $alumno->id_usuario }}">
+                                            {{ $alumno->nombre_completo }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -329,7 +371,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Abrir modal de edición — recibe id_ocupacion (número, no texto)
-function openEditModal(id, idOcupacion, relacion) {
+function openEditModal(id, idOcupacion, relacion, idAlumno) {
     document.getElementById('edit_id_Tutor').value = id;
     document.getElementById('edit_id_ocupacion').value = idOcupacion || '';
     document.getElementById('edit_relacion_estudiante').value = relacion;
@@ -342,6 +384,11 @@ function openEditModal(id, idOcupacion, relacion) {
     // URL dinámica: TutorController@update recibe $id por ruta
     document.getElementById('editForm').action = '{{ url("/tutor") }}/' + id;
     document.getElementById('editModal').classList.add('active');
+
+    const selectAlumno = document.getElementById('edit_id_alumno_relacionado');
+    if (selectAlumno) {
+        selectAlumno.value = idAlumno ?? '';
+    }
 }
 
 function closeEditModal() {
