@@ -93,6 +93,30 @@
                         </small>
                     </div>
                 </div>
+                // seccion alumno
+                 <h3 class="section-title-header">
+                    <i class="bi bi-person-badge"></i> Usuario del Alumno
+                </h3>
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label class="form-label" for="id_Tutor">
+                            Usuario con rol Alumno <span class="required">*</span>
+                        </label>
+                        <div class="form-input-wrapper">
+                            <i class="bi bi-person-badge input-icon"></i>
+                            <select name="id_alumno_relacionado" id="id_alumno_relacionado" class="form-select">
+                                <option value="">— Sin alumno asignado —</option>
+                                @foreach($alumnos as $alumno)
+                                    <option value="{{ $alumno->id_usuario }}"
+                                        {{ old('id_alumno_relacionado') == $alumno->id_usuario ? 'selected' : '' }}>
+                                        {{ $alumno->nombre_completo }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
 
                 <h3 class="section-title-header">
                     <i class="bi bi-briefcase-fill"></i> Información Laboral
@@ -141,27 +165,6 @@
                             </div>
                         </div>
                         <input type="hidden" name="relacion_estudiante" id="relacionInput" required>
-                    </div>
-                </div>
-
-                <div class="form-grid">
-                    <div class="form-group full-width">
-                        <label class="form-label">
-                            <i class="bi bi-person-badge"></i> Alumno Relacionado
-                            <span style="font-size:12px;color:#9e9e9e;font-weight:400;margin-left:6px">(opcional)</span>
-                        </label>
-                        <div class="form-input-wrapper">
-                            <i class="bi bi-person-badge input-icon"></i>
-                            <select name="id_alumno_relacionado" id="id_alumno_relacionado" class="form-select">
-                                <option value="">— Sin alumno asignado —</option>
-                                @foreach($alumnos as $alumno)
-                                    <option value="{{ $alumno->id_usuario }}"
-                                        {{ old('id_alumno_relacionado') == $alumno->id_usuario ? 'selected' : '' }}>
-                                        {{ $alumno->nombre_completo }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
                     </div>
                 </div>
 
