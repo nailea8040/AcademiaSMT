@@ -6,18 +6,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-/**
- * TutorController
- *
- * Estructura real en BD:
- *   tutor:     id_Tutor (FK→usuario.id_usuario), id_ocupacion, relacion_estudiante
- *   ocupacion: id_ocupacion, nombre_ocupacion   ← SIN columna 'empresa'
- *   usuario:   rol='tutor' para identificar tutores
- *
- * NOTA: La columna 'ocupacion.empresa' NO existe en el SQL actual.
- *       Si se necesita en el futuro:
- *       ALTER TABLE ocupacion ADD COLUMN empresa VARCHAR(150) NULL;
- */
 class TutorController extends Controller
 {
     public function index()
@@ -26,19 +14,23 @@ class TutorController extends Controller
             $tutores_registrados = DB::table('tutor as t')
                 ->join('usuario as u', 't.id_Tutor', '=', 'u.id_usuario')
                 ->leftJoin('ocupacion as o', 't.id_ocupacion', '=', 'o.id_ocupacion')
+                // JOIN opcional con el alumno relacionado
+                ->leftJoin('usuario as a', 't.id_alumno_relacionado', '=', 'a.id_usuario')
                 ->select(
                     't.id_Tutor',
                     't.relacion_estudiante',
+                    't.id_alumno_relacionado',
                     'o.id_ocupacion',
                     'o.nombre_ocupacion AS ocupacion',
                     DB::raw("CONCAT(u.nombre,' ',u.apaterno,' ',u.amaterno) AS nombre_completo"),
                     'u.correo',
                     'u.telefono',
-                    'u.estado'
+                    'u.estado',
+                    // Nombre del alumno relacionado (null si no tiene)
+                    DB::raw("CONCAT(a.nombre,' ',a.apaterno) AS nombre_alumno_relacionado")
                 )
                 ->get();
 
-            // Usuarios con rol='tutor' que aún NO tienen perfil en tabla tutor
             $usuarios_sin_perfil = DB::table('usuario as u')
                 ->leftJoin('tutor as t', 'u.id_usuario', '=', 't.id_Tutor')
                 ->where('u.rol', 'tutor')
@@ -50,13 +42,23 @@ class TutorController extends Controller
                 )
                 ->get();
 
-            // Catálogo de ocupaciones para el dropdown del formulario
             $ocupaciones = DB::table('ocupacion')
                 ->orderBy('nombre_ocupacion', 'asc')
                 ->get();
 
+            // Alumnos activos para el selector de alumno relacionado
+            $alumnos = DB::table('usuario')
+                ->where('rol', 'alumno')
+                ->where('estado', 1)
+                ->select(
+                    'id_usuario',
+                    DB::raw("CONCAT(nombre,' ',apaterno,' ',amaterno) AS nombre_completo")
+                )
+                ->orderBy('nombre', 'asc')
+                ->get();
+
             return view('usuariosViews.tutor', compact(
-                'tutores_registrados', 'usuarios_sin_perfil', 'ocupaciones'
+                'tutores_registrados', 'usuarios_sin_perfil', 'ocupaciones', 'alumnos'
             ));
 
         } catch (\Exception $e) {
@@ -65,6 +67,7 @@ class TutorController extends Controller
                 'tutores_registrados' => collect(),
                 'usuarios_sin_perfil' => collect(),
                 'ocupaciones'         => collect(),
+                'alumnos'             => collect(),
             ])->with('error', 'Error al cargar datos.');
         }
     }
@@ -72,17 +75,19 @@ class TutorController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'id_Tutor'            => 'required|exists:usuario,id_usuario|unique:tutor,id_Tutor',
-            // id_ocupacion: el usuario selecciona del catálogo existente
-            'id_ocupacion'        => 'required|exists:ocupacion,id_ocupacion',
-            'relacion_estudiante' => 'required|string|max:50',
+            'id_Tutor'              => 'required|exists:usuario,id_usuario|unique:tutor,id_Tutor',
+            'id_ocupacion'          => 'required|exists:ocupacion,id_ocupacion',
+            'relacion_estudiante'   => 'required|string|max:50',
+            // Alumno relacionado opcional
+            'id_alumno_relacionado' => 'nullable|exists:usuario,id_usuario',
         ]);
 
         try {
             DB::table('tutor')->insert([
-                'id_Tutor'            => $validated['id_Tutor'],
-                'id_ocupacion'        => $validated['id_ocupacion'],
-                'relacion_estudiante' => $validated['relacion_estudiante'],
+                'id_Tutor'              => $validated['id_Tutor'],
+                'id_ocupacion'          => $validated['id_ocupacion'],
+                'relacion_estudiante'   => $validated['relacion_estudiante'],
+                'id_alumno_relacionado' => $validated['id_alumno_relacionado'] ?? null,
             ]);
 
             return redirect()->route('tutor.index')
@@ -98,16 +103,18 @@ class TutorController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'id_ocupacion'        => 'required|exists:ocupacion,id_ocupacion',
-            'relacion_estudiante' => 'required|string|max:50',
+            'id_ocupacion'          => 'required|exists:ocupacion,id_ocupacion',
+            'relacion_estudiante'   => 'required|string|max:50',
+            'id_alumno_relacionado' => 'nullable|exists:usuario,id_usuario',
         ]);
 
         try {
             $updated = DB::table('tutor')
                 ->where('id_Tutor', $id)
                 ->update([
-                    'id_ocupacion'        => $validated['id_ocupacion'],
-                    'relacion_estudiante' => $validated['relacion_estudiante'],
+                    'id_ocupacion'          => $validated['id_ocupacion'],
+                    'relacion_estudiante'   => $validated['relacion_estudiante'],
+                    'id_alumno_relacionado' => $validated['id_alumno_relacionado'] ?? null,
                 ]);
 
             return redirect()->route('tutor.index')->with(
