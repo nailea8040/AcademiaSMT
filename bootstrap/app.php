@@ -27,6 +27,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Importante para Sanctum en Laravel 11
         $middleware->statefulApi();
     })
+
+    ->withMiddleware(function (Middleware $middleware) {
+    $middleware->validateCsrfTokens(except: ['api/pagos/webhook']);
+})
+
     ->withExceptions(function (Exceptions $exceptions) {
         
         // Manejador genérico para API
@@ -67,3 +72,5 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
     })->create();
+
+    

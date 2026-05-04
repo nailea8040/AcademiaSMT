@@ -88,7 +88,10 @@ Route::middleware('auth')->group(function () {
     // ── Pagos ─────────────────────────────────────────────────────────────
     Route::get('/pagos',                      [PagoController::class, 'index'])->name('pagos.index');
     Route::post('/pagos',                     [PagoController::class, 'store'])->name('pagos.store');
+    Route::get('/pagos/resultado',      [PagoController::class, 'resultado'])->name('pagos.resultado');
     Route::get('/pagos/{id}/historial',       [PagoController::class, 'historialAlumno'])->name('pagos.historial');
+
+
 
     // ── Tutores ───────────────────────────────────────────────────────────
     Route::get('/tutor',                      [TutorController::class, 'index'])->name('tutor.index');

@@ -93,7 +93,7 @@
                         </small>
                     </div>
                 </div>
-                // seccion alumno
+                
                  <h3 class="section-title-header">
                     <i class="bi bi-person-badge"></i> Usuario del Alumno
                 </h3>
@@ -105,7 +105,7 @@
                         <div class="form-input-wrapper">
                             <i class="bi bi-person-badge input-icon"></i>
                             <select name="id_alumno_relacionado" id="id_alumno_relacionado" class="form-select">
-                                <option value="">— Sin alumno asignado —</option>
+                                <option value="">Seleccione un alumno</option>
                                 @foreach($alumnos as $alumno)
                                     <option value="{{ $alumno->id_usuario }}"
                                         {{ old('id_alumno_relacionado') == $alumno->id_usuario ? 'selected' : '' }}>

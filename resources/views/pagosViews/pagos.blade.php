@@ -167,6 +167,54 @@
                     </div>
                 </div>
 
+                {{--
+    resources/views/pagosViews/pagos.blade.php
+    AGREGA este bloque dentro del <form id="registroPago">
+    justo ANTES de <div class="form-actions"> (el botón de submit).
+    
+    También agrega la Public Key de MP en la sección <head> del blade:
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
+--}}
+
+{{-- ── Opción: Pagar en línea con MercadoPago ──────────────────── --}}
+<div class="form-group" style="margin-top: 16px;">
+    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:600; font-size:15px;">
+        <input type="checkbox" name="pagar_en_linea" id="pagarEnLinea" value="1"
+               style="width:18px; height:18px; accent-color:#e53935;"
+               {{ old('pagar_en_linea') ? 'checked' : '' }}>
+        <span>
+            <i class="bi bi-credit-card-2-front-fill" style="color:#009ee3; font-size:18px;"></i>
+            Pagar en línea con
+            <img src="https://http2.mlstatic.com/storage/logos-api-admin/0be7e630-3454-11ec-9874-2d2a4f2ed7de-xl.webp"
+                 alt="MercadoPago" style="height:20px; vertical-align:middle; margin-left:4px;">
+        </span>
+    </label>
+    <p style="margin-left:28px; margin-top:4px; font-size:12px; color:#718096;">
+        Al marcar esta opción serás redirigido al checkout de MercadoPago.
+        El estado del pago se actualizará automáticamente.
+    </p>
+</div>
+
+{{--
+    El formulario existente ya tiene:
+    <button type="submit" class="btn btn-primary">Registrar Pago</button>
+    
+    Puedes cambiar el texto del botón dinámicamente con este script:
+--}}
+<script>
+document.getElementById('pagarEnLinea').addEventListener('change', function () {
+    const btn = document.querySelector('#registroPago button[type="submit"]');
+    if (this.checked) {
+        btn.innerHTML = '<i class="bi bi-mercadopago"></i> Continuar a MercadoPago';
+        btn.style.backgroundColor = '#009ee3';
+        btn.style.borderColor     = '#009ee3';
+    } else {
+        btn.innerHTML = '<i class="bi bi-check-lg"></i> Registrar Pago';
+        btn.style.backgroundColor = '';
+        btn.style.borderColor     = '';
+    }
+});
+</script>
                 <div class="form-actions">
                     <button type="reset" class="btn btn-secondary">
                         <i class="bi bi-x-lg"></i> Limpiar

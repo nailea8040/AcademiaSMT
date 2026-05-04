@@ -29,6 +29,7 @@ Route::post('/contacto',         [ContactoApiController::class,'enviar']);
 Route::get('/calendario',        [CalendarioApiController::class,'index']);
 Route::get('/galeria',           [GaleriaApiController::class,   'index']);
 Route::get('/grados',            [GradoApiController::class,     'index']);  // ← NUEVO
+Route::post('/pagos/webhook', [PagoApiController::class, 'webhook']);
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RUTAS PROTEGIDAS — requieren Bearer token (Sanctum)
