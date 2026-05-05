@@ -38,6 +38,8 @@ class PagoController extends Controller
 
             $tipos_pago = DB::table('tipo_pago')->orderBy('id_tipo_pago')->get();
 
+            dd($alumnos, $tipos_pago);
+            
             return view('pagosViews.pagos', compact('pagos', 'alumnos', 'tipos_pago'));
 
         } catch (\Exception $e) {
