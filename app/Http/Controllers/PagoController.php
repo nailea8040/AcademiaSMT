@@ -223,6 +223,10 @@ public function pagar(int $idPago)
             ]);
 
         } catch (\Exception $e) {
+             // TEMPORAL — muestra el error real en pantalla
+    dd('Error MP: ' . $e->getMessage(), 
+       'Token: ' . substr(config('services.mercadopago.access_token') ?? 'NULL', 0, 20),
+       'APP_URL: ' . config('app.url'));
             \Illuminate\Support\Facades\Log::error('PagoController@pagar: ' . $e->getMessage());
             return redirect()->route('pagos.index')
                 ->with('mensaje', 'Error al inicializar el pago. Intenta de nuevo.')
