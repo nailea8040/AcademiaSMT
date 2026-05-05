@@ -249,15 +249,16 @@ document.getElementById('pagarEnLinea').addEventListener('change', function () {
             <div class="table-responsive">
                 <table id="pagosTable">
                     <thead>
-                        <tr>
-                            <th>Alumno</th>
-                            <th>Tipo</th>
-                            <th>Monto</th>
-                            <th>Fecha</th>
-                            <th>Estado</th>
-                            <th>Motivo</th>
-                        </tr>
-                    </thead>
+                    <tr>
+                        <th>Alumno</th>
+                        <th>Tipo</th>
+                        <th>Monto</th>
+                        <th>Fecha</th>
+                        <th>Estado</th>
+                        <th>Motivo</th>
+                        <th>Acción</th>  {{-- ← NUEVO --}}
+                    </tr>
+                </thead>
                     <tbody>
                         @forelse($pagos as $pago)
                             <tr>
@@ -293,10 +294,27 @@ document.getElementById('pagarEnLinea').addEventListener('change', function () {
 
                                 {{-- Campo correcto: motivo_pago (columna real en BD) --}}
                                 <td>{{ $pago->motivo_pago ?? '—' }}</td>
+
+                                <td>
+                                @if($pago->estado_pago === 'Pendiente' && !$pago->mp_payment_id)
+                                    {{-- Botón "Pagar ahora" solo para pagos pendientes sin pago MP confirmado --}}
+                                    <a href="{{ route('pagos.pagar', $pago->id_pago) }}"
+                                    class="btn btn-primary"
+                                    style="padding: 6px 14px; font-size: 13px; display:inline-flex; align-items:center; gap:6px;">
+                                        <i class="bi bi-credit-card-fill"></i> Pagar
+                                    </a>
+                                @elseif($pago->estado_pago === 'Completado')
+                                    <span style="color:#4caf50; font-size:13px; display:flex; align-items:center; gap:4px;">
+                                        <i class="bi bi-check-circle-fill"></i> Pagado
+                                    </span>
+                                @else
+                                    <span style="color:#9e9e9e; font-size:13px;">—</span>
+                                @endif
+                            </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center">No hay pagos registrados.</td>
+                                <td colspan="7" class="text-center">No hay pagos registrados.</td>
                             </tr>
                         @endforelse
                     </tbody>

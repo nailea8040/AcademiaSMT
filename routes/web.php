@@ -89,6 +89,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/pagos',                      [PagoController::class, 'index'])->name('pagos.index');
     Route::post('/pagos',                     [PagoController::class, 'store'])->name('pagos.store');
     Route::get('/pagos/resultado',      [PagoController::class, 'resultado'])->name('pagos.resultado');
+    Route::get('/pagos/{id}/pagar',         [PagoController::class, 'pagar'])->name('pagos.pagar');
     Route::get('/pagos/{id}/historial',       [PagoController::class, 'historialAlumno'])->name('pagos.historial');
 
 

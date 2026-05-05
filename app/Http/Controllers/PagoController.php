@@ -157,4 +157,79 @@ class PagoController extends Controller
             return response()->json(['error' => 'Error al obtener historial.'], 500);
         }
     }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  AGREGA este método a tu PagoController.php existente
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ──────────────────────────────────────────────────────────────────────────────
+//  GET /pagos/{id_pago}/pagar
+//  Muestra la página con el Payment Brick embebido.
+//  Cualquier alumno autenticado puede pagar su propio pago pendiente.
+// ──────────────────────────────────────────────────────────────────────────────
+public function pagar(int $idPago)
+{
+    $pago = DB::table('pago as p')
+        ->join('usuario as u', 'p.id_usuario', '=', 'u.id_usuario')
+        ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
+        ->where('p.id_pago', $idPago)
+        ->select(
+            'p.*',
+            DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno"),
+            'u.correo',
+            'tp.nombre_tipo'
+        )
+        ->first();
+
+    if (! $pago) {
+        abort(404, 'Pago no encontrado.');
+    }
+
+    // Solo el propio alumno o admin/sensei pueden acceder
+    $user = Auth::user();
+    if (
+        in_array($user->rol, ['alumno', 'tutor']) &&
+        (int) $user->id_usuario !== (int) $pago->id_usuario
+    ) {
+        abort(403, 'No tienes permiso para pagar este registro.');
+    }
+
+    // Si ya está completado no tiene sentido pagar de nuevo
+    if ($pago->estado_pago === 'Completado') {
+        return redirect()->route('pagos.index')
+            ->with('mensaje', 'Este pago ya fue completado.')
+            ->with('sessionInsertado', 'true');
+    }
+
+    // Obtener o crear preference_id para el Brick
+    $preferenceId = $pago->mp_preference_id;
+
+    if (! $preferenceId) {
+        try {
+            $mpService   = new \App\Services\MercadoPagoService();
+            $preferencia = $mpService->crearPreferencia([
+                'id_pago'       => $pago->id_pago,
+                'monto'         => $pago->monto,
+                'motivo'        => $pago->motivo_pago ?? 'Pago Academia',
+                'alumno_email'  => $pago->correo ?? 'alumno@academia.com',
+                'alumno_nombre' => $pago->nombre_alumno,
+            ]);
+
+            $preferenceId = $preferencia['id'];
+
+            DB::table('pago')->where('id_pago', $idPago)->update([
+                'mp_preference_id' => $preferenceId,
+                'estado_pago'      => 'Pendiente', // asegurar que esté pendiente
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('PagoController@pagar: ' . $e->getMessage());
+            return redirect()->route('pagos.index')
+                ->with('mensaje', 'Error al inicializar el pago. Intenta de nuevo.')
+                ->with('sessionInsertado', 'false');
+        }
+    }
+
+    return view('pagosViews.pagar', compact('pago', 'preferenceId'));
+}
 }

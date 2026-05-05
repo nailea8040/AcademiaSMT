@@ -71,6 +71,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/pagos/historial/{id}',        [PagoApiController::class, 'historialAlumno']);
     Route::get('/tipos-pago',                  [PagoApiController::class, 'tiposPago']);
 
+    // ── NUEVAS rutas para Checkout API ───────────────────────────────────────────
+Route::post('/pagos/procesar',          [PagoApiController::class, 'procesar']);       // ← Payment Brick llama aquí
+Route::get('/pagos/{id}/preference',    [PagoApiController::class, 'getPreference']); // ← App móvil obtiene preference_id
+
     // ── Calendario ────────────────────────────────────────────────────────
     Route::post('/calendario',        [CalendarioApiController::class, 'store']);
     Route::put('/calendario/{id}',    [CalendarioApiController::class, 'update']);

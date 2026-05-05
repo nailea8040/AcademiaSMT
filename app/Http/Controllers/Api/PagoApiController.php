@@ -10,6 +10,60 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  app/Http/Controllers/Api/PagoApiController.php
+//  AGREGA estos imports al inicio del archivo (junto a los use existentes)
+// ══════════════════════════════════════════════════════════════════════════════
+
+use MercadoPago\Client\Payment\PaymentClient;
+use MercadoPago\MercadoPagoConfig;
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  También agrega en config/services.php — ya lo tienes del paso anterior,
+//  solo verifica que esté:
+// ══════════════════════════════════════════════════════════════════════════════
+/*
+'mercadopago' => [
+    'access_token' => env('MP_ACCESS_TOKEN'),
+    'public_key'   => env('MP_PUBLIC_KEY'),
+],
+*/
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  routes/api.php — ASEGÚRATE de excluir /pagos/procesar de rate limiting
+//  agresivo si tienes throttle configurado, ya que el Brick hace la llamada
+//  desde el navegador del usuario.
+//  El bloque dentro de auth:sanctum ya lo protege.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  PRUEBAS SANDBOX — Tarjetas de prueba México
+// ══════════════════════════════════════════════════════════════════════════════
+/*
+  ✅ APROBADA:
+     Número: 4509 9535 6623 3704
+     CVV:    123
+     Fecha:  11/25
+     Nombre: APRO
+
+  ❌ RECHAZADA:
+     Número: 4000 0000 0000 0002
+     CVV:    123
+     Fecha:  11/25
+     Nombre: OTHE
+
+  ⏳ PENDIENTE:
+     Número: 4509 9535 6623 3704
+     CVV:    123
+     Fecha:  11/25
+     Nombre: CONT
+
+  OXXO (ticket):
+     El Brick genera un código de barras de prueba automáticamente.
+
+  SPEI:
+     El Brick genera una CLABE de prueba automáticamente.
+*/
 class PagoApiController extends Controller
 {
     // ──────────────────────────────────────────────────────────────────────
@@ -234,4 +288,198 @@ class PagoApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Error.'], 500);
         }
     }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  AGREGA estos dos métodos a tu PagoApiController.php existente
+//  (el que generamos en la entrega anterior)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── NUEVO IMPORT al inicio del archivo (junto a los demás use) ────────────────
+// use MercadoPago\Client\Payment\PaymentClient;
+// use MercadoPago\MercadoPagoConfig;
+
+// ──────────────────────────────────────────────────────────────────────────────
+//  POST /api/pagos/procesar
+//  Recibe el formData del Payment Brick y crea el pago en MP vía Checkout API.
+//  El Brick ya tokenizó la tarjeta — NUNCA llegan datos de tarjeta en texto plano.
+// ──────────────────────────────────────────────────────────────────────────────
+public function procesar(Request $request)
+{
+    $validated = $request->validate([
+        'id_pago'  => 'required|integer|exists:pago,id_pago',
+        'formData' => 'required|array',
+    ]);
+
+    // Obtener el registro de pago para verificar monto y alumno
+    $pagoRegistro = DB::table('pago as p')
+        ->join('usuario as u', 'p.id_usuario', '=', 'u.id_usuario')
+        ->where('p.id_pago', $validated['id_pago'])
+        ->select('p.*', DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno"), 'u.correo')
+        ->first();
+
+    if (! $pagoRegistro) {
+        return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
+    }
+
+    // Solo procesar pagos que estén en Pendiente
+    if ($pagoRegistro->estado_pago !== 'Pendiente') {
+        return response()->json([
+            'success' => false,
+            'message' => 'Este pago ya fue procesado anteriormente.',
+        ], 422);
+    }
+
+    try {
+        // Configurar MP con el Access Token
+        MercadoPagoConfig::setAccessToken(config('services.mercadopago.access_token'));
+
+        $formData = $validated['formData'];
+
+        // Construir el objeto de pago para la API de MP
+        // El Brick ya incluye: token (tarjeta tokenizada), payment_method_id,
+        // installments, issuer_id, payer, etc.
+        $paymentData = array_merge($formData, [
+            // Asegurarse de que el monto sea el correcto de la BD (no del cliente)
+            'transaction_amount' => (float) $pagoRegistro->monto,
+            'description'        => $pagoRegistro->motivo_pago ?? 'Pago Academia Karate-Do SMT',
+            'external_reference' => (string) $pagoRegistro->id_pago,
+            // El email del pagador (requerido por MP)
+            'payer' => array_merge($formData['payer'] ?? [], [
+                'email' => $formData['payer']['email'] ?? $pagoRegistro->correo ?? 'alumno@academia.com',
+            ]),
+        ]);
+
+        // Llamar a la API de pagos de MercadoPago
+        $client  = new PaymentClient();
+        $payment = $client->create($paymentData);
+
+        // Mapear estado de MP al estado interno
+        $estadoInterno = match ($payment->status) {
+            'approved'                        => 'Completado',
+            'pending', 'in_process', 'authorized' => 'Pendiente',
+            default                           => 'Fallido',
+        };
+
+        // Actualizar el registro en BD
+        DB::table('pago')->where('id_pago', $pagoRegistro->id_pago)->update([
+            'mp_payment_id'   => (string) $payment->id,
+            'mp_status'       => $payment->status,
+            'estado_pago'     => $estadoInterno,
+            'referencia_pago' => "MP-{$payment->id}",
+        ]);
+
+        // Respuesta para el Brick
+        // El Brick espera: si rechazado → Promise.reject() ya fue manejado
+        // Si aprobado/pendiente → el onSubmit resuelve la promesa
+        return response()->json([
+            'success'              => true,
+            'status'               => $payment->status,               // approved|pending|rejected
+            'status_detail'        => $payment->status_detail,
+            'id'                   => $payment->id,
+            'estado_interno'       => $estadoInterno,
+        ]);
+
+    } catch (\MercadoPago\Exceptions\MPApiException $e) {
+        // Error de la API de MP (tarjeta rechazada, fondos insuficientes, etc.)
+        Log::warning('MP procesar - API error: ' . $e->getMessage(), [
+            'id_pago'    => $validated['id_pago'],
+            'api_response' => $e->getApiResponse()?->getContent(),
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => $this->traducirErrorMP($e->getMessage()),
+        ], 422);
+
+    } catch (\Exception $e) {
+        Log::error('MP procesar - Error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al procesar el pago. Intenta de nuevo.',
+        ], 500);
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+//  GET /api/pagos/{id}/preference
+//  Devuelve (o crea) el preference_id para inicializar el Payment Brick.
+//  El Brick necesita el preference_id para mostrar el monto y habilitar MP Wallet.
+// ──────────────────────────────────────────────────────────────────────────────
+public function getPreference(Request $request, int $idPago)
+{
+    $user = $request->user();
+
+    $pago = DB::table('pago as p')
+        ->join('usuario as u', 'p.id_usuario', '=', 'u.id_usuario')
+        ->where('p.id_pago', $idPago)
+        ->select('p.*', DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno"), 'u.correo')
+        ->first();
+
+    if (! $pago) {
+        return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
+    }
+
+    // Alumno solo puede ver su propia preferencia
+    if (in_array($user->rol, ['alumno', 'tutor']) && (int) $user->id_usuario !== (int) $pago->id_usuario) {
+        return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
+    }
+
+    try {
+        // Si ya tiene preference_id, reutilizarlo
+        $preferenceId = $pago->mp_preference_id;
+
+        if (! $preferenceId) {
+            $mpService    = new \App\Services\MercadoPagoService();
+            $preferencia  = $mpService->crearPreferencia([
+                'id_pago'       => $pago->id_pago,
+                'monto'         => $pago->monto,
+                'motivo'        => $pago->motivo_pago ?? 'Pago Academia',
+                'alumno_email'  => $pago->correo ?? 'alumno@academia.com',
+                'alumno_nombre' => $pago->nombre_alumno,
+            ]);
+
+            $preferenceId = $preferencia['id'];
+
+            DB::table('pago')->where('id_pago', $idPago)->update([
+                'mp_preference_id' => $preferenceId,
+            ]);
+        }
+
+        return response()->json([
+            'success'       => true,
+            'preference_id' => $preferenceId,
+            'monto'         => $pago->monto,
+            'motivo'        => $pago->motivo_pago,
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('MP getPreference: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Error al obtener preferencia.'], 500);
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+//  Helper privado: traduce mensajes de error de MP al español
+// ──────────────────────────────────────────────────────────────────────────────
+private function traducirErrorMP(string $mensaje): string
+{
+    $traducciones = [
+        'cc_rejected_insufficient_amount' => 'Fondos insuficientes en la tarjeta.',
+        'cc_rejected_bad_filled_card_number' => 'Número de tarjeta incorrecto.',
+        'cc_rejected_bad_filled_date'     => 'Fecha de vencimiento incorrecta.',
+        'cc_rejected_bad_filled_security_code' => 'Código de seguridad incorrecto.',
+        'cc_rejected_blacklist'           => 'Tarjeta no habilitada para este tipo de pago.',
+        'cc_rejected_call_for_authorize'  => 'Debes autorizar el pago con tu banco.',
+        'cc_rejected_card_disabled'       => 'Tarjeta deshabilitada. Contacta a tu banco.',
+        'cc_rejected_duplicated_payment'  => 'Pago duplicado. Ya realizaste este pago.',
+        'cc_rejected_high_risk'           => 'Pago rechazado por seguridad.',
+        'cc_rejected_max_attempts'        => 'Alcanzaste el límite de intentos. Usa otra tarjeta.',
+    ];
+
+    foreach ($traducciones as $key => $texto) {
+        if (str_contains($mensaje, $key)) return $texto;
+    }
+
+    return 'El pago no pudo procesarse. Verifica los datos e intenta de nuevo.';
+}
 }
