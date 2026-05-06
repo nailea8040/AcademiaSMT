@@ -1,4 +1,5 @@
 <?php
+// routes/web.php — REEMPLAZA COMPLETO
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
@@ -40,8 +41,6 @@ Route::get('/registro',  [RegistroController::class, 'create'])->name('registro.
 Route::post('/registro', [RegistroController::class, 'store'])->name('registro.store');
 
 // Recuperación de contraseña
-// Las 3 columnas (token_recuperacion, token_expiracion, ultima_solicitud_token)
-// ya están en la tabla usuario — no se usa tabla password_resets
 Route::get('/olvido-contrasennia',     [ResetPasswordController::class, 'showResetForm'])->name('password.request');
 Route::post('/olvido-contrasennia',    [ResetPasswordController::class, 'sendResetLinkEmail'])->name('password.email');
 Route::get('/password/reset/{token}', [ResetPasswordController::class, 'showResetFormWithToken'])->name('password.reset');
@@ -53,7 +52,6 @@ Route::get('/calendario', [CalendarioController::class, 'index'])->name('calenda
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RUTAS PROTEGIDAS — requieren login (middleware 'auth')
-//  El guard 'web' usa sesión Laravel con el modelo Usuario
 // ════════════════════════════════════════════════════════════════════════════
 
 Route::middleware('auth')->group(function () {
@@ -66,15 +64,12 @@ Route::middleware('auth')->group(function () {
     Route::put('/perfil', [PerfilController::class, 'update'])->name('perfil.update');
 
     // ── Galería (escritura) ───────────────────────────────────────────────
-    Route::post('/galeria',            [GaleriaController::class, 'store'])->name('galeria.store');
-    Route::delete('/galeria/{id}',     [GaleriaController::class, 'destroy'])->name('galeria.destroy');
-    Route::delete('/galeria-evento',   [GaleriaController::class, 'destroyEvento'])->name('galeria.destroyEvento');
-    // ← AGREGAR ESTA RUTA NUEVA:
-    Route::post('/galeria/{id}/destacado', [GaleriaController::class, 'toggleDestacado'])
-     ->name('galeria.destacado');
+    Route::post('/galeria',                        [GaleriaController::class, 'store'])->name('galeria.store');
+    Route::delete('/galeria/{id}',                 [GaleriaController::class, 'destroy'])->name('galeria.destroy');
+    Route::delete('/galeria-evento',               [GaleriaController::class, 'destroyEvento'])->name('galeria.destroyEvento');
+    Route::post('/galeria/{id}/destacado',         [GaleriaController::class, 'toggleDestacado'])->name('galeria.destacado');
 
     // ── Calendario (escritura) ────────────────────────────────────────────
-    // PK real en BD: id_cal
     Route::post('/calendario',         [CalendarioController::class, 'store'])->name('calendario.store');
     Route::put('/calendario/{id}',     [CalendarioController::class, 'update'])->name('calendario.update');
     Route::delete('/calendario/{id}',  [CalendarioController::class, 'destroy'])->name('calendario.destroy');
@@ -86,36 +81,48 @@ Route::middleware('auth')->group(function () {
     Route::get('/alumnos/{id}/historial',     [AlumnoController::class, 'historialGrados'])->name('alumnos.historial');
 
     // ── Pagos ─────────────────────────────────────────────────────────────
-    Route::get('/pagos',                      [PagoController::class, 'index'])->name('pagos.index');
-    Route::post('/pagos',                     [PagoController::class, 'store'])->name('pagos.store');
-    Route::get('/pagos/resultado',      [PagoController::class, 'resultado'])->name('pagos.resultado');
-    Route::get('/pagos/{id}/pagar',         [PagoController::class, 'pagar'])->name('pagos.pagar');
-    Route::get('/pagos/{id}/historial',       [PagoController::class, 'historialAlumno'])->name('pagos.historial');
+    // IMPORTANTE: las rutas con segmentos estáticos ('resultado', 'pagar')
+    // deben ir ANTES de las rutas con parámetros dinámicos ({id})
+    // para que Laravel no interprete 'resultado' como un {id}.
 
+    Route::get('/pagos',                       [PagoController::class, 'index'])->name('pagos.index');
+    Route::post('/pagos',                      [PagoController::class, 'store'])->name('pagos.store');
 
+    // Resultado de pago MP (back_url) — estático, va primero
+    Route::get('/pagos/resultado',             [PagoController::class, 'resultado'])->name('pagos.resultado');
+
+    // Rutas con {id} — van después de las estáticas
+    Route::get('/pagos/{id}/pagar',            [PagoController::class, 'pagar'])->name('pagos.pagar');
+    Route::get('/pagos/{id}/historial',        [PagoController::class, 'historialAlumno'])->name('pagos.historial');
+    Route::get('/pagos/{id}/abonos',           [PagoController::class, 'listarAbonos'])->name('pagos.abonos');
+
+    // Admin/sensei marcan pago como Completado tras verificar
+    Route::post('/pagos/{id}/completar',       [PagoController::class, 'completar'])->name('pagos.completar');
+
+    // Registrar abono (efectivo → admin/sensei | en_línea → cualquier rol)
+    Route::post('/pagos/{id}/abono',           [PagoController::class, 'abono'])->name('pagos.abono');
 
     // ── Tutores ───────────────────────────────────────────────────────────
-    Route::get('/tutor',                      [TutorController::class, 'index'])->name('tutor.index');
-    Route::post('/tutor',                     [TutorController::class, 'store'])->name('tutor.store');
-    Route::put('/tutor/{id}',                 [TutorController::class, 'update'])->name('tutor.update');
+    Route::get('/tutor',                       [TutorController::class, 'index'])->name('tutor.index');
+    Route::post('/tutor',                      [TutorController::class, 'store'])->name('tutor.store');
+    Route::put('/tutor/{id}',                  [TutorController::class, 'update'])->name('tutor.update');
 
     // ── Usuarios (CRUD completo) ──────────────────────────────────────────
-    Route::get('/usuarios',                   [UsuarioController::class, 'index'])->name('usuarios.index');
-    Route::post('/usuarios',                  [UsuarioController::class, 'store'])->name('usuarios.store');
-    Route::get('/usuarios/{id}/edit',         [UsuarioController::class, 'edit'])->name('editarUsu');
-    Route::put('/usuarios/{id}',              [UsuarioController::class, 'update'])->name('usuarios.update');
-    Route::delete('/usuarios/{id}',           [UsuarioController::class, 'destroy'])->name('usuarios.destroy');
-    Route::post('/usuarios/{id}/toggle-active', [UsuarioController::class, 'toggleActive'])->name('usuarios.toggleActive');
+    Route::get('/usuarios',                          [UsuarioController::class, 'index'])->name('usuarios.index');
+    Route::post('/usuarios',                         [UsuarioController::class, 'store'])->name('usuarios.store');
+    Route::get('/usuarios/{id}/edit',                [UsuarioController::class, 'edit'])->name('editarUsu');
+    Route::put('/usuarios/{id}',                     [UsuarioController::class, 'update'])->name('usuarios.update');
+    Route::delete('/usuarios/{id}',                  [UsuarioController::class, 'destroy'])->name('usuarios.destroy');
+    Route::post('/usuarios/{id}/toggle-active',      [UsuarioController::class, 'toggleActive'])->name('usuarios.toggleActive');
 
-    // ── Eventos multimedia (tabla evento: imágenes y videos) ──────────────
-    // Distinto de CalendarioController — este maneja archivos multimedia
-    Route::get('/eventos',                    [EventoController::class, 'index'])->name('eventos.index');
-    Route::post('/eventos',                   [EventoController::class, 'store'])->name('eventos.store');
-    Route::put('/eventos/{id}',               [EventoController::class, 'update'])->name('eventos.update');
-    Route::delete('/eventos/{id}',            [EventoController::class, 'destroy'])->name('eventos.destroy');
+    // ── Eventos multimedia ────────────────────────────────────────────────
+    Route::get('/eventos',                     [EventoController::class, 'index'])->name('eventos.index');
+    Route::post('/eventos',                    [EventoController::class, 'store'])->name('eventos.store');
+    Route::put('/eventos/{id}',                [EventoController::class, 'update'])->name('eventos.update');
+    Route::delete('/eventos/{id}',             [EventoController::class, 'destroy'])->name('eventos.destroy');
 
-    // Asistencia — dentro de Route::middleware('auth')->group(...)
-Route::get('/asistencia',          [AsistenciaController::class, 'index'])->name('asistencia.index');
-Route::get('/asistencia/pdf',      [AsistenciaController::class, 'descargarPdf'])->name('asistencia.pdf');
-Route::get('/asistencia/excel',    [AsistenciaController::class, 'descargarExcel'])->name('asistencia.excel');
+    // ── Asistencia ────────────────────────────────────────────────────────
+    Route::get('/asistencia',                  [AsistenciaController::class, 'index'])->name('asistencia.index');
+    Route::get('/asistencia/pdf',              [AsistenciaController::class, 'descargarPdf'])->name('asistencia.pdf');
+    Route::get('/asistencia/excel',            [AsistenciaController::class, 'descargarExcel'])->name('asistencia.excel');
 });
