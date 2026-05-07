@@ -146,7 +146,7 @@ class PagoController extends Controller
         }
 
         // Autocompletar motivo desde el nombre del concepto si no se escribió nada
-        $concepto = DB::table('concepto_pago')->find($validated['id_concepto']);
+        $concepto = DB::table('concepto_pago')->where('id_concepto', $validated['id_concepto'])->first();
         $motivo   = $validated['motivoPago'] ?? null;
         if (!$motivo && $concepto) {
             $motivo = $concepto->nombre;
