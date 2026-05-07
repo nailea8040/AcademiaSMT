@@ -14,7 +14,7 @@ class PagoController extends Controller
     // ──────────────────────────────────────────────────────────────────
     //  GET /pagos
     //  Admin/sensei → todos los pagos + formulario registro
-    //  Alumno/tutor → solo sus pagos, sin formulario
+    //  Alumno/tutor → solo sus pagos, SIN formulario (solo ven y pagan)
     // ──────────────────────────────────────────────────────────────────
     public function index()
     {
@@ -24,6 +24,7 @@ class PagoController extends Controller
             $query = DB::table('pago as p')
                 ->join('usuario as u', 'p.id_usuario', '=', 'u.id_usuario')
                 ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
+                ->leftJoin('concepto_pago as cp', 'p.id_concepto', '=', 'cp.id_concepto')
                 ->select(
                     'p.id_pago',
                     'p.monto',
@@ -36,8 +37,10 @@ class PagoController extends Controller
                     'p.mp_preference_id',
                     'p.mp_payment_id',
                     'p.mp_status',
+                    'p.id_concepto',
                     DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno"),
                     'tp.nombre_tipo',
+                    'cp.nombre AS nombre_concepto',
                     'p.id_usuario',
                     'p.id_tipo_pago',
                     DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante")
@@ -54,19 +57,26 @@ class PagoController extends Controller
             // Solo admin/sensei necesitan el formulario de registro
             $alumnos    = collect();
             $tipos_pago = collect();
+            $conceptos  = collect();
 
             if (in_array($user->rol, ['admin', 'sensei'])) {
+                // Lista de alumnos Y tutores (ambos roles pueden recibir cargos)
                 $alumnos = DB::table('usuario')
-                    ->where('rol', 'alumno')
+                    ->whereIn('rol', ['alumno', 'tutor'])
                     ->where('estado', 1)
-                    ->select('id_usuario', DB::raw("CONCAT(nombre,' ',apaterno) AS nombre_completo"))
+                    ->select('id_usuario', 'rol', DB::raw("CONCAT(nombre,' ',apaterno,' (',rol,')') AS nombre_completo"))
                     ->orderBy('nombre')
                     ->get();
 
                 $tipos_pago = DB::table('tipo_pago')->orderBy('id_tipo_pago')->get();
+
+                $conceptos = DB::table('concepto_pago')
+                    ->where('activo', 1)
+                    ->orderBy('nombre')
+                    ->get();
             }
 
-            return view('pagosViews.pagos', compact('pagos', 'alumnos', 'tipos_pago', 'user'));
+            return view('pagosViews.pagos', compact('pagos', 'alumnos', 'tipos_pago', 'conceptos', 'user'));
 
         } catch (\Exception $e) {
             Log::error('PagoController@index: ' . $e->getMessage());
@@ -74,6 +84,7 @@ class PagoController extends Controller
                 'pagos'      => collect(),
                 'alumnos'    => collect(),
                 'tipos_pago' => collect(),
+                'conceptos'  => collect(),
                 'user'       => Auth::user(),
             ])->with('mensaje', 'Error al cargar datos.');
         }
@@ -81,9 +92,10 @@ class PagoController extends Controller
 
     // ──────────────────────────────────────────────────────────────────
     //  POST /pagos
-    //  Solo admin/sensei registran pagos nuevos.
-    //  Estado por defecto: Pendiente (hasta que admin verifique o pague en línea).
-    //  Si el admin lo registra como efectivo y Completado → abono automático.
+    //  Solo admin/sensei registran cargos nuevos para un alumno.
+    //  El alumno NO puede crear pagos — solo los paga.
+    //  Estado por defecto: Pendiente.
+    //  Si modo efectivo y estado Completado → abono automático.
     // ──────────────────────────────────────────────────────────────────
     public function store(Request $request)
     {
@@ -98,9 +110,10 @@ class PagoController extends Controller
         $validated = $request->validate([
             'id_alumno'      => 'required|exists:usuario,id_usuario',
             'id_tipo_pago'   => 'required|exists:tipo_pago,id_tipo_pago',
+            'id_concepto'    => 'nullable|exists:concepto_pago,id_concepto',
             'monto'          => 'required|numeric|min:0',
             'fechaPago'      => 'required|date',
-            'estadoPago'     => 'required|string|max:20',
+            'estadoPago'     => 'required|in:Pendiente,Completado',   // No "Fallido" aquí — lo pone MP
             'motivoPago'     => 'nullable|string|max:100',
             'referenciaPago' => 'nullable|string|max:100',
             'pagar_en_linea' => 'nullable|boolean',
@@ -108,20 +121,31 @@ class PagoController extends Controller
 
         $pagarEnLinea = (bool) ($validated['pagar_en_linea'] ?? false);
 
+        // Si se elige pagar en línea, siempre Pendiente (MP lo actualizará)
+        $estadoFinal = $pagarEnLinea ? 'Pendiente' : $validated['estadoPago'];
+
+        // Auto-completar motivo desde concepto si no se escribió
+        $motivo = $validated['motivoPago'] ?? null;
+        if (!$motivo && !empty($validated['id_concepto'])) {
+            $concepto = DB::table('concepto_pago')->find($validated['id_concepto']);
+            $motivo   = $concepto?->nombre ?? null;
+        }
+
         try {
             $id = DB::table('pago')->insertGetId([
                 'id_usuario'      => $validated['id_alumno'],
                 'id_tipo_pago'    => $validated['id_tipo_pago'],
+                'id_concepto'     => $validated['id_concepto'] ?? null,
                 'monto'           => $validated['monto'],
                 'monto_total'     => $validated['monto'],
                 'monto_pagado'    => 0.00,
-                'motivo_pago'     => $validated['motivoPago']    ?? null,
+                'motivo_pago'     => $motivo,
                 'fecha_pago'      => $validated['fechaPago'],
                 'referencia_pago' => $validated['referenciaPago'] ?? null,
-                'estado_pago'     => $pagarEnLinea ? 'Pendiente' : $validated['estadoPago'],
+                'estado_pago'     => $estadoFinal,
             ]);
 
-            // Si el admin registra efectivo y lo marca Completado → abono automático
+            // Si admin registra efectivo y lo marca Completado → abono automático
             if (!$pagarEnLinea && $validated['estadoPago'] === 'Completado') {
                 DB::table('abono')->insert([
                     'id_pago'        => $id,
@@ -138,30 +162,12 @@ class PagoController extends Controller
                 ]);
             }
 
+            // Si el admin quiere que el alumno pague en línea → redirigir a /pagos/{id}/pagar
+            // El Payment Brick se inicializa ahí (no desde aquí)
             if ($pagarEnLinea) {
-                $alumno = DB::table('usuario')
-                    ->where('id_usuario', $validated['id_alumno'])
-                    ->select('nombre', 'apaterno', 'correo')
-                    ->first();
-
-                $mpService   = new MercadoPagoService();
-                $preferencia = $mpService->crearPreferencia([
-                    'id_pago'       => $id,
-                    'monto'         => $validated['monto'],
-                    'motivo'        => $validated['motivoPago'] ?? 'Pago Academia',
-                    'alumno_email'  => $alumno->correo ?? 'alumno@academia.com',
-                    'alumno_nombre' => "{$alumno->nombre} {$alumno->apaterno}",
-                ]);
-
-                DB::table('pago')->where('id_pago', $id)->update([
-                    'mp_preference_id' => $preferencia['id'],
-                ]);
-
-                $url = app()->environment('production')
-                    ? $preferencia['init_point']
-                    : $preferencia['sandbox_init_point'];
-
-                return redirect($url);
+                return redirect()->route('pagos.pagar', $id)
+                    ->with('sessionInsertado', 'true')
+                    ->with('mensaje', 'Cargo creado. Redirigiendo al pago en línea...');
             }
 
             return redirect()->route('pagos.index')
@@ -190,7 +196,6 @@ class PagoController extends Controller
         }
 
         $pago = DB::table('pago')->where('id_pago', $id)->first();
-
         if (!$pago) abort(404);
 
         if ($pago->estado_pago === 'Completado') {
@@ -227,9 +232,8 @@ class PagoController extends Controller
 
     // ──────────────────────────────────────────────────────────────────
     //  POST /pagos/{id}/abono
-    //  Registra un abono (pago parcial) sobre un pago existente.
-    //  Admin/sensei → puede registrar abono en efectivo o en línea
-    //  Alumno/tutor → solo puede hacer abono en línea vía MP
+    //  Admin/sensei → efectivo o en línea
+    //  Alumno/tutor → solo en línea (sobre SUS pagos)
     // ──────────────────────────────────────────────────────────────────
     public function abono(Request $request, int $id)
     {
@@ -242,74 +246,43 @@ class PagoController extends Controller
         ]);
 
         $pago = DB::table('pago')->where('id_pago', $id)->first();
-
         if (!$pago) abort(404);
 
-        // Alumno solo puede abonar a sus propios pagos
-        if (
-            in_array($user->rol, ['alumno', 'tutor']) &&
-            (int) $user->id_usuario !== (int) $pago->id_usuario
-        ) {
+        // Alumno/tutor solo pueden abonar a SUS propios pagos
+        if (in_array($user->rol, ['alumno', 'tutor']) &&
+            (int) $user->id_usuario !== (int) $pago->id_usuario) {
             abort(403);
         }
 
-        // Alumno no puede registrar abono en efectivo
-        if (
-            in_array($user->rol, ['alumno', 'tutor']) &&
-            $validated['tipo_abono'] === 'efectivo'
-        ) {
+        // Alumno/tutor no pueden registrar abono en efectivo
+        if (in_array($user->rol, ['alumno', 'tutor']) && $validated['tipo_abono'] === 'efectivo') {
             return redirect()->back()
                 ->with('mensaje', 'Solo el administrador puede registrar abonos en efectivo.')
                 ->with('sessionInsertado', 'false');
         }
 
-        $montoTotal  = $pago->monto_total ?? $pago->monto;
+        $montoTotal  = $pago->monto_total  ?? $pago->monto;
         $montoPagado = $pago->monto_pagado ?? 0;
         $saldo       = $montoTotal - $montoPagado;
 
         if ($validated['monto_abono'] > $saldo) {
             return redirect()->back()
-                ->with('mensaje', "El abono ($" . number_format($validated['monto_abono'], 2) . ") no puede ser mayor al saldo restante ($" . number_format($saldo, 2) . ").")
+                ->with('mensaje', "El abono ($" . number_format($validated['monto_abono'], 2) . ") no puede superar el saldo ($" . number_format($saldo, 2) . ").")
                 ->with('sessionInsertado', 'false');
         }
 
         try {
-            // ── Abono en línea vía MercadoPago ───────────────────────
+            // ── Abono en línea → redirigir a Payment Brick ────────────
             if ($validated['tipo_abono'] === 'en_linea') {
-                $alumno = DB::table('usuario')
-                    ->where('id_usuario', $pago->id_usuario)
-                    ->select('nombre', 'apaterno', 'correo')
-                    ->first();
+                // Guardar monto del abono en sesión para que /pagar lo use
+                session(['abono_pendiente' => [
+                    'id_pago'     => $id,
+                    'monto_abono' => $validated['monto_abono'],
+                ]]);
 
-                // Insertar abono pendiente antes de redirigir a MP
-                $idAbono = DB::table('abono')->insertGetId([
-                    'id_pago'        => $id,
-                    'id_usuario'     => $pago->id_usuario,
-                    'monto_abono'    => $validated['monto_abono'],
-                    'fecha_abono'    => now(),
-                    'tipo_abono'     => 'en_linea',
-                    'referencia'     => null,
-                    'registrado_por' => $user->id_usuario,
-                ]);
-
-                $mpService   = new MercadoPagoService();
-                $preferencia = $mpService->crearPreferencia([
-                    'id_pago'       => $id,
-                    'monto'         => $validated['monto_abono'],
-                    'motivo'        => "Abono - " . ($pago->motivo_pago ?? 'Pago Academia'),
-                    'alumno_email'  => $alumno->correo ?? 'alumno@academia.com',
-                    'alumno_nombre' => "{$alumno->nombre} {$alumno->apaterno}",
-                ]);
-
-                DB::table('abono')->where('id_abono', $idAbono)->update([
-                    'referencia' => $preferencia['id'],
-                ]);
-
-                $url = app()->environment('production')
-                    ? $preferencia['init_point']
-                    : $preferencia['sandbox_init_point'];
-
-                return redirect($url);
+                return redirect()->route('pagos.pagar', $id)
+                    ->with('mensaje', 'Redirigiendo al pago en línea...')
+                    ->with('sessionInsertado', 'true');
             }
 
             // ── Abono en efectivo (solo admin/sensei) ─────────────────
@@ -351,20 +324,23 @@ class PagoController extends Controller
 
     // ──────────────────────────────────────────────────────────────────
     //  GET /pagos/{id}/pagar
-    //  Página con Payment Brick. El monto que se cobra es el saldo
-    //  restante (monto_total - monto_pagado), no el monto original.
+    //  Página con Payment Brick. Disponible para cualquier rol si el
+    //  pago le pertenece (alumno/tutor) o si es admin/sensei.
+    //  El monto cobrado es el saldo restante (o el abono_pendiente).
     // ──────────────────────────────────────────────────────────────────
     public function pagar(int $idPago)
     {
         $pago = DB::table('pago as p')
             ->join('usuario as u', 'p.id_usuario', '=', 'u.id_usuario')
             ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
+            ->leftJoin('concepto_pago as cp', 'p.id_concepto', '=', 'cp.id_concepto')
             ->where('p.id_pago', $idPago)
             ->select(
                 'p.*',
                 DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno"),
                 'u.correo',
                 'tp.nombre_tipo',
+                'cp.nombre AS nombre_concepto',
                 DB::raw("COALESCE(p.monto_total, p.monto) AS monto_total_calc"),
                 DB::raw("COALESCE(p.monto_pagado, 0) AS monto_pagado_calc"),
                 DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante")
@@ -375,10 +351,9 @@ class PagoController extends Controller
 
         $user = Auth::user();
 
-        if (
-            in_array($user->rol, ['alumno', 'tutor']) &&
-            (int) $user->id_usuario !== (int) $pago->id_usuario
-        ) {
+        // Alumno/tutor solo pueden pagar SUS propios pagos
+        if (in_array($user->rol, ['alumno', 'tutor']) &&
+            (int) $user->id_usuario !== (int) $pago->id_usuario) {
             abort(403, 'No tienes permiso para pagar este registro.');
         }
 
@@ -388,36 +363,43 @@ class PagoController extends Controller
                 ->with('sessionInsertado', 'true');
         }
 
-        // Crear preferencia por el saldo restante (no el monto total)
-        $preferenceId = $pago->mp_preference_id;
+        // Si viene de un abono en línea, usar ese monto; si no, el saldo completo
+        $abonoPendiente = session('abono_pendiente');
+        $montoACobrar   = ($abonoPendiente && (int) $abonoPendiente['id_pago'] === $idPago)
+            ? (float) $abonoPendiente['monto_abono']
+            : (float) $pago->saldo_restante;
 
-        if (!$preferenceId) {
-            try {
-                $mpService   = new MercadoPagoService();
-                $preferencia = $mpService->crearPreferencia([
-                    'id_pago'       => $pago->id_pago,
-                    'monto'         => $pago->saldo_restante,
-                    'motivo'        => $pago->motivo_pago ?? 'Pago Academia',
-                    'alumno_email'  => $pago->correo ?? 'alumno@academia.com',
-                    'alumno_nombre' => $pago->nombre_alumno,
-                ]);
+        // Crear/reutilizar preferencia MP por el monto a cobrar
+        $preferenceId = null;
 
-                $preferenceId = $preferencia['id'];
+        try {
+            $mpService   = new MercadoPagoService();
+            $preferencia = $mpService->crearPreferencia([
+                'id_pago'       => $pago->id_pago,
+                'monto'         => $montoACobrar,
+                'motivo'        => $pago->motivo_pago ?? $pago->nombre_concepto ?? 'Pago Academia',
+                'alumno_email'  => $pago->correo ?? 'alumno@academia.com',
+                'alumno_nombre' => $pago->nombre_alumno,
+            ]);
 
-                DB::table('pago')->where('id_pago', $idPago)->update([
-                    'mp_preference_id' => $preferenceId,
-                    'estado_pago'      => 'Pendiente',
-                ]);
+            $preferenceId = $preferencia['id'];
 
-            } catch (\Exception $e) {
-                Log::error('PagoController@pagar: ' . $e->getMessage());
-                return redirect()->route('pagos.index')
-                    ->with('mensaje', 'Error al inicializar el pago. Intenta de nuevo.')
-                    ->with('sessionInsertado', 'false');
-            }
+            DB::table('pago')->where('id_pago', $idPago)->update([
+                'mp_preference_id' => $preferenceId,
+                'estado_pago'      => 'Pendiente',
+            ]);
+
+            // Limpiar sesión de abono
+            session()->forget('abono_pendiente');
+
+        } catch (\Exception $e) {
+            Log::error('PagoController@pagar: ' . $e->getMessage());
+            return redirect()->route('pagos.index')
+                ->with('mensaje', 'Error al inicializar el pago. Intenta de nuevo.')
+                ->with('sessionInsertado', 'false');
         }
 
-        return view('pagosViews.pagar', compact('pago', 'preferenceId'));
+        return view('pagosViews.pagar', compact('pago', 'preferenceId', 'montoACobrar'));
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -444,11 +426,12 @@ class PagoController extends Controller
         try {
             $pagos = DB::table('pago as p')
                 ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
+                ->leftJoin('concepto_pago as cp', 'p.id_concepto', '=', 'cp.id_concepto')
                 ->where('p.id_usuario', $id_usuario)
                 ->select(
                     'p.id_pago', 'p.monto', 'p.monto_total', 'p.monto_pagado',
                     'p.motivo_pago', 'p.fecha_pago', 'p.referencia_pago',
-                    'p.estado_pago', 'p.mp_status', 'tp.nombre_tipo',
+                    'p.estado_pago', 'p.mp_status', 'tp.nombre_tipo', 'cp.nombre AS nombre_concepto',
                     DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante")
                 )
                 ->orderBy('p.fecha_pago', 'desc')
@@ -464,19 +447,15 @@ class PagoController extends Controller
 
     // ──────────────────────────────────────────────────────────────────
     //  GET /pagos/{id}/abonos
-    //  Lista de abonos de un pago específico (para modal detalle)
     // ──────────────────────────────────────────────────────────────────
     public function listarAbonos(int $id)
     {
         $user = Auth::user();
         $pago = DB::table('pago')->where('id_pago', $id)->first();
-
         if (!$pago) abort(404);
 
-        if (
-            in_array($user->rol, ['alumno', 'tutor']) &&
-            (int) $user->id_usuario !== (int) $pago->id_usuario
-        ) {
+        if (in_array($user->rol, ['alumno', 'tutor']) &&
+            (int) $user->id_usuario !== (int) $pago->id_usuario) {
             abort(403);
         }
 

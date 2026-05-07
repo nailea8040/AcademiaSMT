@@ -1,3 +1,8 @@
+{{--
+    resources/views/pagosViews/pagos.blade.php — REEMPLAZA COMPLETO
+    Admin/sensei: ven TODOS los pagos + formulario de registro con catálogo de conceptos
+    Alumno/tutor: ven SOLO SUS pagos + botones de pago (sin formulario de registro)
+--}}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -8,135 +13,42 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        .saldo-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .saldo-pendiente { background: #fff3e0; color: #e65100; }
-        .saldo-completado { background: #e8f5e9; color: #2e7d32; }
-        .progress-bar-wrap {
-            width: 100%;
-            background: #f0f0f0;
-            border-radius: 10px;
-            height: 6px;
-            margin-top: 4px;
-        }
-        .progress-bar-fill {
-            height: 6px;
-            border-radius: 10px;
-            background: linear-gradient(90deg, #e53935, #ff7043);
-            transition: width 0.4s;
-        }
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-overlay.active { display: flex; }
-        .modal-box {
-            background: white;
-            border-radius: 20px;
-            padding: 32px;
-            width: 100%;
-            max-width: 480px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .modal-header h3 { font-size: 18px; color: #2d3748; margin: 0; }
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 22px;
-            cursor: pointer;
-            color: #9e9e9e;
-        }
-        .modal-close:hover { color: #e53935; }
-        .abonos-list { max-height: 260px; overflow-y: auto; margin-bottom: 16px; }
-        .abono-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #f0f0f0;
-            font-size: 13px;
-        }
-        .abono-item:last-child { border-bottom: none; }
-        .abono-monto { font-weight: 700; color: #2d3748; }
-        .abono-tipo-badge {
-            padding: 2px 8px;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-        .tipo-efectivo { background: #e8f5e9; color: #2e7d32; }
-        .tipo-en_linea { background: #e3f2fd; color: #1565c0; }
-        .form-abono { margin-top: 16px; border-top: 1px solid #f0f0f0; padding-top: 16px; }
-        .form-abono label { font-size: 13px; font-weight: 600; color: #4a5568; margin-bottom: 4px; display: block; }
-        .form-abono input, .form-abono select {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            font-size: 14px;
-            margin-bottom: 12px;
-            box-sizing: border-box;
-        }
-        .btn-abono-submit {
-            width: 100%;
-            padding: 12px;
-            background: #e53935;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .btn-abono-submit:hover { background: #c62828; }
-        .btn-completar {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px 12px;
-            background: #e8f5e9;
-            color: #2e7d32;
-            border: 1px solid #a5d6a7;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-        }
-        .btn-completar:hover { background: #c8e6c9; }
-        .btn-abono {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px 12px;
-            background: #fff3e0;
-            color: #e65100;
-            border: 1px solid #ffcc80;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .btn-abono:hover { background: #ffe0b2; }
-        .acciones-cell { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .saldo-badge { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600; }
+        .saldo-pendiente  { background:#fff3e0;color:#e65100; }
+        .saldo-completado { background:#e8f5e9;color:#2e7d32; }
+        .progress-bar-wrap { width:100%;background:#f0f0f0;border-radius:10px;height:6px;margin-top:4px; }
+        .progress-bar-fill { height:6px;border-radius:10px;background:linear-gradient(90deg,#e53935,#ff7043);transition:width 0.4s; }
+        .modal-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center; }
+        .modal-overlay.active { display:flex; }
+        .modal-box { background:white;border-radius:20px;padding:32px;width:100%;max-width:480px;box-shadow:0 8px 32px rgba(0,0,0,0.15); }
+        .modal-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:20px; }
+        .modal-header h3 { font-size:18px;color:#2d3748;margin:0; }
+        .modal-close { background:none;border:none;font-size:22px;cursor:pointer;color:#9e9e9e; }
+        .modal-close:hover { color:#e53935; }
+        .abonos-list { max-height:260px;overflow-y:auto;margin-bottom:16px; }
+        .abono-item { display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:13px; }
+        .abono-item:last-child { border-bottom:none; }
+        .abono-monto { font-weight:700;color:#2d3748; }
+        .abono-tipo-badge { padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600; }
+        .tipo-efectivo { background:#e8f5e9;color:#2e7d32; }
+        .tipo-en_linea { background:#e3f2fd;color:#1565c0; }
+        .form-abono { margin-top:16px;border-top:1px solid #f0f0f0;padding-top:16px; }
+        .form-abono label { font-size:13px;font-weight:600;color:#4a5568;margin-bottom:4px;display:block; }
+        .form-abono input, .form-abono select { width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;margin-bottom:12px;box-sizing:border-box; }
+        .btn-abono-submit { width:100%;padding:12px;background:#e53935;color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer; }
+        .btn-abono-submit:hover { background:#c62828; }
+        .btn-completar { display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none; }
+        .btn-completar:hover { background:#c8e6c9; }
+        .btn-abono { display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer; }
+        .btn-abono:hover { background:#ffe0b2; }
+        .acciones-cell { display:flex;flex-wrap:wrap;gap:6px;align-items:center; }
+        /* Aviso de concepto seleccionado */
+        .concepto-hint { font-size:12px;color:#718096;margin-top:4px;min-height:18px; }
+        .concepto-hint strong { color:#e53935; }
+        /* Banner info alumno */
+        .info-banner { background:#e3f2fd;border-left:4px solid #1565c0;border-radius:8px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px; }
+        .info-banner i { font-size:20px;color:#1565c0; }
+        .info-banner p { margin:0;font-size:14px;color:#1a237e; }
     </style>
 </head>
 <body>
@@ -147,7 +59,12 @@
     <header class="header">
         <div>
             <h1 class="header-title">
-                <i class="bi bi-cash-coin"></i> Gestión de Pagos
+                <i class="bi bi-cash-coin"></i>
+                @if(in_array($user->rol, ['admin', 'sensei']))
+                    Gestión de Pagos
+                @else
+                    Mis Pagos
+                @endif
             </h1>
             <div class="breadcrumb">
                 <a href="{{ route('principal') }}">Inicio</a>
@@ -163,37 +80,38 @@
             @php $isSuccess = session('sessionInsertado') == 'true'; @endphp
             <div class="alert {{ $isSuccess ? 'alert-success' : 'alert-danger' }}">
                 <i class="bi bi-{{ $isSuccess ? 'check-circle-fill' : 'x-circle-fill' }} alert-icon"></i>
-                <div>
-                    <strong>{{ $isSuccess ? '¡Éxito!' : '¡Error!' }}</strong> {{ session('mensaje') }}
-                </div>
+                <div><strong>{{ $isSuccess ? '¡Éxito!' : '¡Error!' }}</strong> {{ session('mensaje') }}</div>
             </div>
         @endif
 
-        {{-- ══════════════════════════════════════════════════════════
-             FORMULARIO DE REGISTRO — solo admin y sensei
-        ══════════════════════════════════════════════════════════ --}}
+        {{-- ══════════════════════════════════════════════════════
+             FORMULARIO DE REGISTRO — SOLO admin y sensei
+             Los alumnos/tutores NO ven este bloque.
+             El admin registra el cargo y el alumno lo paga.
+        ══════════════════════════════════════════════════════ --}}
         @if(in_array($user->rol, ['admin', 'sensei']))
         <div class="form-container form-theme-red">
             <div class="form-header">
-                <h2><i class="bi bi-credit-card-fill"></i> Registrar Nuevo Pago</h2>
-                <p>Complete la información del pago realizado por el alumno</p>
+                <h2><i class="bi bi-credit-card-fill"></i> Registrar Nuevo Cargo</h2>
+                <p>Asigna un cargo pendiente a un alumno o tutor. El alumno lo verá en su sección "Mis Pagos" y podrá pagarlo en línea o el admin lo puede marcar como pagado si recibió efectivo.</p>
             </div>
 
             <form id="registroPago" method="POST" action="{{ route('pagos.store') }}" class="form-body">
                 @csrf
 
+                {{-- Alumno destinatario --}}
                 <h3 class="section-title-header">
-                    <i class="bi bi-person-circle"></i> Información del Alumno
+                    <i class="bi bi-person-circle"></i> Alumno o Tutor
                 </h3>
                 <div class="form-grid full-width">
                     <div class="form-group">
                         <label class="form-label" for="id_alumno">
-                            Alumno <span class="required">*</span>
+                            Destinatario <span class="required">*</span>
                         </label>
                         <div class="form-input-wrapper">
                             <i class="bi bi-person-badge input-icon"></i>
                             <select name="id_alumno" id="id_alumno" class="form-select" required>
-                                <option value="">Seleccione Alumno</option>
+                                <option value="">Seleccione alumno o tutor</option>
                                 @foreach($alumnos as $alumno)
                                     <option value="{{ $alumno->id_usuario }}"
                                         {{ old('id_alumno') == $alumno->id_usuario ? 'selected' : '' }}>
@@ -206,18 +124,43 @@
                     </div>
                 </div>
 
+                {{-- Concepto del cargo --}}
                 <h3 class="section-title-header">
-                    <i class="bi bi-receipt-cutoff"></i> Detalles del Pago
+                    <i class="bi bi-receipt-cutoff"></i> Concepto del Cargo
                 </h3>
                 <div class="form-grid">
+                    {{-- Selector de concepto predefinido --}}
+                    <div class="form-group">
+                        <label class="form-label" for="id_concepto">
+                            Concepto <span class="required">*</span>
+                        </label>
+                        <div class="form-input-wrapper">
+                            <i class="bi bi-bookmark input-icon"></i>
+                            <select name="id_concepto" id="id_concepto" class="form-select">
+                                <option value="">— Sin concepto predefinido —</option>
+                                @foreach($conceptos as $concepto)
+                                    <option value="{{ $concepto->id_concepto }}"
+                                        data-monto="{{ $concepto->monto_sugerido }}"
+                                        data-nombre="{{ $concepto->nombre }}"
+                                        {{ old('id_concepto') == $concepto->id_concepto ? 'selected' : '' }}>
+                                        {{ $concepto->nombre }}
+                                        @if($concepto->monto_sugerido) — ${{ number_format($concepto->monto_sugerido, 2) }} @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="concepto-hint" id="conceptoHint"></div>
+                    </div>
+
+                    {{-- Tipo de pago (método) --}}
                     <div class="form-group">
                         <label class="form-label" for="id_tipo_pago">
-                            Tipo de Pago <span class="required">*</span>
+                            Método de Pago <span class="required">*</span>
                         </label>
                         <div class="form-input-wrapper">
                             <i class="bi bi-tag input-icon"></i>
                             <select name="id_tipo_pago" id="id_tipo_pago" class="form-select" required>
-                                <option value="">Seleccione el tipo</option>
+                                <option value="">Seleccione el método</option>
                                 @foreach($tipos_pago as $tipo)
                                     <option value="{{ $tipo->id_tipo_pago }}"
                                         {{ old('id_tipo_pago') == $tipo->id_tipo_pago ? 'selected' : '' }}>
@@ -229,6 +172,7 @@
                         @error('id_tipo_pago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                     </div>
 
+                    {{-- Monto total --}}
                     <div class="form-group">
                         <label class="form-label" for="monto">
                             Monto Total <span class="required">*</span>
@@ -242,9 +186,10 @@
                         @error('monto')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                     </div>
 
+                    {{-- Fecha --}}
                     <div class="form-group">
                         <label class="form-label" for="fechaPago">
-                            Fecha de Pago <span class="required">*</span>
+                            Fecha <span class="required">*</span>
                         </label>
                         <div class="form-input-wrapper">
                             <i class="bi bi-calendar-check input-icon"></i>
@@ -254,77 +199,67 @@
                         @error('fechaPago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                     </div>
 
-                    <div class="form-group">
+                    {{--
+                        Estado inicial del pago:
+                        - Pendiente  → el alumno aún no ha pagado (default)
+                        - Completado → admin recibe efectivo en mano en este momento
+                        NO existe "Fallido" aquí — ese estado lo asigna MercadoPago automáticamente.
+                    --}}
+                    <div class="form-group" id="estadoWrap">
                         <label class="form-label" for="estadoPago">
-                            Estado del Pago <span class="required">*</span>
+                            Estado <span class="required">*</span>
                         </label>
                         <div class="form-input-wrapper">
                             <i class="bi bi-check-circle input-icon"></i>
                             <select name="estadoPago" id="estadoPago" class="form-select" required>
-                                <option value="">Seleccionar Estado</option>
-                                {{-- Pendiente por defecto: el alumno aún no ha pagado --}}
-                                <option value="Pendiente"
-                                    {{ old('estadoPago', 'Pendiente') == 'Pendiente' ? 'selected' : '' }}>
-                                    Pendiente
-                                </option>
-                                {{-- Completado: admin recibe efectivo en mano ahora mismo --}}
-                                <option value="Completado"
-                                    {{ old('estadoPago') == 'Completado' ? 'selected' : '' }}>
-                                    Completado
-                                </option>
-                                <option value="Fallido"
-                                    {{ old('estadoPago') == 'Fallido' ? 'selected' : '' }}>
-                                    Fallido
-                                </option>
+                                <option value="Pendiente"   {{ old('estadoPago', 'Pendiente') == 'Pendiente'  ? 'selected' : '' }}>Pendiente (alumno pagará después)</option>
+                                <option value="Completado"  {{ old('estadoPago') == 'Completado' ? 'selected' : '' }}>Completado (recibí efectivo ahora)</option>
                             </select>
                         </div>
                         @error('estadoPago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                     </div>
-                </div>
 
-                <h3 class="section-title-header">
-                    <i class="bi bi-credit-card"></i> Motivo y Referencia
-                </h3>
-                <div class="form-grid">
+                    {{-- Motivo personalizado (opcional si hay concepto) --}}
                     <div class="form-group">
-                        <label class="form-label" for="motivoPago">Motivo del Pago</label>
+                        <label class="form-label" for="motivoPago">Nota / Motivo adicional</label>
                         <div class="form-input-wrapper">
                             <i class="bi bi-chat-left-text input-icon"></i>
                             <input type="text" name="motivoPago" id="motivoPago" class="form-input"
-                                   placeholder="Ej: Mensualidad Enero 2026"
+                                   placeholder="Ej: Mensualidad Mayo 2026"
                                    value="{{ old('motivoPago') }}">
                         </div>
                         @error('motivoPago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                     </div>
 
-                    <div class="form-group">
+                    {{-- Referencia (solo si no es en línea) --}}
+                    <div class="form-group" id="referenciaRegistroWrap">
                         <label class="form-label" for="referenciaPago">Referencia (Opcional)</label>
                         <div class="form-input-wrapper">
                             <i class="bi bi-receipt input-icon"></i>
                             <input type="text" name="referenciaPago" id="referenciaPago" class="form-input"
-                                   placeholder="Número de referencia o voucher"
+                                   placeholder="Número de recibo o voucher"
                                    value="{{ old('referenciaPago') }}">
                         </div>
                         @error('referenciaPago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                     </div>
                 </div>
 
-                {{-- Opción pago en línea con MercadoPago --}}
+                {{-- Opción pago en línea --}}
                 <div class="form-group" style="margin-top:16px;">
                     <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;font-size:15px;">
                         <input type="checkbox" name="pagar_en_linea" id="pagarEnLinea" value="1"
-                               style="width:18px;height:18px;accent-color:#e53935;"
+                               style="width:18px;height:18px;accent-color:#009ee3;"
                                {{ old('pagar_en_linea') ? 'checked' : '' }}>
                         <span>
                             <i class="bi bi-credit-card-2-front-fill" style="color:#009ee3;font-size:18px;"></i>
-                            Pagar en línea con
+                            Pagar en línea ahora con
                             <img src="https://http2.mlstatic.com/storage/logos-api-admin/0be7e630-3454-11ec-9874-2d2a4f2ed7de-xl.webp"
                                  alt="MercadoPago" style="height:20px;vertical-align:middle;margin-left:4px;">
                         </span>
                     </label>
                     <p style="margin-left:28px;margin-top:4px;font-size:12px;color:#718096;">
-                        Al marcar esta opción el alumno será redirigido al checkout de MercadoPago.
-                        El estado se actualizará automáticamente al completar el pago.
+                        Al marcar esta opción se creará el cargo y se abrirá la página de pago con MercadoPago.
+                        El estado se actualizará automáticamente al completarse. Se ignorará la opción de estado seleccionada arriba.
                     </p>
                 </div>
 
@@ -333,16 +268,22 @@
                         <i class="bi bi-x-lg"></i> Limpiar
                     </button>
                     <button type="submit" class="btn btn-primary" id="btnSubmit">
-                        <i class="bi bi-check-lg"></i> Registrar Pago
+                        <i class="bi bi-check-lg"></i> Registrar Cargo
                     </button>
                 </div>
             </form>
         </div>
+        @else
+        {{-- ── Banner informativo para alumno/tutor ──────────────────── --}}
+        <div class="info-banner">
+            <i class="bi bi-info-circle-fill"></i>
+            <p>Aquí puedes ver los cargos que el administrador ha asignado a tu cuenta. Usa el botón <strong>Pagar</strong> para liquidar un cargo en línea con MercadoPago, o <strong>Abono</strong> para realizar un pago parcial.</p>
+        </div>
         @endif
 
-        {{-- ══════════════════════════════════════════════════════════
+        {{-- ══════════════════════════════════════════════════════
              TABLA DE PAGOS
-        ══════════════════════════════════════════════════════════ --}}
+        ══════════════════════════════════════════════════════ --}}
         <div class="table-container">
             <div class="table-header">
                 <h2 class="table-title">
@@ -350,7 +291,7 @@
                     @if(in_array($user->rol, ['admin', 'sensei']))
                         Historial de Pagos ({{ count($pagos) }})
                     @else
-                        Mis Pagos ({{ count($pagos) }})
+                        Mis Cargos ({{ count($pagos) }})
                     @endif
                 </h2>
                 <div class="table-filters">
@@ -362,7 +303,7 @@
                     </select>
                     <div class="search-box">
                         <i class="bi bi-search search-icon"></i>
-                        <input type="text" class="search-input" id="searchInput" placeholder="Buscar pagos...">
+                        <input type="text" class="search-input" id="searchInput" placeholder="Buscar...">
                     </div>
                 </div>
             </div>
@@ -372,15 +313,15 @@
                     <thead>
                         <tr>
                             @if(in_array($user->rol, ['admin', 'sensei']))
-                                <th>Alumno</th>
+                                <th>Alumno / Tutor</th>
                             @endif
-                            <th>Tipo</th>
+                            <th>Concepto</th>
+                            <th>Método</th>
                             <th>Total</th>
                             <th>Pagado</th>
                             <th>Saldo</th>
                             <th>Fecha</th>
                             <th>Estado</th>
-                            <th>Motivo</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -391,39 +332,43 @@
                                 $montoPagado = $pago->monto_pagado ?? 0;
                                 $saldo       = $montoTotal - $montoPagado;
                                 $porcentaje  = $montoTotal > 0 ? min(100, ($montoPagado / $montoTotal) * 100) : 0;
+                                // Concepto a mostrar: nombre del catálogo o motivo libre
+                                $concepto    = $pago->nombre_concepto ?? $pago->motivo_pago ?? '—';
                             @endphp
                             <tr>
-                                {{-- Columna alumno: solo visible para admin/sensei --}}
+                                {{-- Columna alumno: solo admin/sensei --}}
                                 @if(in_array($user->rol, ['admin', 'sensei']))
                                 <td>
                                     <div class="student-cell">
                                         <div class="student-avatar">
-                                            {{ strtoupper(substr($pago->nombre_alumno, 0, 1)) }}{{ strtoupper(substr(strstr($pago->nombre_alumno, ' '), 1, 1)) }}
+                                            {{ strtoupper(substr($pago->nombre_alumno ?? 'A', 0, 1)) }}{{ strtoupper(substr(strstr($pago->nombre_alumno ?? ' A', ' '), 1, 1)) }}
                                         </div>
                                         <span class="student-name">{{ $pago->nombre_alumno ?? 'N/A' }}</span>
                                     </div>
                                 </td>
                                 @endif
 
-                                <td>{{ $pago->nombre_tipo ?? 'N/A' }}</td>
-
-                                {{-- Monto total --}}
                                 <td>
-                                    <span class="amount">${{ number_format($montoTotal, 2) }}</span>
+                                    <span style="font-weight:600;color:#2d3748;">{{ $concepto }}</span>
+                                    @if($pago->motivo_pago && $pago->nombre_concepto && $pago->motivo_pago !== $pago->nombre_concepto)
+                                        <br><small style="color:#9e9e9e;">{{ $pago->motivo_pago }}</small>
+                                    @endif
                                 </td>
 
-                                {{-- Monto pagado con barra de progreso --}}
+                                <td>{{ $pago->nombre_tipo ?? 'N/A' }}</td>
+
+                                <td><span class="amount">${{ number_format($montoTotal, 2) }}</span></td>
+
                                 <td>
-                                    <span style="font-weight:600; color:#4caf50;">
+                                    <span style="font-weight:600;color:#4caf50;">
                                         ${{ number_format($montoPagado, 2) }}
                                     </span>
                                     <div class="progress-bar-wrap">
                                         <div class="progress-bar-fill" style="width:{{ $porcentaje }}%"></div>
                                     </div>
-                                    <small style="color:#9e9e9e; font-size:11px;">{{ number_format($porcentaje, 0) }}%</small>
+                                    <small style="color:#9e9e9e;font-size:11px;">{{ number_format($porcentaje, 0) }}%</small>
                                 </td>
 
-                                {{-- Saldo restante --}}
                                 <td>
                                     @if($saldo <= 0)
                                         <span class="saldo-badge saldo-completado">
@@ -438,7 +383,6 @@
 
                                 <td>{{ \Carbon\Carbon::parse($pago->fecha_pago)->format('d/m/Y') }}</td>
 
-                                {{-- Estado --}}
                                 <td>
                                     @php $estado = $pago->estado_pago; @endphp
                                     @if($estado == 'Completado')
@@ -450,13 +394,11 @@
                                     @endif
                                 </td>
 
-                                <td>{{ $pago->motivo_pago ?? '—' }}</td>
-
                                 {{-- Acciones --}}
                                 <td>
                                     <div class="acciones-cell">
 
-                                        {{-- Botón Pagar: disponible para cualquier rol si está Pendiente --}}
+                                        {{-- Pagar con MercadoPago: cualquier rol si está pendiente --}}
                                         @if($pago->estado_pago !== 'Completado' && $saldo > 0)
                                             <a href="{{ route('pagos.pagar', $pago->id_pago) }}"
                                                class="btn btn-primary"
@@ -465,13 +407,13 @@
                                             </a>
                                         @endif
 
-                                        {{-- Botón Abono: cualquier rol si hay saldo --}}
+                                        {{-- Abono: cualquier rol si hay saldo --}}
                                         @if($pago->estado_pago !== 'Completado' && $saldo > 0)
                                             <button type="button"
                                                 class="btn-abono"
                                                 onclick="abrirModalAbono(
                                                     {{ $pago->id_pago }},
-                                                    '{{ addslashes($pago->nombre_alumno ?? 'Alumno') }}',
+                                                    '{{ addslashes($pago->nombre_alumno ?? Auth::user()->nombre . ' ' . Auth::user()->apaterno) }}',
                                                     {{ $montoTotal }},
                                                     {{ $montoPagado }},
                                                     {{ $saldo }},
@@ -481,7 +423,7 @@
                                             </button>
                                         @endif
 
-                                        {{-- Botón Completar: solo admin/sensei, solo si está Pendiente --}}
+                                        {{-- Completar: solo admin/sensei, solo Pendiente --}}
                                         @if(in_array($user->rol, ['admin', 'sensei']) && $pago->estado_pago === 'Pendiente')
                                             <form method="POST"
                                                   action="{{ route('pagos.completar', $pago->id_pago) }}"
@@ -498,7 +440,7 @@
                                         <button type="button"
                                             class="btn-abono"
                                             style="background:#f3e5f5;color:#6a1b9a;border-color:#ce93d8;"
-                                            onclick="verAbonos({{ $pago->id_pago }}, '{{ addslashes($pago->motivo_pago ?? 'Pago #' . $pago->id_pago) }}')">
+                                            onclick="verAbonos({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
                                             <i class="bi bi-list-ul"></i> Abonos
                                         </button>
 
@@ -513,8 +455,12 @@
                         @empty
                             <tr>
                                 <td colspan="{{ in_array($user->rol, ['admin','sensei']) ? 9 : 8 }}"
-                                    class="text-center">
-                                    No hay pagos registrados.
+                                    class="text-center" style="padding:40px;color:#9e9e9e;">
+                                    @if(in_array($user->rol, ['admin', 'sensei']))
+                                        No hay pagos registrados aún.
+                                    @else
+                                        No tienes cargos asignados. Si tienes un pendiente, contacta al administrador.
+                                    @endif
                                 </td>
                             </tr>
                         @endforelse
@@ -567,7 +513,7 @@
                 <label for="tipo_abono">Tipo de abono <span style="color:#e53935;">*</span></label>
                 <select name="tipo_abono" id="tipo_abono" required>
                     <option value="en_linea">En línea (MercadoPago)</option>
-                    {{-- efectivo solo se muestra si es admin/sensei (controlado por JS) --}}
+                    {{-- Efectivo: visible solo para admin/sensei via JS --}}
                     <option value="efectivo" id="opcionEfectivo" style="display:none;">Efectivo</option>
                 </select>
             </div>
@@ -585,7 +531,7 @@
 </div>
 
 {{-- ══════════════════════════════════════════════════════════════════════
-     MODAL VER ABONOS
+     MODAL VER HISTORIAL DE ABONOS
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal-overlay" id="modalVerAbonos">
     <div class="modal-box">
@@ -601,11 +547,11 @@
 </div>
 
 <script>
-    // ── Variables globales ────────────────────────────────────────────
     let pagoIdActual = null;
 
-    // ── SweetAlert al cargar si hay sesión ───────────────────────────
     document.addEventListener('DOMContentLoaded', function () {
+
+        // ── SweetAlert en carga ──────────────────────────────────────
         @if(session('sessionInsertado'))
             Swal.fire({
                 icon:              '{{ session('sessionInsertado') == 'true' ? 'success' : 'error' }}',
@@ -615,7 +561,7 @@
             });
         @endif
 
-        // Filtro por estado
+        // ── Filtro por estado ────────────────────────────────────────
         document.getElementById('filterEstado').addEventListener('change', function () {
             const val = this.value.toLowerCase();
             document.querySelectorAll('#pagosTable tbody tr').forEach(row => {
@@ -623,7 +569,7 @@
             });
         });
 
-        // Búsqueda
+        // ── Búsqueda ─────────────────────────────────────────────────
         document.getElementById('searchInput').addEventListener('keyup', function () {
             const val = this.value.toLowerCase();
             document.querySelectorAll('#pagosTable tbody tr').forEach(row => {
@@ -631,24 +577,50 @@
             });
         });
 
-        // Cambio en checkbox pagar en línea
-        const chk = document.getElementById('pagarEnLinea');
-        if (chk) {
-            chk.addEventListener('change', function () {
-                const btn = document.getElementById('btnSubmit');
-                if (this.checked) {
-                    btn.innerHTML = '<i class="bi bi-credit-card-2-front-fill"></i> Continuar a MercadoPago';
-                    btn.style.backgroundColor = '#009ee3';
-                    btn.style.borderColor     = '#009ee3';
+        // ── Concepto predefinido → autocompletar monto y hint ────────
+        const selectConcepto = document.getElementById('id_concepto');
+        if (selectConcepto) {
+            selectConcepto.addEventListener('change', function () {
+                const opt    = this.options[this.selectedIndex];
+                const monto  = opt.dataset.monto;
+                const nombre = opt.dataset.nombre;
+                const hint   = document.getElementById('conceptoHint');
+                const campoMonto = document.getElementById('monto');
+
+                if (monto) {
+                    campoMonto.value = monto;
+                    hint.innerHTML = `Monto sugerido autocompletado: <strong>$${ parseFloat(monto).toFixed(2) }</strong>. Puedes modificarlo.`;
                 } else {
-                    btn.innerHTML = '<i class="bi bi-check-lg"></i> Registrar Pago';
-                    btn.style.backgroundColor = '';
-                    btn.style.borderColor     = '';
+                    hint.innerHTML = nombre ? `Concepto seleccionado: <strong>${nombre}</strong>. Ingresa el monto manualmente.` : '';
                 }
             });
         }
 
-        // Mostrar/ocultar referencia según tipo de abono
+        // ── Pagar en línea → ocultar estado, cambiar botón ──────────
+        const chk = document.getElementById('pagarEnLinea');
+        if (chk) {
+            chk.addEventListener('change', function () {
+                const btn    = document.getElementById('btnSubmit');
+                const estado = document.getElementById('estadoWrap');
+                const refWrap = document.getElementById('referenciaRegistroWrap');
+
+                if (this.checked) {
+                    btn.innerHTML           = '<i class="bi bi-credit-card-2-front-fill"></i> Crear cargo y Pagar en línea';
+                    btn.style.backgroundColor = '#009ee3';
+                    btn.style.borderColor     = '#009ee3';
+                    if (estado)  estado.style.opacity  = '0.4';
+                    if (refWrap) refWrap.style.display  = 'none';
+                } else {
+                    btn.innerHTML           = '<i class="bi bi-check-lg"></i> Registrar Cargo';
+                    btn.style.backgroundColor = '';
+                    btn.style.borderColor     = '';
+                    if (estado)  estado.style.opacity  = '1';
+                    if (refWrap) refWrap.style.display  = '';
+                }
+            });
+        }
+
+        // ── Abono: mostrar referencia si es efectivo ─────────────────
         const tipoAbono = document.getElementById('tipo_abono');
         if (tipoAbono) {
             tipoAbono.addEventListener('change', function () {
@@ -667,11 +639,10 @@
         document.getElementById('abonoMontoPagado').textContent  = '$' + montoPagado.toFixed(2);
         document.getElementById('abonoSaldo').textContent        = '$' + saldo.toFixed(2);
 
-        // Limitar monto máximo al saldo restante
         document.getElementById('monto_abono').max   = saldo;
         document.getElementById('monto_abono').value = '';
 
-        // Mostrar opción "Efectivo" solo para admin/sensei
+        // Efectivo solo para admin/sensei
         const opcionEfectivo = document.getElementById('opcionEfectivo');
         if (rol === 'admin' || rol === 'sensei') {
             opcionEfectivo.style.display = '';
@@ -680,38 +651,28 @@
             document.getElementById('tipo_abono').value = 'en_linea';
         }
 
-        // Ocultar referencia al abrir
         document.getElementById('referenciaWrap').style.display = 'none';
-
-        // Asignar action del form
         document.getElementById('formAbono').action = '/pagos/' + idPago + '/abono';
-
         document.getElementById('modalAbono').classList.add('active');
     }
 
     // ── Modal Ver Abonos ──────────────────────────────────────────────
-    function verAbonos(idPago, motivo) {
-        document.getElementById('tituloVerAbonos').textContent = 'Pago: ' + motivo;
+    function verAbonos(idPago, concepto) {
+        document.getElementById('tituloVerAbonos').textContent = 'Concepto: ' + concepto;
         document.getElementById('listaAbonos').innerHTML =
             '<p style="text-align:center;color:#9e9e9e;padding:20px;">Cargando...</p>';
-
         document.getElementById('modalVerAbonos').classList.add('active');
 
         fetch('/pagos/' + idPago + '/abonos', {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
-            }
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
         })
         .then(res => res.json())
         .then(data => {
             const lista = document.getElementById('listaAbonos');
-
             if (!data || data.length === 0) {
                 lista.innerHTML = '<p style="text-align:center;color:#9e9e9e;padding:20px;">No hay abonos registrados.</p>';
                 return;
             }
-
             lista.innerHTML = data.map(a => `
                 <div class="abono-item">
                     <div>
@@ -739,7 +700,6 @@
         document.getElementById(id).classList.remove('active');
     }
 
-    // Cerrar modal al hacer clic fuera
     document.addEventListener('click', function (e) {
         ['modalAbono', 'modalVerAbonos'].forEach(id => {
             const modal = document.getElementById(id);
