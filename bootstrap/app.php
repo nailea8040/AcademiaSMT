@@ -18,6 +18,15 @@ return Application::configure(basePath: dirname(__DIR__))
         \App\Http\Middleware\StorageLinkCheck::class,
     ]);
 })
+
+->withMiddleware(function (Middleware $middleware) {
+    // Confiar en el proxy de Railway para detectar HTTPS correctamente
+    $middleware->trustProxies(at: '*');
+    
+    $middleware->web(append: [
+        \App\Http\Middleware\StorageLinkCheck::class,
+    ]);
+})
     ->withMiddleware(function (Middleware $middleware) {
         // Combinamos los middleware en un solo bloque
         $middleware->alias([

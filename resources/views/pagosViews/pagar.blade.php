@@ -9,6 +9,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Pagar - Academia Karate-Do SMT</title>
     <link rel="stylesheet" href="{{ asset('css/estilo2.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -237,6 +238,7 @@
                         },
                         // 3. Ya NO enviamos la cabecera 'Authorization', 
                         // porque web.php usa la sesión de tu navegador (Cookie).
+                        credentials: 'include',
                         body: JSON.stringify({
                             formData,
                             id_pago: ID_PAGO,
