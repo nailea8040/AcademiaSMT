@@ -84,8 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Catálogo de tipos de pago
     Route::get('/tipos-pago',                    [PagoApiController::class, 'tiposPago']);
 
-    // Procesar pago con Payment Brick — estático, va antes de /{id}
-    Route::post('/pagos/procesar',               [PagoApiController::class, 'procesar']);
+    //
 
     // Historial por usuario — estático, va antes de /{id}
     Route::get('/pagos/historial/{idUsuario}',   [PagoApiController::class, 'historialAlumno']);

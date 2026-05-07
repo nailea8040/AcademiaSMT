@@ -227,18 +227,27 @@
             onSubmit: async ({ selectedPaymentMethod, formData }) => {
                 // Enviar al backend para procesar el pago
                 try {
-                    const res = await fetch('/api/pagos/procesar', {
-                        method:  'POST',
+                    // 1. Cambiamos la URL a la que definiste en web.php
+                    const res = await fetch('/pagos/procesar', { 
+                        method: 'POST',
                         headers: {
-                            'Content-Type':  'application/json',
-                            'X-CSRF-TOKEN':  document.querySelector('meta[name="csrf-token"]')?.content ?? '',
-                            'Authorization': 'Bearer ' + (localStorage.getItem('token') ?? ''),
+                            'Content-Type': 'application/json',
+                            // 2. Usamos el TOKEN CSRF (Obligatorio en web.php)
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
                         },
+                        // 3. Ya NO enviamos la cabecera 'Authorization', 
+                        // porque web.php usa la sesión de tu navegador (Cookie).
                         body: JSON.stringify({
                             formData,
                             id_pago: ID_PAGO,
                         }),
                     });
+
+                    // Si el servidor responde 401 es que la sesión de Laravel expiró
+                    if (res.status === 401 || res.status === 419) {
+                        alert("Tu sesión ha expirado. Por favor, recarga la página e intenta de nuevo.");
+                        return Promise.reject();
+                    }
 
                     const data = await res.json();
 
@@ -253,7 +262,8 @@
                         return Promise.reject(data.message ?? 'Error al procesar el pago.');
                     }
                 } catch (err) {
-                    return Promise.reject(err);
+                    console.error('Error procesando pago:', err);
+                    return Promise.reject("Error de conexión con el servidor.");
                 }
             },
             onError: (error) => {

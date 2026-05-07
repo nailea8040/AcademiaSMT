@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\AlumnoController;
 use App\Http\Controllers\PagoController;
+use App\Http\Controllers\Api\PagoApiController;
 use App\Http\Controllers\TutorController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\ResetPasswordController;
@@ -90,6 +91,9 @@ Route::middleware('auth')->group(function () {
 
     // Resultado de pago MP (back_url) — estático, va primero
     Route::get('/pagos/resultado',             [PagoController::class, 'resultado'])->name('pagos.resultado');
+
+    // Procesar pago con Payment Brick — estático, va antes de /{id}
+    Route::post('/pagos/procesar',               [PagoApiController::class, 'procesar']);
 
     // Rutas con {id} — van después de las estáticas
     Route::get('/pagos/{id}/pagar',            [PagoController::class, 'pagar'])->name('pagos.pagar');
