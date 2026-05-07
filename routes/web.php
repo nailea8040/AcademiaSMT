@@ -102,6 +102,9 @@ Route::middleware('auth')->group(function () {
     // Registrar abono (efectivo → admin/sensei | en_línea → cualquier rol)
     Route::post('/pagos/{id}/abono',           [PagoController::class, 'abono'])->name('pagos.abono');
 
+    Route::post('/conceptos-pago',     [PagoController::class, 'storeConcepto'])->name('conceptos.store');
+Route::put('/conceptos-pago/{id}', [PagoController::class, 'updateConcepto'])->name('conceptos.update');
+
     // ── Tutores ───────────────────────────────────────────────────────────
     Route::get('/tutor',                       [TutorController::class, 'index'])->name('tutor.index');
     Route::post('/tutor',                      [TutorController::class, 'store'])->name('tutor.store');

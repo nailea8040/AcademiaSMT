@@ -92,6 +92,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/pagos/{id}/abono',             [PagoApiController::class, 'abono']);
     Route::post('/pagos/{id}/completar',         [PagoApiController::class, 'completar']);
 
+    Route::get('/conceptos-pago',         [PagoApiController::class, 'conceptosPago']);
+Route::post('/conceptos-pago',        [PagoApiController::class, 'storeConcepto']);
+Route::put('/conceptos-pago/{id}',    [PagoApiController::class, 'updateConcepto']);
+
     // ── Calendario ────────────────────────────────────────────────────────
     Route::post('/calendario',        [CalendarioApiController::class, 'store']);
     Route::put('/calendario/{id}',    [CalendarioApiController::class, 'update']);

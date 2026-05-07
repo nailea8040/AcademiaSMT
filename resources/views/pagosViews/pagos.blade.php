@@ -1,54 +1,94 @@
 {{--
     resources/views/pagosViews/pagos.blade.php — REEMPLAZA COMPLETO
-    Admin/sensei: ven TODOS los pagos + formulario de registro con catálogo de conceptos
-    Alumno/tutor: ven SOLO SUS pagos + botones de pago (sin formulario de registro)
+
+    Admin/sensei:
+      - Formulario para registrar cargos a cualquier alumno/tutor
+      - Panel de gestión de conceptos (crear/editar)
+      - Tabla con TODOS los pagos
+
+    Alumno/tutor:
+      - Formulario para registrar su propio pago (elige concepto, ajusta monto)
+      - Tabla con SUS pagos
 --}}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gestión de Pagos - Dojo</title>
+    <title>Pagos - Dojo</title>
     <link rel="stylesheet" href="{{ asset('css/estilo2.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
+        /* ── Saldo badges ── */
         .saldo-badge { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600; }
         .saldo-pendiente  { background:#fff3e0;color:#e65100; }
         .saldo-completado { background:#e8f5e9;color:#2e7d32; }
+
+        /* ── Progress bar ── */
         .progress-bar-wrap { width:100%;background:#f0f0f0;border-radius:10px;height:6px;margin-top:4px; }
         .progress-bar-fill { height:6px;border-radius:10px;background:linear-gradient(90deg,#e53935,#ff7043);transition:width 0.4s; }
+
+        /* ── Modales ── */
         .modal-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center; }
         .modal-overlay.active { display:flex; }
-        .modal-box { background:white;border-radius:20px;padding:32px;width:100%;max-width:480px;box-shadow:0 8px 32px rgba(0,0,0,0.15); }
+        .modal-box { background:white;border-radius:20px;padding:32px;width:100%;max-width:500px;box-shadow:0 8px 32px rgba(0,0,0,0.15);max-height:90vh;overflow-y:auto; }
         .modal-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:20px; }
         .modal-header h3 { font-size:18px;color:#2d3748;margin:0; }
         .modal-close { background:none;border:none;font-size:22px;cursor:pointer;color:#9e9e9e; }
         .modal-close:hover { color:#e53935; }
+
+        /* ── Lista de abonos ── */
         .abonos-list { max-height:260px;overflow-y:auto;margin-bottom:16px; }
         .abono-item { display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:13px; }
         .abono-item:last-child { border-bottom:none; }
-        .abono-monto { font-weight:700;color:#2d3748; }
         .abono-tipo-badge { padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600; }
         .tipo-efectivo { background:#e8f5e9;color:#2e7d32; }
         .tipo-en_linea { background:#e3f2fd;color:#1565c0; }
+
+        /* ── Form abono modal ── */
         .form-abono { margin-top:16px;border-top:1px solid #f0f0f0;padding-top:16px; }
         .form-abono label { font-size:13px;font-weight:600;color:#4a5568;margin-bottom:4px;display:block; }
         .form-abono input, .form-abono select { width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;margin-bottom:12px;box-sizing:border-box; }
         .btn-abono-submit { width:100%;padding:12px;background:#e53935;color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer; }
         .btn-abono-submit:hover { background:#c62828; }
+
+        /* ── Botones de acciones ── */
         .btn-completar { display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none; }
         .btn-completar:hover { background:#c8e6c9; }
         .btn-abono { display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer; }
         .btn-abono:hover { background:#ffe0b2; }
         .acciones-cell { display:flex;flex-wrap:wrap;gap:6px;align-items:center; }
-        /* Aviso de concepto seleccionado */
+
+        /* ── Concepto hint ── */
         .concepto-hint { font-size:12px;color:#718096;margin-top:4px;min-height:18px; }
         .concepto-hint strong { color:#e53935; }
-        /* Banner info alumno */
-        .info-banner { background:#e3f2fd;border-left:4px solid #1565c0;border-radius:8px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px; }
-        .info-banner i { font-size:20px;color:#1565c0; }
-        .info-banner p { margin:0;font-size:14px;color:#1a237e; }
+
+        /* ── Panel gestión conceptos ── */
+        .conceptos-panel { margin-top:8px; }
+        .concepto-row { display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:#f7fafc;border:1px solid #e2e8f0;margin-bottom:8px; }
+        .concepto-row .concepto-nombre { flex:1;font-weight:600;color:#2d3748;font-size:14px; }
+        .concepto-row .concepto-monto { color:#e53935;font-weight:700;font-size:14px;min-width:80px;text-align:right; }
+        .concepto-row .concepto-estado { font-size:11px;padding:2px 8px;border-radius:8px; }
+        .concepto-activo   { background:#e8f5e9;color:#2e7d32; }
+        .concepto-inactivo { background:#fce4ec;color:#c62828; }
+        .btn-edit-concepto { background:none;border:1px solid #cbd5e0;border-radius:8px;padding:4px 10px;cursor:pointer;color:#718096;font-size:12px; }
+        .btn-edit-concepto:hover { background:#edf2f7;color:#2d3748; }
+
+        /* ── Tabs (solo admin) ── */
+        .tabs-nav { display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid #e2e8f0; }
+        .tab-btn { background:none;border:none;padding:10px 20px;font-size:14px;font-weight:600;color:#718096;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px; }
+        .tab-btn.active { color:#e53935;border-bottom-color:#e53935; }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; }
+
+        /* ── Info banner alumno ── */
+        .info-banner { background:#e3f2fd;border-left:4px solid #1565c0;border-radius:8px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px; }
+        .info-banner i { font-size:20px;color:#1565c0;margin-top:2px; }
+        .info-banner p { margin:0;font-size:14px;color:#1a237e;line-height:1.5; }
+
+        /* ── Aviso pago efectivo alumno ── */
+        .aviso-efectivo { background:#fff8e1;border-left:4px solid #f9a825;border-radius:8px;padding:12px 16px;margin-top:8px;font-size:13px;color:#7a5c00;display:none; }
     </style>
 </head>
 <body>
@@ -60,10 +100,8 @@
         <div>
             <h1 class="header-title">
                 <i class="bi bi-cash-coin"></i>
-                @if(in_array($user->rol, ['admin', 'sensei']))
-                    Gestión de Pagos
-                @else
-                    Mis Pagos
+                @if(in_array($user->rol, ['admin', 'sensei'])) Gestión de Pagos
+                @else Mis Pagos
                 @endif
             </h1>
             <div class="breadcrumb">
@@ -84,60 +122,317 @@
             </div>
         @endif
 
-        {{-- ══════════════════════════════════════════════════════
-             FORMULARIO DE REGISTRO — SOLO admin y sensei
-             Los alumnos/tutores NO ven este bloque.
-             El admin registra el cargo y el alumno lo paga.
-        ══════════════════════════════════════════════════════ --}}
+        {{-- ══════════════════════════════════════════════════════════
+             BLOQUE ADMIN / SENSEI
+             - Tab 1: Registrar cargo a un alumno
+             - Tab 2: Gestionar catálogo de conceptos
+        ══════════════════════════════════════════════════════════ --}}
         @if(in_array($user->rol, ['admin', 'sensei']))
+
         <div class="form-container form-theme-red">
             <div class="form-header">
-                <h2><i class="bi bi-credit-card-fill"></i> Registrar Nuevo Cargo</h2>
-                <p>Asigna un cargo pendiente a un alumno o tutor. El alumno lo verá en su sección "Mis Pagos" y podrá pagarlo en línea o el admin lo puede marcar como pagado si recibió efectivo.</p>
+                <h2><i class="bi bi-credit-card-fill"></i> Panel de Pagos</h2>
+                <p>Registra cargos para los alumnos y gestiona el catálogo de conceptos.</p>
             </div>
 
-            <form id="registroPago" method="POST" action="{{ route('pagos.store') }}" class="form-body">
+            {{-- Tabs de navegación --}}
+            <div class="tabs-nav">
+                <button class="tab-btn active" onclick="activarTab('tab-registro', this)">
+                    <i class="bi bi-plus-circle"></i> Registrar Cargo
+                </button>
+                <button class="tab-btn" onclick="activarTab('tab-conceptos', this)">
+                    <i class="bi bi-bookmarks"></i> Conceptos de Pago
+                </button>
+            </div>
+
+            {{-- ── TAB 1: Registrar nuevo cargo ── --}}
+            <div id="tab-registro" class="tab-content active">
+                <form id="registroPago" method="POST" action="{{ route('pagos.store') }}" class="form-body">
+                    @csrf
+
+                    {{-- Destinatario --}}
+                    <h3 class="section-title-header">
+                        <i class="bi bi-person-circle"></i> Alumno o Tutor Destinatario
+                    </h3>
+                    <div class="form-grid full-width">
+                        <div class="form-group">
+                            <label class="form-label" for="id_alumno">
+                                Destinatario <span class="required">*</span>
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-person-badge input-icon"></i>
+                                <select name="id_alumno" id="id_alumno" class="form-select" required>
+                                    <option value="">Seleccione alumno o tutor</option>
+                                    @foreach($alumnos as $alumno)
+                                        <option value="{{ $alumno->id_usuario }}"
+                                            {{ old('id_alumno') == $alumno->id_usuario ? 'selected' : '' }}>
+                                            {{ $alumno->nombre_completo }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @error('id_alumno')<div class="text-danger mt-1">{{ $message }}</div>@enderror
+                        </div>
+                    </div>
+
+                    {{-- Concepto y detalles --}}
+                    <h3 class="section-title-header">
+                        <i class="bi bi-receipt-cutoff"></i> Detalles del Cargo
+                    </h3>
+                    <div class="form-grid">
+
+                        {{-- Concepto predefinido --}}
+                        <div class="form-group">
+                            <label class="form-label" for="id_concepto_admin">
+                                Concepto <span class="required">*</span>
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-bookmark input-icon"></i>
+                                <select name="id_concepto" id="id_concepto_admin" class="form-select" required>
+                                    <option value="">Seleccione un concepto</option>
+                                    @foreach($conceptos as $concepto)
+                                        <option value="{{ $concepto->id_concepto }}"
+                                            data-monto="{{ $concepto->monto_sugerido }}"
+                                            data-nombre="{{ $concepto->nombre }}"
+                                            {{ old('id_concepto') == $concepto->id_concepto ? 'selected' : '' }}>
+                                            {{ $concepto->nombre }}
+                                            @if($concepto->monto_sugerido) — ${{ number_format($concepto->monto_sugerido, 2) }} @endif
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="concepto-hint" id="conceptoHintAdmin"></div>
+                            @error('id_concepto')<div class="text-danger mt-1">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- Método de pago --}}
+                        <div class="form-group">
+                            <label class="form-label" for="id_tipo_pago">
+                                Método de Pago <span class="required">*</span>
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-tag input-icon"></i>
+                                <select name="id_tipo_pago" id="id_tipo_pago" class="form-select" required>
+                                    <option value="">Seleccione el método</option>
+                                    @foreach($tipos_pago as $tipo)
+                                        <option value="{{ $tipo->id_tipo_pago }}"
+                                            {{ old('id_tipo_pago') == $tipo->id_tipo_pago ? 'selected' : '' }}>
+                                            {{ $tipo->nombre_tipo }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @error('id_tipo_pago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- Monto --}}
+                        <div class="form-group">
+                            <label class="form-label" for="monto_admin">
+                                Monto Total <span class="required">*</span>
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-currency-dollar input-icon"></i>
+                                <input type="number" step="0.01" name="monto" id="monto_admin"
+                                       class="form-input" placeholder="0.00"
+                                       value="{{ old('monto') }}" required>
+                            </div>
+                            @error('monto')<div class="text-danger mt-1">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- Fecha --}}
+                        <div class="form-group">
+                            <label class="form-label" for="fechaPago">
+                                Fecha <span class="required">*</span>
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-calendar-check input-icon"></i>
+                                <input type="date" name="fechaPago" id="fechaPago" class="form-input"
+                                       value="{{ old('fechaPago', date('Y-m-d')) }}" required>
+                            </div>
+                            @error('fechaPago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{--
+                            Estado inicial:
+                            - Pendiente  → alumno pagará después
+                            - Completado → admin recibe efectivo en este momento
+                            "Fallido" no aparece aquí — lo asigna MercadoPago automáticamente.
+                        --}}
+                        <div class="form-group" id="estadoWrapAdmin">
+                            <label class="form-label" for="estadoPago">
+                                Estado <span class="required">*</span>
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-check-circle input-icon"></i>
+                                <select name="estadoPago" id="estadoPago" class="form-select" required>
+                                    <option value="Pendiente"  {{ old('estadoPago', 'Pendiente') == 'Pendiente'  ? 'selected' : '' }}>Pendiente (el alumno pagará después)</option>
+                                    <option value="Completado" {{ old('estadoPago') == 'Completado' ? 'selected' : '' }}>Completado (recibí efectivo ahora)</option>
+                                </select>
+                            </div>
+                            @error('estadoPago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
+                        </div>
+
+                        {{-- Nota adicional --}}
+                        <div class="form-group">
+                            <label class="form-label" for="motivoPago_admin">Nota / Detalle adicional</label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-chat-left-text input-icon"></i>
+                                <input type="text" name="motivoPago" id="motivoPago_admin" class="form-input"
+                                       placeholder="Ej: Mensualidad Mayo 2026"
+                                       value="{{ old('motivoPago') }}">
+                            </div>
+                        </div>
+
+                        {{-- Referencia --}}
+                        <div class="form-group" id="refAdminWrap">
+                            <label class="form-label" for="referenciaPago">Referencia (opcional)</label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-receipt input-icon"></i>
+                                <input type="text" name="referenciaPago" id="referenciaPago" class="form-input"
+                                       placeholder="Número de recibo o voucher"
+                                       value="{{ old('referenciaPago') }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Toggle pago en línea --}}
+                    <div class="form-group" style="margin-top:16px;">
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;font-size:15px;">
+                            <input type="checkbox" name="pagar_en_linea" id="pagarEnLinea" value="1"
+                                   style="width:18px;height:18px;accent-color:#009ee3;"
+                                   {{ old('pagar_en_linea') ? 'checked' : '' }}>
+                            <span>
+                                <i class="bi bi-credit-card-2-front-fill" style="color:#009ee3;font-size:18px;"></i>
+                                Pagar en línea ahora con
+                                <img src="https://http2.mlstatic.com/storage/logos-api-admin/0be7e630-3454-11ec-9874-2d2a4f2ed7de-xl.webp"
+                                     alt="MercadoPago" style="height:20px;vertical-align:middle;margin-left:4px;">
+                            </span>
+                        </label>
+                        <p style="margin-left:28px;margin-top:4px;font-size:12px;color:#718096;">
+                            Se creará el cargo y se abrirá la página de pago. El estado se actualiza automáticamente al completarse.
+                        </p>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="reset" class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> Limpiar
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="btnSubmitAdmin">
+                            <i class="bi bi-check-lg"></i> Registrar Cargo
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {{-- ── TAB 2: Gestión de conceptos de pago ── --}}
+            <div id="tab-conceptos" class="tab-content">
+
+                {{-- Formulario para nuevo concepto --}}
+                <form method="POST" action="{{ route('conceptos.store') }}" class="form-body" style="margin-bottom:24px;">
+                    @csrf
+                    <h3 class="section-title-header">
+                        <i class="bi bi-plus-circle"></i> Agregar Nuevo Concepto
+                    </h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="nuevo_nombre">Nombre <span class="required">*</span></label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-bookmark input-icon"></i>
+                                <input type="text" name="nombre" id="nuevo_nombre" class="form-input"
+                                       placeholder="Ej: Torneo Regional" required>
+                            </div>
+                            @error('nombre')<div class="text-danger mt-1">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="nuevo_monto">Monto Sugerido</label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-currency-dollar input-icon"></i>
+                                <input type="number" step="0.01" name="monto_sugerido" id="nuevo_monto"
+                                       class="form-input" placeholder="0.00 (opcional)">
+                            </div>
+                        </div>
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label class="form-label" for="nuevo_desc">Descripción (opcional)</label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-text-left input-icon"></i>
+                                <input type="text" name="descripcion" id="nuevo_desc" class="form-input"
+                                       placeholder="Breve descripción del concepto">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-plus-lg"></i> Agregar Concepto
+                        </button>
+                    </div>
+                </form>
+
+                {{-- Lista de conceptos existentes --}}
+                <h3 class="section-title-header" style="margin-top:0;">
+                    <i class="bi bi-list-ul"></i> Conceptos Registrados
+                </h3>
+                <div class="conceptos-panel">
+                    @forelse($conceptos_todos as $c)
+                        <div class="concepto-row">
+                            <span class="concepto-nombre">{{ $c->nombre }}</span>
+                            @if($c->descripcion)
+                                <span style="font-size:12px;color:#9e9e9e;flex:1;">{{ $c->descripcion }}</span>
+                            @endif
+                            <span class="concepto-monto">
+                                {{ $c->monto_sugerido ? '$' . number_format($c->monto_sugerido, 2) : '—' }}
+                            </span>
+                            <span class="concepto-estado {{ $c->activo ? 'concepto-activo' : 'concepto-inactivo' }}">
+                                {{ $c->activo ? 'Activo' : 'Inactivo' }}
+                            </span>
+                            <button type="button" class="btn-edit-concepto"
+                                onclick="abrirEditConcepto(
+                                    {{ $c->id_concepto }},
+                                    '{{ addslashes($c->nombre) }}',
+                                    '{{ addslashes($c->descripcion ?? '') }}',
+                                    '{{ $c->monto_sugerido }}',
+                                    {{ $c->activo ? 1 : 0 }}
+                                )">
+                                <i class="bi bi-pencil"></i> Editar
+                            </button>
+                        </div>
+                    @empty
+                        <p style="color:#9e9e9e;text-align:center;padding:20px;">
+                            No hay conceptos registrados aún.
+                        </p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+
+        {{-- ══════════════════════════════════════════════════════════
+             BLOQUE ALUMNO / TUTOR
+             Formulario para registrar su propio pago
+        ══════════════════════════════════════════════════════════ --}}
+        @else
+
+        <div class="form-container form-theme-red">
+            <div class="form-header">
+                <h2><i class="bi bi-credit-card-fill"></i> Registrar Pago</h2>
+                <p>Elige el concepto, ajusta el monto si vas a hacer un pago parcial y selecciona cómo vas a pagar.</p>
+            </div>
+
+            <form id="registroPagoAlumno" method="POST" action="{{ route('pagos.store') }}" class="form-body">
                 @csrf
 
-                {{-- Alumno destinatario --}}
                 <h3 class="section-title-header">
-                    <i class="bi bi-person-circle"></i> Alumno o Tutor
-                </h3>
-                <div class="form-grid full-width">
-                    <div class="form-group">
-                        <label class="form-label" for="id_alumno">
-                            Destinatario <span class="required">*</span>
-                        </label>
-                        <div class="form-input-wrapper">
-                            <i class="bi bi-person-badge input-icon"></i>
-                            <select name="id_alumno" id="id_alumno" class="form-select" required>
-                                <option value="">Seleccione alumno o tutor</option>
-                                @foreach($alumnos as $alumno)
-                                    <option value="{{ $alumno->id_usuario }}"
-                                        {{ old('id_alumno') == $alumno->id_usuario ? 'selected' : '' }}>
-                                        {{ $alumno->nombre_completo }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        @error('id_alumno')<div class="text-danger mt-1">{{ $message }}</div>@enderror
-                    </div>
-                </div>
-
-                {{-- Concepto del cargo --}}
-                <h3 class="section-title-header">
-                    <i class="bi bi-receipt-cutoff"></i> Concepto del Cargo
+                    <i class="bi bi-bookmark"></i> Concepto del Pago
                 </h3>
                 <div class="form-grid">
-                    {{-- Selector de concepto predefinido --}}
-                    <div class="form-group">
-                        <label class="form-label" for="id_concepto">
+
+                    {{-- Concepto del catálogo --}}
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label class="form-label" for="id_concepto_alumno">
                             Concepto <span class="required">*</span>
                         </label>
                         <div class="form-input-wrapper">
                             <i class="bi bi-bookmark input-icon"></i>
-                            <select name="id_concepto" id="id_concepto" class="form-select">
-                                <option value="">— Sin concepto predefinido —</option>
+                            <select name="id_concepto" id="id_concepto_alumno" class="form-select" required>
+                                <option value="">Seleccione un concepto</option>
                                 @foreach($conceptos as $concepto)
                                     <option value="{{ $concepto->id_concepto }}"
                                         data-monto="{{ $concepto->monto_sugerido }}"
@@ -149,20 +444,54 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="concepto-hint" id="conceptoHint"></div>
+                        <div class="concepto-hint" id="conceptoHintAlumno"></div>
+                        @error('id_concepto')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                     </div>
 
-                    {{-- Tipo de pago (método) --}}
+                    {{--
+                        Monto: el alumno puede ajustarlo (para abonos parciales).
+                        Se autocompleta con el monto sugerido del concepto.
+                    --}}
                     <div class="form-group">
-                        <label class="form-label" for="id_tipo_pago">
+                        <label class="form-label" for="monto_alumno">
+                            Monto a Pagar <span class="required">*</span>
+                        </label>
+                        <div class="form-input-wrapper">
+                            <i class="bi bi-currency-dollar input-icon"></i>
+                            <input type="number" step="0.01" name="monto" id="monto_alumno"
+                                   class="form-input" placeholder="0.00"
+                                   value="{{ old('monto') }}" required>
+                        </div>
+                        <div class="concepto-hint">Puedes ajustar el monto si vas a hacer un abono parcial.</div>
+                        @error('monto')<div class="text-danger mt-1">{{ $message }}</div>@enderror
+                    </div>
+
+                    {{-- Fecha --}}
+                    <div class="form-group">
+                        <label class="form-label" for="fechaPago_alumno">
+                            Fecha <span class="required">*</span>
+                        </label>
+                        <div class="form-input-wrapper">
+                            <i class="bi bi-calendar-check input-icon"></i>
+                            <input type="date" name="fechaPago" id="fechaPago_alumno" class="form-input"
+                                   value="{{ old('fechaPago', date('Y-m-d')) }}" required>
+                        </div>
+                        @error('fechaPago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
+                    </div>
+
+                    {{-- Método de pago --}}
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label class="form-label" for="id_tipo_pago_alumno">
                             Método de Pago <span class="required">*</span>
                         </label>
                         <div class="form-input-wrapper">
                             <i class="bi bi-tag input-icon"></i>
-                            <select name="id_tipo_pago" id="id_tipo_pago" class="form-select" required>
+                            <select name="id_tipo_pago" id="id_tipo_pago_alumno" class="form-select" required
+                                    onchange="mostrarAvisoEfectivo(this.value)">
                                 <option value="">Seleccione el método</option>
                                 @foreach($tipos_pago as $tipo)
                                     <option value="{{ $tipo->id_tipo_pago }}"
+                                        data-nombre="{{ strtolower($tipo->nombre_tipo) }}"
                                         {{ old('id_tipo_pago') == $tipo->id_tipo_pago ? 'selected' : '' }}>
                                         {{ $tipo->nombre_tipo }}
                                     </option>
@@ -170,120 +499,63 @@
                             </select>
                         </div>
                         @error('id_tipo_pago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
-                    </div>
 
-                    {{-- Monto total --}}
-                    <div class="form-group">
-                        <label class="form-label" for="monto">
-                            Monto Total <span class="required">*</span>
-                        </label>
-                        <div class="form-input-wrapper">
-                            <i class="bi bi-currency-dollar input-icon"></i>
-                            <input type="number" step="0.01" name="monto" id="monto"
-                                   class="form-input" placeholder="0.00"
-                                   value="{{ old('monto') }}" required>
+                        {{-- Aviso si el alumno elige efectivo --}}
+                        <div class="aviso-efectivo" id="avisoEfectivo">
+                            <i class="bi bi-info-circle-fill"></i>
+                            <strong>Pago en efectivo:</strong> Tu registro quedará como <strong>Pendiente</strong>
+                            hasta que el administrador o sensei lo confirme presencialmente.
                         </div>
-                        @error('monto')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                     </div>
 
-                    {{-- Fecha --}}
-                    <div class="form-group">
-                        <label class="form-label" for="fechaPago">
-                            Fecha <span class="required">*</span>
-                        </label>
-                        <div class="form-input-wrapper">
-                            <i class="bi bi-calendar-check input-icon"></i>
-                            <input type="date" name="fechaPago" id="fechaPago" class="form-input"
-                                   value="{{ old('fechaPago', date('Y-m-d')) }}" required>
-                        </div>
-                        @error('fechaPago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
-                    </div>
-
-                    {{--
-                        Estado inicial del pago:
-                        - Pendiente  → el alumno aún no ha pagado (default)
-                        - Completado → admin recibe efectivo en mano en este momento
-                        NO existe "Fallido" aquí — ese estado lo asigna MercadoPago automáticamente.
-                    --}}
-                    <div class="form-group" id="estadoWrap">
-                        <label class="form-label" for="estadoPago">
-                            Estado <span class="required">*</span>
-                        </label>
-                        <div class="form-input-wrapper">
-                            <i class="bi bi-check-circle input-icon"></i>
-                            <select name="estadoPago" id="estadoPago" class="form-select" required>
-                                <option value="Pendiente"   {{ old('estadoPago', 'Pendiente') == 'Pendiente'  ? 'selected' : '' }}>Pendiente (alumno pagará después)</option>
-                                <option value="Completado"  {{ old('estadoPago') == 'Completado' ? 'selected' : '' }}>Completado (recibí efectivo ahora)</option>
-                            </select>
-                        </div>
-                        @error('estadoPago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
-                    </div>
-
-                    {{-- Motivo personalizado (opcional si hay concepto) --}}
-                    <div class="form-group">
-                        <label class="form-label" for="motivoPago">Nota / Motivo adicional</label>
+                    {{-- Nota opcional --}}
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label class="form-label" for="motivoPago_alumno">Nota adicional (opcional)</label>
                         <div class="form-input-wrapper">
                             <i class="bi bi-chat-left-text input-icon"></i>
-                            <input type="text" name="motivoPago" id="motivoPago" class="form-input"
+                            <input type="text" name="motivoPago" id="motivoPago_alumno" class="form-input"
                                    placeholder="Ej: Mensualidad Mayo 2026"
                                    value="{{ old('motivoPago') }}">
                         </div>
-                        @error('motivoPago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
-                    </div>
-
-                    {{-- Referencia (solo si no es en línea) --}}
-                    <div class="form-group" id="referenciaRegistroWrap">
-                        <label class="form-label" for="referenciaPago">Referencia (Opcional)</label>
-                        <div class="form-input-wrapper">
-                            <i class="bi bi-receipt input-icon"></i>
-                            <input type="text" name="referenciaPago" id="referenciaPago" class="form-input"
-                                   placeholder="Número de recibo o voucher"
-                                   value="{{ old('referenciaPago') }}">
-                        </div>
-                        @error('referenciaPago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                     </div>
                 </div>
 
-                {{-- Opción pago en línea --}}
+                {{-- Toggle pago en línea --}}
                 <div class="form-group" style="margin-top:16px;">
                     <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;font-size:15px;">
-                        <input type="checkbox" name="pagar_en_linea" id="pagarEnLinea" value="1"
+                        <input type="checkbox" name="pagar_en_linea" id="pagarEnLineaAlumno" value="1"
                                style="width:18px;height:18px;accent-color:#009ee3;"
-                               {{ old('pagar_en_linea') ? 'checked' : '' }}>
+                               {{ old('pagar_en_linea') ? 'checked' : '' }}
+                               onchange="toggleEnLineaAlumno(this)">
                         <span>
                             <i class="bi bi-credit-card-2-front-fill" style="color:#009ee3;font-size:18px;"></i>
-                            Pagar en línea ahora con
+                            Pagar en línea con
                             <img src="https://http2.mlstatic.com/storage/logos-api-admin/0be7e630-3454-11ec-9874-2d2a4f2ed7de-xl.webp"
                                  alt="MercadoPago" style="height:20px;vertical-align:middle;margin-left:4px;">
                         </span>
                     </label>
                     <p style="margin-left:28px;margin-top:4px;font-size:12px;color:#718096;">
-                        Al marcar esta opción se creará el cargo y se abrirá la página de pago con MercadoPago.
-                        El estado se actualizará automáticamente al completarse. Se ignorará la opción de estado seleccionada arriba.
+                        Al marcar esta opción serás redirigido al checkout de MercadoPago (tarjeta, OXXO, SPEI, etc.).
+                        El pago se confirmará automáticamente.
                     </p>
                 </div>
 
                 <div class="form-actions">
-                    <button type="reset" class="btn btn-secondary">
+                    <button type="reset" class="btn btn-secondary" onclick="resetFormAlumno()">
                         <i class="bi bi-x-lg"></i> Limpiar
                     </button>
-                    <button type="submit" class="btn btn-primary" id="btnSubmit">
-                        <i class="bi bi-check-lg"></i> Registrar Cargo
+                    <button type="submit" class="btn btn-primary" id="btnSubmitAlumno">
+                        <i class="bi bi-check-lg"></i> Registrar Pago
                     </button>
                 </div>
             </form>
         </div>
-        @else
-        {{-- ── Banner informativo para alumno/tutor ──────────────────── --}}
-        <div class="info-banner">
-            <i class="bi bi-info-circle-fill"></i>
-            <p>Aquí puedes ver los cargos que el administrador ha asignado a tu cuenta. Usa el botón <strong>Pagar</strong> para liquidar un cargo en línea con MercadoPago, o <strong>Abono</strong> para realizar un pago parcial.</p>
-        </div>
+
         @endif
 
-        {{-- ══════════════════════════════════════════════════════
-             TABLA DE PAGOS
-        ══════════════════════════════════════════════════════ --}}
+        {{-- ══════════════════════════════════════════════════════════
+             TABLA DE PAGOS (todos los roles)
+        ══════════════════════════════════════════════════════════ --}}
         <div class="table-container">
             <div class="table-header">
                 <h2 class="table-title">
@@ -291,7 +563,7 @@
                     @if(in_array($user->rol, ['admin', 'sensei']))
                         Historial de Pagos ({{ count($pagos) }})
                     @else
-                        Mis Cargos ({{ count($pagos) }})
+                        Mis Pagos ({{ count($pagos) }})
                     @endif
                 </h2>
                 <div class="table-filters">
@@ -332,11 +604,9 @@
                                 $montoPagado = $pago->monto_pagado ?? 0;
                                 $saldo       = $montoTotal - $montoPagado;
                                 $porcentaje  = $montoTotal > 0 ? min(100, ($montoPagado / $montoTotal) * 100) : 0;
-                                // Concepto a mostrar: nombre del catálogo o motivo libre
                                 $concepto    = $pago->nombre_concepto ?? $pago->motivo_pago ?? '—';
                             @endphp
                             <tr>
-                                {{-- Columna alumno: solo admin/sensei --}}
                                 @if(in_array($user->rol, ['admin', 'sensei']))
                                 <td>
                                     <div class="student-cell">
@@ -394,11 +664,10 @@
                                     @endif
                                 </td>
 
-                                {{-- Acciones --}}
                                 <td>
                                     <div class="acciones-cell">
 
-                                        {{-- Pagar con MercadoPago: cualquier rol si está pendiente --}}
+                                        {{-- Pagar con MP: cualquier rol si hay saldo --}}
                                         @if($pago->estado_pago !== 'Completado' && $saldo > 0)
                                             <a href="{{ route('pagos.pagar', $pago->id_pago) }}"
                                                class="btn btn-primary"
@@ -409,11 +678,10 @@
 
                                         {{-- Abono: cualquier rol si hay saldo --}}
                                         @if($pago->estado_pago !== 'Completado' && $saldo > 0)
-                                            <button type="button"
-                                                class="btn-abono"
+                                            <button type="button" class="btn-abono"
                                                 onclick="abrirModalAbono(
                                                     {{ $pago->id_pago }},
-                                                    '{{ addslashes($pago->nombre_alumno ?? Auth::user()->nombre . ' ' . Auth::user()->apaterno) }}',
+                                                    '{{ addslashes($pago->nombre_alumno ?? ($user->nombre . ' ' . $user->apaterno)) }}',
                                                     {{ $montoTotal }},
                                                     {{ $montoPagado }},
                                                     {{ $saldo }},
@@ -423,7 +691,7 @@
                                             </button>
                                         @endif
 
-                                        {{-- Completar: solo admin/sensei, solo Pendiente --}}
+                                        {{-- Completar: solo admin/sensei --}}
                                         @if(in_array($user->rol, ['admin', 'sensei']) && $pago->estado_pago === 'Pendiente')
                                             <form method="POST"
                                                   action="{{ route('pagos.completar', $pago->id_pago) }}"
@@ -459,7 +727,7 @@
                                     @if(in_array($user->rol, ['admin', 'sensei']))
                                         No hay pagos registrados aún.
                                     @else
-                                        No tienes cargos asignados. Si tienes un pendiente, contacta al administrador.
+                                        No tienes pagos registrados. Usa el formulario de arriba para registrar uno.
                                     @endif
                                 </td>
                             </tr>
@@ -511,11 +779,18 @@
 
             <div id="tipoAbonoWrap">
                 <label for="tipo_abono">Tipo de abono <span style="color:#e53935;">*</span></label>
-                <select name="tipo_abono" id="tipo_abono" required>
+                <select name="tipo_abono" id="tipo_abono" required onchange="cambiarTipoAbono(this.value)">
                     <option value="en_linea">En línea (MercadoPago)</option>
-                    {{-- Efectivo: visible solo para admin/sensei via JS --}}
+                    {{-- Efectivo: visible para todos; el JS lo controla por rol --}}
                     <option value="efectivo" id="opcionEfectivo" style="display:none;">Efectivo</option>
                 </select>
+            </div>
+
+            {{-- Aviso si alumno elige efectivo en el modal --}}
+            <div id="avisoEfectivoAbono" style="display:none;"
+                 class="aviso-efectivo" style="display:none;margin-bottom:8px;">
+                <i class="bi bi-info-circle-fill"></i>
+                Tu abono en efectivo quedará <strong>Pendiente</strong> hasta que el administrador lo confirme.
             </div>
 
             <div id="referenciaWrap" style="display:none;">
@@ -524,7 +799,7 @@
             </div>
 
             <button type="submit" class="btn-abono-submit">
-                <i class="bi bi-check-lg"></i> Registrar Abono
+                <i class="bi bi-check-lg"></i> <span id="textoSubmitAbono">Registrar Abono</span>
             </button>
         </form>
     </div>
@@ -546,22 +821,83 @@
     </div>
 </div>
 
+{{-- ══════════════════════════════════════════════════════════════════════
+     MODAL EDITAR CONCEPTO (admin/sensei)
+══════════════════════════════════════════════════════════════════════ --}}
+<div class="modal-overlay" id="modalEditConcepto">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3><i class="bi bi-pencil-square" style="color:#1565c0;"></i> Editar Concepto</h3>
+            <button class="modal-close" onclick="cerrarModal('modalEditConcepto')">×</button>
+        </div>
+        <form id="formEditConcepto" method="POST" action="">
+            @csrf
+            @method('PUT')
+
+            <div style="margin-bottom:14px;">
+                <label style="font-size:13px;font-weight:600;color:#4a5568;margin-bottom:4px;display:block;">
+                    Nombre <span style="color:#e53935;">*</span>
+                </label>
+                <input type="text" name="nombre" id="edit_nombre"
+                       style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;"
+                       required>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label style="font-size:13px;font-weight:600;color:#4a5568;margin-bottom:4px;display:block;">
+                    Monto Sugerido
+                </label>
+                <input type="number" step="0.01" name="monto_sugerido" id="edit_monto"
+                       placeholder="0.00 (dejar vacío si no aplica)"
+                       style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label style="font-size:13px;font-weight:600;color:#4a5568;margin-bottom:4px;display:block;">
+                    Descripción
+                </label>
+                <input type="text" name="descripcion" id="edit_desc"
+                       placeholder="Opcional"
+                       style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;">
+            </div>
+
+            <div style="margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+                <input type="checkbox" name="activo" id="edit_activo" value="1"
+                       style="width:18px;height:18px;accent-color:#e53935;">
+                <label for="edit_activo" style="font-size:14px;font-weight:600;color:#2d3748;cursor:pointer;">
+                    Concepto activo (aparece en el formulario de pago)
+                </label>
+            </div>
+
+            <div style="display:flex;gap:10px;">
+                <button type="button" class="btn btn-secondary" onclick="cerrarModal('modalEditConcepto')"
+                        style="flex:1;padding:12px;">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary" style="flex:1;padding:12px;">
+                    <i class="bi bi-check-lg"></i> Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
-    let pagoIdActual = null;
+    // ── Variables globales ─────────────────────────────────────────────
+    const ROL_USUARIO = '{{ $user->rol }}';
 
+    // ── SweetAlert al cargar ───────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', function () {
-
-        // ── SweetAlert en carga ──────────────────────────────────────
         @if(session('sessionInsertado'))
             Swal.fire({
                 icon:              '{{ session('sessionInsertado') == 'true' ? 'success' : 'error' }}',
-                title:             '{{ session('mensaje') }}',
+                title:             '{{ addslashes(session('mensaje')) }}',
                 showConfirmButton: false,
-                timer:             2500,
+                timer:             3000,
             });
         @endif
 
-        // ── Filtro por estado ────────────────────────────────────────
+        // ── Filtro por estado ──────────────────────────────────────────
         document.getElementById('filterEstado').addEventListener('change', function () {
             const val = this.value.toLowerCase();
             document.querySelectorAll('#pagosTable tbody tr').forEach(row => {
@@ -569,7 +905,7 @@
             });
         });
 
-        // ── Búsqueda ─────────────────────────────────────────────────
+        // ── Búsqueda ──────────────────────────────────────────────────
         document.getElementById('searchInput').addEventListener('keyup', function () {
             const val = this.value.toLowerCase();
             document.querySelectorAll('#pagosTable tbody tr').forEach(row => {
@@ -577,83 +913,163 @@
             });
         });
 
-        // ── Concepto predefinido → autocompletar monto y hint ────────
-        const selectConcepto = document.getElementById('id_concepto');
-        if (selectConcepto) {
-            selectConcepto.addEventListener('change', function () {
-                const opt    = this.options[this.selectedIndex];
-                const monto  = opt.dataset.monto;
-                const nombre = opt.dataset.nombre;
-                const hint   = document.getElementById('conceptoHint');
-                const campoMonto = document.getElementById('monto');
-
+        // ── Concepto admin → autocompletar monto ──────────────────────
+        const selectAdmin = document.getElementById('id_concepto_admin');
+        if (selectAdmin) {
+            selectAdmin.addEventListener('change', function () {
+                const opt   = this.options[this.selectedIndex];
+                const monto = opt.dataset.monto;
+                const hint  = document.getElementById('conceptoHintAdmin');
+                const campo = document.getElementById('monto_admin');
                 if (monto) {
-                    campoMonto.value = monto;
-                    hint.innerHTML = `Monto sugerido autocompletado: <strong>$${ parseFloat(monto).toFixed(2) }</strong>. Puedes modificarlo.`;
+                    campo.value = monto;
+                    hint.innerHTML = `Monto sugerido autocompletado: <strong>$${parseFloat(monto).toFixed(2)}</strong>. Puedes modificarlo.`;
                 } else {
-                    hint.innerHTML = nombre ? `Concepto seleccionado: <strong>${nombre}</strong>. Ingresa el monto manualmente.` : '';
+                    hint.innerHTML = opt.value ? 'Sin monto sugerido. Ingresa el monto manualmente.' : '';
                 }
             });
         }
 
-        // ── Pagar en línea → ocultar estado, cambiar botón ──────────
-        const chk = document.getElementById('pagarEnLinea');
-        if (chk) {
-            chk.addEventListener('change', function () {
-                const btn    = document.getElementById('btnSubmit');
-                const estado = document.getElementById('estadoWrap');
-                const refWrap = document.getElementById('referenciaRegistroWrap');
+        // ── Concepto alumno → autocompletar monto ─────────────────────
+        const selectAlumno = document.getElementById('id_concepto_alumno');
+        if (selectAlumno) {
+            selectAlumno.addEventListener('change', function () {
+                const opt   = this.options[this.selectedIndex];
+                const monto = opt.dataset.monto;
+                const hint  = document.getElementById('conceptoHintAlumno');
+                const campo = document.getElementById('monto_alumno');
+                if (monto) {
+                    campo.value = monto;
+                    hint.innerHTML = `Monto sugerido: <strong>$${parseFloat(monto).toFixed(2)}</strong>. Puedes reducirlo si vas a hacer un abono parcial.`;
+                } else {
+                    hint.innerHTML = opt.value ? 'Sin monto sugerido. Ingresa el monto que vas a pagar.' : '';
+                }
+            });
+        }
 
+        // ── Admin: pagar en línea → ocultar estado y referencia ───────
+        const chkAdmin = document.getElementById('pagarEnLinea');
+        if (chkAdmin) {
+            chkAdmin.addEventListener('change', function () {
+                const btn     = document.getElementById('btnSubmitAdmin');
+                const estado  = document.getElementById('estadoWrapAdmin');
+                const refWrap = document.getElementById('refAdminWrap');
                 if (this.checked) {
-                    btn.innerHTML           = '<i class="bi bi-credit-card-2-front-fill"></i> Crear cargo y Pagar en línea';
+                    btn.innerHTML             = '<i class="bi bi-credit-card-2-front-fill"></i> Crear cargo y Pagar en línea';
                     btn.style.backgroundColor = '#009ee3';
                     btn.style.borderColor     = '#009ee3';
-                    if (estado)  estado.style.opacity  = '0.4';
-                    if (refWrap) refWrap.style.display  = 'none';
+                    if (estado)  estado.style.opacity = '0.4';
+                    if (refWrap) refWrap.style.display = 'none';
                 } else {
-                    btn.innerHTML           = '<i class="bi bi-check-lg"></i> Registrar Cargo';
+                    btn.innerHTML             = '<i class="bi bi-check-lg"></i> Registrar Cargo';
                     btn.style.backgroundColor = '';
                     btn.style.borderColor     = '';
-                    if (estado)  estado.style.opacity  = '1';
-                    if (refWrap) refWrap.style.display  = '';
+                    if (estado)  estado.style.opacity = '1';
+                    if (refWrap) refWrap.style.display = '';
                 }
             });
         }
 
-        // ── Abono: mostrar referencia si es efectivo ─────────────────
+        // ── Tipo de abono modal → mostrar referencia / aviso ──────────
         const tipoAbono = document.getElementById('tipo_abono');
         if (tipoAbono) {
             tipoAbono.addEventListener('change', function () {
-                document.getElementById('referenciaWrap').style.display =
-                    this.value === 'efectivo' ? 'block' : 'none';
+                cambiarTipoAbono(this.value);
             });
         }
     });
 
+    // ── Tabs admin ─────────────────────────────────────────────────────
+    function activarTab(tabId, btn) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    // ── Aviso efectivo alumno (formulario principal) ───────────────────
+    function mostrarAvisoEfectivo(valor) {
+        const aviso = document.getElementById('avisoEfectivo');
+        if (!aviso) return;
+        const select  = document.getElementById('id_tipo_pago_alumno');
+        const opt     = select ? select.options[select.selectedIndex] : null;
+        const nombre  = opt ? opt.dataset.nombre : '';
+        // Mostrar aviso si elige "Efectivo" (o cualquier método que no sea en línea)
+        const esEnLinea = document.getElementById('pagarEnLineaAlumno')?.checked;
+        aviso.style.display = (!esEnLinea && nombre === 'efectivo') ? 'block' : 'none';
+    }
+
+    // ── Toggle en línea alumno ─────────────────────────────────────────
+    function toggleEnLineaAlumno(chk) {
+        const btn   = document.getElementById('btnSubmitAlumno');
+        const aviso = document.getElementById('avisoEfectivo');
+        if (chk.checked) {
+            btn.innerHTML             = '<i class="bi bi-credit-card-2-front-fill"></i> Ir a MercadoPago';
+            btn.style.backgroundColor = '#009ee3';
+            btn.style.borderColor     = '#009ee3';
+            if (aviso) aviso.style.display = 'none';
+        } else {
+            btn.innerHTML             = '<i class="bi bi-check-lg"></i> Registrar Pago';
+            btn.style.backgroundColor = '';
+            btn.style.borderColor     = '';
+            // Volver a revisar si hay aviso de efectivo
+            const select = document.getElementById('id_tipo_pago_alumno');
+            mostrarAvisoEfectivo(select ? select.value : '');
+        }
+    }
+
+    // ── Reset formulario alumno ────────────────────────────────────────
+    function resetFormAlumno() {
+        document.getElementById('conceptoHintAlumno').innerHTML = '';
+        document.getElementById('avisoEfectivo').style.display  = 'none';
+        const btn = document.getElementById('btnSubmitAlumno');
+        btn.innerHTML             = '<i class="bi bi-check-lg"></i> Registrar Pago';
+        btn.style.backgroundColor = '';
+        btn.style.borderColor     = '';
+    }
+
     // ── Modal Abono ───────────────────────────────────────────────────
     function abrirModalAbono(idPago, nombreAlumno, montoTotal, montoPagado, saldo, rol) {
-        pagoIdActual = idPago;
-
         document.getElementById('abonoAlumnoNombre').textContent = nombreAlumno;
         document.getElementById('abonoMontoTotal').textContent   = '$' + montoTotal.toFixed(2);
         document.getElementById('abonoMontoPagado').textContent  = '$' + montoPagado.toFixed(2);
         document.getElementById('abonoSaldo').textContent        = '$' + saldo.toFixed(2);
+        document.getElementById('monto_abono').max              = saldo;
+        document.getElementById('monto_abono').value            = '';
 
-        document.getElementById('monto_abono').max   = saldo;
-        document.getElementById('monto_abono').value = '';
+        // Efectivo visible para todos los roles;
+        // el aviso de "quedará Pendiente" aparece para alumno/tutor
+        document.getElementById('opcionEfectivo').style.display  = '';
+        document.getElementById('tipo_abono').value              = 'en_linea';
+        document.getElementById('referenciaWrap').style.display  = 'none';
+        document.getElementById('avisoEfectivoAbono').style.display = 'none';
+        document.getElementById('textoSubmitAbono').textContent  = 'Ir a MercadoPago';
 
-        // Efectivo solo para admin/sensei
-        const opcionEfectivo = document.getElementById('opcionEfectivo');
-        if (rol === 'admin' || rol === 'sensei') {
-            opcionEfectivo.style.display = '';
-        } else {
-            opcionEfectivo.style.display = 'none';
-            document.getElementById('tipo_abono').value = 'en_linea';
-        }
-
-        document.getElementById('referenciaWrap').style.display = 'none';
         document.getElementById('formAbono').action = '/pagos/' + idPago + '/abono';
         document.getElementById('modalAbono').classList.add('active');
+    }
+
+    // ── Cambio de tipo de abono en el modal ───────────────────────────
+    function cambiarTipoAbono(valor) {
+        const refWrap   = document.getElementById('referenciaWrap');
+        const aviso     = document.getElementById('avisoEfectivoAbono');
+        const textoBtn  = document.getElementById('textoSubmitAbono');
+        const btnSubmit = document.getElementById('formAbono').querySelector('button[type=submit]');
+
+        if (valor === 'efectivo') {
+            refWrap.style.display  = 'block';
+            textoBtn.textContent   = 'Registrar Abono';
+            btnSubmit.style.backgroundColor = '#4caf50';
+            // Mostrar aviso solo para alumno/tutor
+            if (ROL_USUARIO === 'alumno' || ROL_USUARIO === 'tutor') {
+                aviso.style.display = 'block';
+            }
+        } else {
+            refWrap.style.display  = 'none';
+            aviso.style.display    = 'none';
+            textoBtn.textContent   = 'Ir a MercadoPago';
+            btnSubmit.style.backgroundColor = '#e53935';
+        }
     }
 
     // ── Modal Ver Abonos ──────────────────────────────────────────────
@@ -695,15 +1111,25 @@
         });
     }
 
-    // ── Cerrar modales ────────────────────────────────────────────────
+    // ── Modal Editar Concepto ─────────────────────────────────────────
+    function abrirEditConcepto(id, nombre, descripcion, monto, activo) {
+        document.getElementById('edit_nombre').value   = nombre;
+        document.getElementById('edit_desc').value     = descripcion;
+        document.getElementById('edit_monto').value    = monto || '';
+        document.getElementById('edit_activo').checked = activo === 1;
+        document.getElementById('formEditConcepto').action = '/conceptos-pago/' + id;
+        document.getElementById('modalEditConcepto').classList.add('active');
+    }
+
+    // ── Cerrar cualquier modal ────────────────────────────────────────
     function cerrarModal(id) {
         document.getElementById(id).classList.remove('active');
     }
 
     document.addEventListener('click', function (e) {
-        ['modalAbono', 'modalVerAbonos'].forEach(id => {
+        ['modalAbono', 'modalVerAbonos', 'modalEditConcepto'].forEach(id => {
             const modal = document.getElementById(id);
-            if (e.target === modal) modal.classList.remove('active');
+            if (modal && e.target === modal) modal.classList.remove('active');
         });
     });
 </script>

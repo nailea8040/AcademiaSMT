@@ -27,20 +27,10 @@ class PagoApiController extends Controller
                 ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
                 ->leftJoin('concepto_pago as cp', 'p.id_concepto', '=', 'cp.id_concepto')
                 ->select(
-                    'p.id_pago',
-                    'p.monto',
-                    'p.monto_total',
-                    'p.monto_pagado',
-                    'p.motivo_pago',
-                    'p.fecha_pago',
-                    'p.referencia_pago',
-                    'p.estado_pago',
-                    'p.id_usuario',
-                    'p.id_tipo_pago',
-                    'p.id_concepto',
-                    'p.mp_preference_id',
-                    'p.mp_payment_id',
-                    'p.mp_status',
+                    'p.id_pago', 'p.monto', 'p.monto_total', 'p.monto_pagado',
+                    'p.motivo_pago', 'p.fecha_pago', 'p.referencia_pago',
+                    'p.estado_pago', 'p.id_usuario', 'p.id_tipo_pago', 'p.id_concepto',
+                    'p.mp_preference_id', 'p.mp_payment_id', 'p.mp_status',
                     DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno"),
                     'tp.nombre_tipo',
                     'cp.nombre AS nombre_concepto',
@@ -48,15 +38,11 @@ class PagoApiController extends Controller
                 )
                 ->orderBy('p.fecha_pago', 'desc');
 
-            // Alumno y tutor solo ven sus propios pagos
             if (in_array($user->rol, ['alumno', 'tutor'])) {
                 $query->where('p.id_usuario', $user->id_usuario);
             }
 
-            return response()->json([
-                'success' => true,
-                'data'    => $query->get(),
-            ]);
+            return response()->json(['success' => true, 'data' => $query->get()]);
 
         } catch (\Exception $e) {
             Log::error('PagoApi@index: ' . $e->getMessage());
@@ -66,45 +52,61 @@ class PagoApiController extends Controller
 
     // ──────────────────────────────────────────────────────────────────
     //  POST /api/pagos
-    //  Solo admin y sensei registran cargos nuevos.
-    //  Alumno/tutor no pueden crear pagos, solo pagarlos.
-    //  Estado por defecto: Pendiente.
+    //  Admin/sensei: registran cargos para cualquier alumno/tutor.
+    //  Alumno/tutor: registran su propio pago eligiendo concepto del
+    //                catálogo y ajustando el monto.
+    //                Estado siempre Pendiente hasta que admin confirme.
     // ──────────────────────────────────────────────────────────────────
     public function store(Request $request)
     {
-        $user = $request->user();
+        $user          = $request->user();
+        $esAdminSensei = in_array($user->rol, ['admin', 'sensei']);
+        $esAlumnoTutor = in_array($user->rol, ['alumno', 'tutor']);
 
-        if (!in_array($user->rol, ['admin', 'sensei'])) {
-            return response()->json(['success' => false, 'message' => 'No tienes permiso para registrar pagos.'], 403);
+        // Reglas comunes
+        $rules = [
+            'id_concepto'    => 'required|exists:concepto_pago,id_concepto',
+            'id_tipo_pago'   => 'required|exists:tipo_pago,id_tipo_pago',
+            'monto'          => 'required|numeric|min:1',
+            'fechaPago'      => 'required|date',
+            'motivoPago'     => 'nullable|string|max:100',
+            'pagar_en_linea' => 'boolean',
+        ];
+
+        // Reglas exclusivas de admin/sensei
+        if ($esAdminSensei) {
+            $rules['id_alumno']      = 'required|exists:usuario,id_usuario';
+            $rules['estadoPago']     = 'required|in:Pendiente,Completado';
+            $rules['referenciaPago'] = 'nullable|string|max:100';
         }
 
-        $validated = $request->validate([
-            'id_alumno'      => 'required|exists:usuario,id_usuario',
-            'id_tipo_pago'   => 'required|exists:tipo_pago,id_tipo_pago',
-            'id_concepto'    => 'nullable|exists:concepto_pago,id_concepto',
-            'monto'          => 'required|numeric|min:0',
-            'fechaPago'      => 'required|date',
-            'estadoPago'     => 'required|in:Pendiente,Completado',   // Sin "Fallido" — lo pone MP
-            'motivoPago'     => 'nullable|string|max:100',
-            'referenciaPago' => 'nullable|string|max:100',
-            'pagar_en_linea' => 'boolean',
-        ]);
+        $validated = $request->validate($rules);
+
+        // Destinatario: admin elige, alumno es él mismo
+        $idDestinatario = $esAdminSensei
+            ? $validated['id_alumno']
+            : $user->id_usuario;
 
         $pagarEnLinea = (bool) ($validated['pagar_en_linea'] ?? false);
-        $estadoFinal  = $pagarEnLinea ? 'Pendiente' : $validated['estadoPago'];
 
-        // Auto-completar motivo desde concepto
-        $motivo = $validated['motivoPago'] ?? null;
-        if (!$motivo && !empty($validated['id_concepto'])) {
-            $concepto = DB::table('concepto_pago')->find($validated['id_concepto']);
-            $motivo   = $concepto?->nombre ?? null;
+        // Estado inicial
+        $estadoFinal = 'Pendiente';
+        if ($esAdminSensei && !$pagarEnLinea) {
+            $estadoFinal = $validated['estadoPago'];
+        }
+
+        // Autocompletar motivo desde el concepto
+        $concepto = DB::table('concepto_pago')->find($validated['id_concepto']);
+        $motivo   = $validated['motivoPago'] ?? null;
+        if (!$motivo && $concepto) {
+            $motivo = $concepto->nombre;
         }
 
         try {
             $id = DB::table('pago')->insertGetId([
-                'id_usuario'      => $validated['id_alumno'],
+                'id_usuario'      => $idDestinatario,
                 'id_tipo_pago'    => $validated['id_tipo_pago'],
-                'id_concepto'     => $validated['id_concepto'] ?? null,
+                'id_concepto'     => $validated['id_concepto'],
                 'monto'           => $validated['monto'],
                 'monto_total'     => $validated['monto'],
                 'monto_pagado'    => 0.00,
@@ -114,18 +116,17 @@ class PagoApiController extends Controller
                 'estado_pago'     => $estadoFinal,
             ]);
 
-            // Si admin registra efectivo como Completado → abono automático
-            if (!$pagarEnLinea && $validated['estadoPago'] === 'Completado') {
+            // Admin registra efectivo como Completado → abono automático
+            if ($esAdminSensei && !$pagarEnLinea && $estadoFinal === 'Completado') {
                 DB::table('abono')->insert([
                     'id_pago'        => $id,
-                    'id_usuario'     => $validated['id_alumno'],
+                    'id_usuario'     => $idDestinatario,
                     'monto_abono'    => $validated['monto'],
                     'fecha_abono'    => $validated['fechaPago'],
                     'tipo_abono'     => 'efectivo',
                     'referencia'     => $validated['referenciaPago'] ?? null,
                     'registrado_por' => $user->id_usuario,
                 ]);
-
                 DB::table('pago')->where('id_pago', $id)->update([
                     'monto_pagado' => $validated['monto'],
                 ]);
@@ -133,14 +134,16 @@ class PagoApiController extends Controller
 
             $respuesta = [
                 'success' => true,
-                'message' => 'Pago registrado.',
+                'message' => $esAlumnoTutor && $estadoFinal === 'Pendiente' && !$pagarEnLinea
+                    ? 'Pago registrado. Quedará pendiente hasta que el administrador lo confirme.'
+                    : 'Pago registrado.',
                 'id'      => $id,
             ];
 
-            // Si se paga en línea → devolver URL de preference para que la app abra MP
+            // Pago en línea → crear preferencia MP
             if ($pagarEnLinea) {
                 $alumno = DB::table('usuario')
-                    ->where('id_usuario', $validated['id_alumno'])
+                    ->where('id_usuario', $idDestinatario)
                     ->select('nombre', 'apaterno', 'correo')
                     ->first();
 
@@ -173,15 +176,13 @@ class PagoApiController extends Controller
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  POST /api/pagos/{id}/completar
-    //  Admin/sensei marcan pago como Completado tras verificar
+    //  POST /api/pagos/{id}/completar  — solo admin/sensei
     // ──────────────────────────────────────────────────────────────────
     public function completar(Request $request, int $id)
     {
         $user = $request->user();
-
         if (!in_array($user->rol, ['admin', 'sensei'])) {
-            return response()->json(['success' => false, 'message' => 'No tienes permiso para completar pagos.'], 403);
+            return response()->json(['success' => false, 'message' => 'No tienes permiso.'], 403);
         }
 
         $pago = DB::table('pago')->where('id_pago', $id)->first();
@@ -206,9 +207,25 @@ class PagoApiController extends Controller
                 'monto_abono'    => $montoTotal,
                 'fecha_abono'    => now(),
                 'tipo_abono'     => $pago->mp_payment_id ? 'en_linea' : 'efectivo',
-                'referencia'     => $pago->mp_payment_id ? "MP-{$pago->mp_payment_id}" : 'Verificado por admin',
+                'referencia'     => $pago->mp_payment_id
+                    ? "MP-{$pago->mp_payment_id}"
+                    : 'Verificado por admin',
                 'registrado_por' => $user->id_usuario,
             ]);
+        } else {
+            $totalAbonado = DB::table('abono')->where('id_pago', $id)->sum('monto_abono');
+            $diferencia   = $montoTotal - $totalAbonado;
+            if ($diferencia > 0) {
+                DB::table('abono')->insert([
+                    'id_pago'        => $id,
+                    'id_usuario'     => $pago->id_usuario,
+                    'monto_abono'    => $diferencia,
+                    'fecha_abono'    => now(),
+                    'tipo_abono'     => 'efectivo',
+                    'referencia'     => 'Completado por admin',
+                    'registrado_por' => $user->id_usuario,
+                ]);
+            }
         }
 
         return response()->json(['success' => true, 'message' => 'Pago marcado como completado.']);
@@ -216,8 +233,8 @@ class PagoApiController extends Controller
 
     // ──────────────────────────────────────────────────────────────────
     //  POST /api/pagos/{id}/abono
-    //  Admin/sensei → efectivo o en línea
-    //  Alumno/tutor → solo en línea (sobre sus propios pagos)
+    //  Admin/sensei → efectivo (aplica inmediato) o en línea (MP)
+    //  Alumno/tutor → efectivo (Pendiente hasta confirmación) o en línea (MP)
     // ──────────────────────────────────────────────────────────────────
     public function abono(Request $request, int $id)
     {
@@ -237,10 +254,6 @@ class PagoApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
         }
 
-        if (in_array($user->rol, ['alumno', 'tutor']) && $validated['tipo_abono'] === 'efectivo') {
-            return response()->json(['success' => false, 'message' => 'Solo el administrador puede registrar abonos en efectivo.'], 403);
-        }
-
         $montoTotal  = $pago->monto_total  ?? $pago->monto;
         $montoPagado = $pago->monto_pagado ?? 0;
         $saldo       = $montoTotal - $montoPagado;
@@ -253,7 +266,7 @@ class PagoApiController extends Controller
         }
 
         try {
-            // ── Abono en línea ────────────────────────────────────────
+            // Abono en línea → crear preferencia MP
             if ($validated['tipo_abono'] === 'en_linea') {
                 $alumno = DB::table('usuario')
                     ->where('id_usuario', $pago->id_usuario)
@@ -295,9 +308,8 @@ class PagoApiController extends Controller
                 ], 201);
             }
 
-            // ── Abono en efectivo (solo admin/sensei) ─────────────────
-            $nuevoMontoPagado = $montoPagado + $validated['monto_abono'];
-            $nuevoEstado      = $nuevoMontoPagado >= $montoTotal ? 'Completado' : 'Pendiente';
+            // Abono en efectivo
+            $esAdminSensei = in_array($user->rol, ['admin', 'sensei']);
 
             DB::table('abono')->insert([
                 'id_pago'        => $id,
@@ -309,18 +321,27 @@ class PagoApiController extends Controller
                 'registrado_por' => $user->id_usuario,
             ]);
 
-            DB::table('pago')->where('id_pago', $id)->update([
-                'monto_pagado' => $nuevoMontoPagado,
-                'estado_pago'  => $nuevoEstado,
-            ]);
-
-            return response()->json([
-                'success'        => true,
-                'message'        => 'Abono registrado correctamente.',
-                'nuevo_estado'   => $nuevoEstado,
-                'monto_pagado'   => $nuevoMontoPagado,
-                'saldo_restante' => $montoTotal - $nuevoMontoPagado,
-            ]);
+            if ($esAdminSensei) {
+                $nuevoMontoPagado = $montoPagado + $validated['monto_abono'];
+                $nuevoEstado      = $nuevoMontoPagado >= $montoTotal ? 'Completado' : 'Pendiente';
+                DB::table('pago')->where('id_pago', $id)->update([
+                    'monto_pagado' => $nuevoMontoPagado,
+                    'estado_pago'  => $nuevoEstado,
+                ]);
+                return response()->json([
+                    'success'        => true,
+                    'message'        => 'Abono registrado correctamente.',
+                    'nuevo_estado'   => $nuevoEstado,
+                    'monto_pagado'   => $nuevoMontoPagado,
+                    'saldo_restante' => $montoTotal - $nuevoMontoPagado,
+                ]);
+            } else {
+                // Alumno: queda Pendiente hasta confirmación de admin
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Abono registrado. Quedará pendiente hasta que el administrador lo confirme.',
+                ]);
+            }
 
         } catch (\Exception $e) {
             Log::error('PagoApi@abono: ' . $e->getMessage());
@@ -329,8 +350,7 @@ class PagoApiController extends Controller
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  GET /api/pagos/{id}/preference
-    //  Devuelve (o crea) la preferencia MP para pagar desde la app móvil
+    //  GET /api/pagos/{id}/preference  — obtener/crear URL de MP
     // ──────────────────────────────────────────────────────────────────
     public function getPreference(Request $request, int $id)
     {
@@ -338,8 +358,12 @@ class PagoApiController extends Controller
         $pago = DB::table('pago as p')
             ->join('usuario as u', 'p.id_usuario', '=', 'u.id_usuario')
             ->where('p.id_pago', $id)
-            ->select('p.*', DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno"), 'u.correo',
-                DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante"))
+            ->select(
+                'p.*',
+                DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno"),
+                'u.correo',
+                DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante")
+            )
             ->first();
 
         if (!$pago) return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
@@ -395,7 +419,8 @@ class PagoApiController extends Controller
                 ->select(
                     'p.id_pago', 'p.monto', 'p.monto_total', 'p.monto_pagado',
                     'p.motivo_pago', 'p.fecha_pago', 'p.referencia_pago',
-                    'p.estado_pago', 'p.mp_status', 'tp.nombre_tipo', 'cp.nombre AS nombre_concepto',
+                    'p.estado_pago', 'p.mp_status', 'tp.nombre_tipo',
+                    'cp.nombre AS nombre_concepto',
                     DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante")
                 )
                 ->orderBy('p.fecha_pago', 'desc')
@@ -444,7 +469,94 @@ class PagoApiController extends Controller
     }
 
     // ──────────────────────────────────────────────────────────────────
-    //  POST /api/pagos/procesar  (Payment Brick callback desde pagar.blade)
+    //  GET /api/conceptos-pago  — catálogo activo (todos los roles)
+    // ──────────────────────────────────────────────────────────────────
+    public function conceptosPago()
+    {
+        try {
+            return response()->json([
+                'success' => true,
+                'data'    => DB::table('concepto_pago')->where('activo', 1)->orderBy('nombre')->get(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Error.'], 500);
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  GET /api/tipos-pago
+    // ──────────────────────────────────────────────────────────────────
+    public function tiposPago()
+    {
+        try {
+            return response()->json([
+                'success' => true,
+                'data'    => DB::table('tipo_pago')->orderBy('id_tipo_pago')->get(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Error.'], 500);
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  POST /api/conceptos-pago  — crear concepto (admin/sensei)
+    // ──────────────────────────────────────────────────────────────────
+    public function storeConcepto(Request $request)
+    {
+        $user = $request->user();
+        if (!in_array($user->rol, ['admin', 'sensei'])) {
+            return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
+        }
+
+        $validated = $request->validate([
+            'nombre'         => 'required|string|max:100|unique:concepto_pago,nombre',
+            'descripcion'    => 'nullable|string|max:255',
+            'monto_sugerido' => 'nullable|numeric|min:0',
+        ]);
+
+        $id = DB::table('concepto_pago')->insertGetId([
+            'nombre'         => $validated['nombre'],
+            'descripcion'    => $validated['descripcion'] ?? null,
+            'monto_sugerido' => $validated['monto_sugerido'] ?? null,
+            'activo'         => 1,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Concepto creado correctamente.',
+            'id'      => $id,
+        ], 201);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  PUT /api/conceptos-pago/{id}  — editar concepto (admin/sensei)
+    // ──────────────────────────────────────────────────────────────────
+    public function updateConcepto(Request $request, int $id)
+    {
+        $user = $request->user();
+        if (!in_array($user->rol, ['admin', 'sensei'])) {
+            return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
+        }
+
+        $validated = $request->validate([
+            'nombre'         => 'required|string|max:100|unique:concepto_pago,nombre,' . $id . ',id_concepto',
+            'descripcion'    => 'nullable|string|max:255',
+            'monto_sugerido' => 'nullable|numeric|min:0',
+            'activo'         => 'nullable|boolean',
+        ]);
+
+        DB::table('concepto_pago')->where('id_concepto', $id)->update([
+            'nombre'         => $validated['nombre'],
+            'descripcion'    => $validated['descripcion'] ?? null,
+            'monto_sugerido' => $validated['monto_sugerido'] ?? null,
+            'activo'         => $validated['activo'] ?? 1,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Concepto actualizado correctamente.']);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  POST /api/pagos/procesar  (Payment Brick callback)
     // ──────────────────────────────────────────────────────────────────
     public function procesar(Request $request)
     {
@@ -456,8 +568,10 @@ class PagoApiController extends Controller
         $pagoRegistro = DB::table('pago as p')
             ->join('usuario as u', 'p.id_usuario', '=', 'u.id_usuario')
             ->where('p.id_pago', $validated['id_pago'])
-            ->select('p.*', 'u.correo',
-                DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante"))
+            ->select(
+                'p.*', 'u.correo',
+                DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante")
+            )
             ->first();
 
         if (!$pagoRegistro) {
@@ -467,7 +581,7 @@ class PagoApiController extends Controller
         try {
             MercadoPagoConfig::setAccessToken(config('services.mercadopago.access_token'));
 
-            $formData   = $validated['formData'];
+            $formData    = $validated['formData'];
             $paymentData = array_merge($formData, [
                 'transaction_amount' => (float) $pagoRegistro->saldo_restante,
                 'description'        => $pagoRegistro->motivo_pago ?? 'Pago Academia',
@@ -494,7 +608,9 @@ class PagoApiController extends Controller
                 'mp_status'       => $payment->status,
                 'estado_pago'     => $estadoInterno,
                 'referencia_pago' => "MP-{$payment->id}",
-                'monto_pagado'    => $estadoInterno === 'Completado' ? $nuevoMontoPagado : ($pagoRegistro->monto_pagado ?? 0),
+                'monto_pagado'    => $estadoInterno === 'Completado'
+                    ? $nuevoMontoPagado
+                    : ($pagoRegistro->monto_pagado ?? 0),
             ]);
 
             if ($estadoInterno === 'Completado') {
@@ -523,36 +639,6 @@ class PagoApiController extends Controller
         } catch (\Exception $e) {
             Log::error('MP procesar error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Error al procesar el pago. Intenta de nuevo.'], 500);
-        }
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    //  GET /api/tipos-pago
-    // ──────────────────────────────────────────────────────────────────
-    public function tiposPago()
-    {
-        try {
-            return response()->json([
-                'success' => true,
-                'data'    => DB::table('tipo_pago')->orderBy('id_tipo_pago')->get(),
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Error.'], 500);
-        }
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    //  GET /api/conceptos-pago  — catálogo de conceptos
-    // ──────────────────────────────────────────────────────────────────
-    public function conceptosPago()
-    {
-        try {
-            return response()->json([
-                'success' => true,
-                'data'    => DB::table('concepto_pago')->where('activo', 1)->orderBy('nombre')->get(),
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Error.'], 500);
         }
     }
 
@@ -602,7 +688,9 @@ class PagoApiController extends Controller
                     'mp_status'       => $mpStatus,
                     'estado_pago'     => $estadoFinal,
                     'referencia_pago' => "MP-{$paymentId}",
-                    'monto_pagado'    => $estadoInterno === 'Completado' ? $nuevoMontoPagado : $pagoRegistro->monto_pagado,
+                    'monto_pagado'    => $estadoInterno === 'Completado'
+                        ? $nuevoMontoPagado
+                        : $pagoRegistro->monto_pagado,
                 ]);
 
                 if ($estadoInterno === 'Completado') {
