@@ -55,6 +55,11 @@ class Usuario extends Authenticatable
         return $this->pass;
     }
 
+    public function getAuthPasswordName(): string
+{
+    return 'pass';
+}
+
     public function getAuthIdentifierName(): string
     {
         return 'id_usuario';
