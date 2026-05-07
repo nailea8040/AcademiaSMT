@@ -14,40 +14,34 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-    $middleware->web(append: [
-        \App\Http\Middleware\StorageLinkCheck::class,
-    ]);
-})
 
-->withMiddleware(function (Middleware $middleware) {
-    // Confiar en el proxy de Railway para detectar HTTPS correctamente
-    $middleware->trustProxies(at: '*');
-    
-    $middleware->web(append: [
-        \App\Http\Middleware\StorageLinkCheck::class,
-    ]);
-})
-    ->withMiddleware(function (Middleware $middleware) {
-        // Combinamos los middleware en un solo bloque
+        // Confiar en el proxy de Railway (HTTPS detrás de proxy)
+        $middleware->trustProxies(at: '*');
+
+        // Middleware web adicional
+        $middleware->web(append: [
+            \App\Http\Middleware\StorageLinkCheck::class,
+        ]);
+
+        // Alias de roles
         $middleware->alias([
             'rol' => \App\Http\Middleware\VerificarRol::class,
         ]);
-        
-        // Importante para Sanctum en Laravel 11
+
+        // Sanctum con cookies
         $middleware->statefulApi();
+
+        // Excluir webhook de MP del CSRF
+        $middleware->validateCsrfTokens(except: [
+            'api/pagos/webhook',
+        ]);
+
     })
-
-    ->withMiddleware(function (Middleware $middleware) {
-    $middleware->validateCsrfTokens(except: ['api/pagos/webhook']);
-})
-
     ->withExceptions(function (Exceptions $exceptions) {
-        
-        // Manejador genérico para API
+
         $exceptions->render(function (\Throwable $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                
-                // 1. Manejo específico de Validación
+
                 if ($e instanceof \Illuminate\Validation\ValidationException) {
                     return response()->json([
                         'success' => false,
@@ -56,7 +50,6 @@ return Application::configure(basePath: dirname(__DIR__))
                     ], 422);
                 }
 
-                // 2. Manejo de Autenticación
                 if ($e instanceof \Illuminate\Auth\AuthenticationException) {
                     return response()->json([
                         'success' => false,
@@ -64,11 +57,8 @@ return Application::configure(basePath: dirname(__DIR__))
                     ], 401);
                 }
 
-                // 3. Determinar el status code para el resto
-                // Usamos la interfaz de Symfony para evitar el error de getStatusCode
                 $status = ($e instanceof HttpExceptionInterface) ? $e->getStatusCode() : 500;
-                
-                // Mensaje amigable
+
                 $message = $e->getMessage();
                 if ($status == 500 && app()->environment('production')) {
                     $message = 'Error interno del servidor.';
@@ -80,6 +70,5 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], $status);
             }
         });
-    })->create();
 
-    
+    })->create();
