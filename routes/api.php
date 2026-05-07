@@ -34,6 +34,10 @@ Route::get('/grados',           [GradoApiController::class,     'index']);
 // IMPORTANTE: también excluir de CSRF en VerifyCsrfToken.php o bootstrap/app.php
 Route::post('/pagos/webhook',   [PagoApiController::class, 'webhook']);
 
+Route::get('/conceptos-pago',         [PagoApiController::class, 'conceptosPago']);
+Route::post('/conceptos-pago',        [PagoApiController::class, 'storeConcepto']);
+Route::put('/conceptos-pago/{id}',    [PagoApiController::class, 'updateConcepto']);
+
 // ════════════════════════════════════════════════════════════════════════════
 //  RUTAS PROTEGIDAS — requieren Bearer token (Sanctum)
 // ════════════════════════════════════════════════════════════════════════════
@@ -91,10 +95,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/pagos/{id}/abonos',             [PagoApiController::class, 'listarAbonos']);
     Route::post('/pagos/{id}/abono',             [PagoApiController::class, 'abono']);
     Route::post('/pagos/{id}/completar',         [PagoApiController::class, 'completar']);
-
-    Route::get('/conceptos-pago',         [PagoApiController::class, 'conceptosPago']);
-Route::post('/conceptos-pago',        [PagoApiController::class, 'storeConcepto']);
-Route::put('/conceptos-pago/{id}',    [PagoApiController::class, 'updateConcepto']);
 
     // ── Calendario ────────────────────────────────────────────────────────
     Route::post('/calendario',        [CalendarioApiController::class, 'store']);
