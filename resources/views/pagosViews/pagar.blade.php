@@ -187,7 +187,7 @@
     const settings = {
         initialization: {
             amount:       {{ $pago->monto }},
-            preferenceId: PREFERENCE_ID,
+            //preferenceId: PREFERENCE_ID,
         },
         customization: {
             // Muestra TODOS los métodos disponibles para MX:
