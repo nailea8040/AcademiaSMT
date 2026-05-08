@@ -51,6 +51,20 @@ Route::put('/password/update',        [ResetPasswordController::class, 'resetPas
 Route::get('/galeria',    [GaleriaController::class,    'index'])->name('galeria.index');
 Route::get('/calendario', [CalendarioController::class, 'index'])->name('calendario.index');
 
+// Ruta de diagnóstico temporal — ELIMINAR después
+Route::get('/debug-session', function () {
+    return response()->json([
+        'session_id'     => session()->getId(),
+        'session_driver' => config('session.driver'),
+        'session_domain' => config('session.domain'),
+        'session_secure' => config('session.secure'),
+        'same_site'      => config('session.same_site'),
+        'is_auth'        => auth()->check(),
+        'user'           => auth()->user()?->id_usuario,
+        'all_session'    => session()->all(),
+    ]);
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 //  RUTAS PROTEGIDAS — requieren login (middleware 'auth')
 // ════════════════════════════════════════════════════════════════════════════
