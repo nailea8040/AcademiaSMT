@@ -6,13 +6,13 @@
     <title>Gestión de Usuarios - Sistema Dojo</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    
-    <link rel="stylesheet" href="{{ asset('css/estilo2.css') }}"> <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> 
+    <link rel="stylesheet" href="{{ asset('css/estilo2.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
-    
-   @include('includes.menu')  
+
+   @include('includes.menu')
 
     <div class="main-content">
         <header class="header">
@@ -32,19 +32,20 @@
         <div class="content-wrapper">
 
             @if(session('mensaje'))
-                <div 
-                    class="alert {{ session('sessionInsertado') == 'true' ? 'alert-success' : 'alert-error' }}" 
-                    id="alerta-temp" 
+                <div
+                    class="alert {{ session('sessionInsertado') == 'true' ? 'alert-success' : 'alert-error' }}"
+                    id="alerta-temp"
                     role="alert"
                     style="display: flex;">
                     <i class="bi {{ session('sessionInsertado') == 'true' ? 'bi-check-circle-fill' : 'bi-x-octagon-fill' }} alert-icon"></i>
                     <div>
-                        <strong>{{ session('sessionInsertado') == 'true' ? '¡Éxito!' : '¡Error!' }}</strong> 
+                        <strong>{{ session('sessionInsertado') == 'true' ? '¡Éxito!' : '¡Error!' }}</strong>
                         {{ session('mensaje') }}
                     </div>
                 </div>
             @endif
 
+            {{-- ── Formulario de registro ─────────────────────────────────── --}}
             <div class="form-container">
                 <div class="form-header">
                     <h2>
@@ -53,16 +54,15 @@
                     </h2>
                     <p>Complete todos los campos requeridos para crear un nuevo usuario en el sistema</p>
                 </div>
-                
+
                 <form id="registroForm" class="form-body" action="{{ route('usuarios.store') }}" method="POST">
                     @csrf
-                    
+
                     <h3 style="margin-bottom: 20px; color: #2d2d2d; font-size: 18px; display: flex; align-items: center; gap: 10px;">
                         <i class="bi bi-person-circle"></i>
                         Información Personal
                     </h3>
                     <div class="form-grid">
-                        
                         <div class="form-group">
                             <label class="form-label">Nombre(s) <span class="required">*</span></label>
                             <div class="form-input-wrapper">
@@ -70,7 +70,6 @@
                                 <input type="text" class="form-input" id="nombre" name="nombre" placeholder="Nombre(s)" required value="{{ old('nombre') }}">
                             </div>
                         </div>
-
                         <div class="form-group">
                             <label class="form-label">Apellido Paterno <span class="required">*</span></label>
                             <div class="form-input-wrapper">
@@ -78,7 +77,6 @@
                                 <input type="text" class="form-input" id="apaterno" name="apaterno" placeholder="Apellido Paterno" required value="{{ old('apaterno') }}">
                             </div>
                         </div>
-
                         <div class="form-group">
                             <label class="form-label">Apellido Materno <span class="required">*</span></label>
                             <div class="form-input-wrapper">
@@ -86,7 +84,6 @@
                                 <input type="text" class="form-input" id="amaterno" name="amaterno" placeholder="Apellido Materno" required value="{{ old('amaterno') }}">
                             </div>
                         </div>
-
                         <div class="form-group">
                             <label class="form-label">Fecha de Nacimiento <span class="required">*</span></label>
                             <div class="form-input-wrapper">
@@ -112,10 +109,8 @@
                             <label class="form-label">Teléfono <span class="required">*</span></label>
                             <div class="form-input-wrapper">
                                 <i class="bi bi-telephone input-icon"></i>
-                                <input type="text" class="form-input" id="tel" name="tel" placeholder="10 dígitos" required 
-                                minlength="10" 
-                                maxlength="10" 
-                                pattern="[0-9]{10}">
+                                <input type="text" class="form-input" id="tel" name="tel" placeholder="10 dígitos" required
+                                    minlength="10" maxlength="10" pattern="[0-9]{10}">
                             </div>
                         </div>
                     </div>
@@ -129,13 +124,10 @@
                             <label class="form-label">Contraseña <span class="required">*</span></label>
                             <div class="form-input-wrapper password-wrapper">
                                 <i class="bi bi-lock input-icon"></i>
-                                <input type="password" class="form-input" id="pass" name="pass" 
-                                required 
-                                minlength="8" 
-                                pattern="(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{};':&quot;\\|,.<>\/?]).{8,}"
-                                title="La contraseña debe tener al menos 8 caracteres, incluyendo al menos una letra mayúscula y un símbolo (o carácter especial)."
-                                >
-                                
+                                <input type="password" class="form-input" id="pass" name="pass"
+                                    required minlength="8"
+                                    pattern="(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{};':\\|,.<>\/?]).{8,}"
+                                    title="La contraseña debe tener al menos 8 caracteres, incluyendo al menos una letra mayúscula y un símbolo.">
                                 <button type="button" class="toggle-password" onclick="togglePassword()">
                                     <i class="bi bi-eye" id="toggleIcon"></i>
                                 </button>
@@ -148,17 +140,18 @@
                                 <i class="bi bi-person-badge input-icon"></i>
                                 <select class="form-select" id="rol" name="rol" required>
                                     <option value="">Seleccione un rol</option>
-                                    <option value="admin" {{ old('rol') == 'admin' ? 'selected' : '' }}>Administrador</option>
-                                    <option value="sensei" {{ old('rol') == 'sensei' ? 'selected' : '' }}>Sensei</option>
-                                    <option value="tutor" {{ old('rol') == 'tutor' ? 'selected' : '' }}>Tutor</option>
-                                    <option value="alumno" {{ old('rol') == 'alumno' ? 'selected' : '' }}>Alumno</option>
+                                    {{-- Sensei no puede crear administradores --}}
+                                    @if(Auth::user()->rol === 'admin')
+                                    <option value="admin"   {{ old('rol') == 'admin'   ? 'selected' : '' }}>Administrador</option>
+                                    @endif
+                                    <option value="sensei"  {{ old('rol') == 'sensei'  ? 'selected' : '' }}>Sensei</option>
+                                    <option value="tutor"   {{ old('rol') == 'tutor'   ? 'selected' : '' }}>Tutor</option>
+                                    <option value="alumno"  {{ old('rol') == 'alumno'  ? 'selected' : '' }}>Alumno</option>
                                 </select>
                             </div>
                         </div>
                     </div>
 
-                    {{-- fecha_registro generado en servidor --}}
-                    
                     {{-- Sección bachiller --}}
                     <div id="bachillerRegistroWrapper" style="display:none">
                         <h3 style="margin:20px 0 15px;color:#2d2d2d;font-size:16px;display:flex;align-items:center;gap:8px;">
@@ -219,24 +212,23 @@
 
                     <div class="form-actions">
                         <button type="button" class="btn btn-secondary" onclick="document.getElementById('registroForm').reset();">
-                            <i class="bi bi-x-lg"></i>
-                            Limpiar
+                            <i class="bi bi-x-lg"></i> Limpiar
                         </button>
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-lg"></i>
-                            Registrar Usuario
+                            <i class="bi bi-check-lg"></i> Registrar Usuario
                         </button>
                     </div>
                 </form>
             </div>
-            
+
+            {{-- ── Tabla de usuarios ──────────────────────────────────────── --}}
             <div class="table-container">
                 <div class="table-header">
                     <h2 class="table-title">
                         <i class="bi bi-table"></i>
                         Usuarios Registrados ({{ count($usuarios) }})
                     </h2>
-                    
+
                     <div class="table-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;width:100%;">
                         <form method="GET" action="{{ route('usuarios.index') }}" id="filtrosForm"
                               style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;width:100%;">
@@ -249,10 +241,13 @@
                             <select name="rol" class="form-select" style="width:140px;"
                                     onchange="document.getElementById('filtrosForm').submit()">
                                 <option value="">Todos los roles</option>
-                                <option value="admin"   {{ ($filtros['rol'] ?? '') === 'admin'   ? 'selected' : '' }}>Administrador</option>
-                                <option value="sensei"  {{ ($filtros['rol'] ?? '') === 'sensei'  ? 'selected' : '' }}>Sensei</option>
-                                <option value="tutor"   {{ ($filtros['rol'] ?? '') === 'tutor'   ? 'selected' : '' }}>Tutor</option>
-                                <option value="alumno"  {{ ($filtros['rol'] ?? '') === 'alumno'  ? 'selected' : '' }}>Alumno</option>
+                                {{-- Sensei no puede filtrar por admin --}}
+                                @if(Auth::user()->rol === 'admin')
+                                <option value="admin"  {{ ($filtros['rol'] ?? '') === 'admin'  ? 'selected' : '' }}>Administrador</option>
+                                @endif
+                                <option value="sensei" {{ ($filtros['rol'] ?? '') === 'sensei' ? 'selected' : '' }}>Sensei</option>
+                                <option value="tutor"  {{ ($filtros['rol'] ?? '') === 'tutor'  ? 'selected' : '' }}>Tutor</option>
+                                <option value="alumno" {{ ($filtros['rol'] ?? '') === 'alumno' ? 'selected' : '' }}>Alumno</option>
                             </select>
                             <select name="estado" class="form-select" style="width:130px;"
                                     onchange="document.getElementById('filtrosForm').submit()">
@@ -282,11 +277,10 @@
                                 <th>Bachiller</th>
                                 <th>Fecha Nac.</th>
                                 <th>Fecha Reg.</th>
-                                <th class="text-center">Estado</th> 
+                                <th class="text-center">Estado</th>
                                 <th class="text-center">Acciones</th>
                             </tr>
                         </thead>
-                        
                         <tbody>
                             @foreach($usuarios as $usuario)
                                 <tr>
@@ -299,20 +293,19 @@
                                             </div>
                                         </div>
                                     </td>
-                                    
+
                                     <td>
                                         @php
-                                            $badgeClass = '';
-                                            switch($usuario->rol) {
-                                                case 'admin': $badgeClass = 'badge-admin'; break;
-                                                case 'sensei': $badgeClass = 'badge-sensei'; break;
-                                                case 'tutor': $badgeClass = 'badge-tutor'; break;
-                                                case 'alumno': default: $badgeClass = 'badge-alumno'; break;
-                                            }
+                                            $badgeClass = match($usuario->rol) {
+                                                'admin'  => 'badge-admin',
+                                                'sensei' => 'badge-sensei',
+                                                'tutor'  => 'badge-tutor',
+                                                default  => 'badge-alumno',
+                                            };
                                         @endphp
                                         <span class="badge {{ $badgeClass }}">{{ ucfirst($usuario->rol) }}</span>
                                     </td>
-                                    
+
                                     <td>{{ $usuario->telefono }}</td>
                                     <td>
                                         @if($usuario->numero_control)
@@ -325,52 +318,67 @@
                                     </td>
                                     <td>{{ date('d/m/Y', strtotime($usuario->fecha_naci)) }}</td>
                                     <td>{{ date('d/m/Y', strtotime($usuario->fecha_registro)) }}</td>
-                                    
+
                                     <td class="text-center">
-                                        <form id="toggleForm-{{ $usuario->id_usuario }}" action="{{ route('usuarios.toggleActive', $usuario->id_usuario) }}" method="POST" style="display:inline;">
+                                        <form id="toggleForm-{{ $usuario->id_usuario }}"
+                                              action="{{ route('usuarios.toggleActive', $usuario->id_usuario) }}"
+                                              method="POST" style="display:inline;">
                                             @csrf
                                             <label class="switch" title="{{ $usuario->estado == 1 ? 'Activo (Clic para desactivar)' : 'Inactivo (Clic para activar)' }}">
-                                                <input type="checkbox" name="activo" {{ $usuario->estado == 1 ? 'checked' : '' }} onchange="confirmarCambioEstado(event, {{ $usuario->id_usuario }}, '{{ $usuario->nombre }} {{ $usuario->apaterno }}', this.checked);">
+                                                <input type="checkbox" name="activo"
+                                                       {{ $usuario->estado == 1 ? 'checked' : '' }}
+                                                       onchange="confirmarCambioEstado(event, {{ $usuario->id_usuario }}, '{{ $usuario->nombre }} {{ $usuario->apaterno }}', this.checked);">
                                                 <span class="slider"></span>
                                             </label>
                                         </form>
-                                        <span class="badge {{ $usuario->estado == 1 ? 'badge-active' : 'badge-inactive' }} mt-1 d-block">{{ $usuario->estado == 1 ? 'Activo' : 'Inactivo' }}</span>
+                                        <span class="badge {{ $usuario->estado == 1 ? 'badge-active' : 'badge-inactive' }} mt-1 d-block">
+                                            {{ $usuario->estado == 1 ? 'Activo' : 'Inactivo' }}
+                                        </span>
                                     </td>
-                                   {{-- usuariosViews/usuarios.blade.php (dentro del @foreach) --}}
 
-<td class="text-center">
-    <div class="action-buttons">
-        <button type="button" class="action-btn btn-edit edit-user-btn" 
-            data-bs-toggle="modal" 
-            data-bs-target="#editUserModal" 
-            data-id="{{ $usuario->id_usuario }}"
-            data-nombre="{{ $usuario->nombre }}"
-            data-apaterno="{{ $usuario->apaterno }}"
-            data-amaterno="{{ $usuario->amaterno }}"
-            data-fecha_naci="{{ $usuario->fecha_naci }}"
-            data-telefono="{{ $usuario->telefono }}"
-            data-correo="{{ $usuario->correo }}"
-            data-rol="{{ $usuario->rol }}"
-            title="Editar">
-            <i class="bi bi-pencil-fill"></i>
-        </button>
-        
-        @if ($usuario->rol !== 'admin')
-            <form action="{{ route('usuarios.destroy', $usuario->id_usuario) }}" method="POST" style="display:inline;" onsubmit="return confirmarEliminacion(event);">
-                @csrf
-                @method('DELETE') 
-                
-                <button type="submit" class="action-btn btn-delete" title="Eliminar">
-                    <i class="bi bi-trash-fill"></i>
-                </button>
-            </form>
-        @else
-            <button type="button" class="action-btn btn-disabled" title="No se puede eliminar este usuario" disabled style="cursor: not-allowed; opacity: 0.6; background-color: #f8d7da;">
-                <i class="bi bi-x-octagon-fill"></i>
-            </button>
-        @endif
-    </div>
-</td>
+                                    <td class="text-center">
+                                        <div class="action-buttons">
+                                            {{-- Botón editar: visible para admin siempre; para sensei solo si no es admin --}}
+                                            @if(Auth::user()->rol === 'admin' || $usuario->rol !== 'admin')
+                                            <button type="button" class="action-btn btn-edit edit-user-btn"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editUserModal"
+                                                data-id="{{ $usuario->id_usuario }}"
+                                                data-nombre="{{ $usuario->nombre }}"
+                                                data-apaterno="{{ $usuario->apaterno }}"
+                                                data-amaterno="{{ $usuario->amaterno }}"
+                                                data-fecha_naci="{{ $usuario->fecha_naci }}"
+                                                data-telefono="{{ $usuario->telefono }}"
+                                                data-correo="{{ $usuario->correo }}"
+                                                data-rol="{{ $usuario->rol }}"
+                                                title="Editar">
+                                                <i class="bi bi-pencil-fill"></i>
+                                            </button>
+                                            @endif
+
+                                            {{-- Botón eliminar: solo admin puede eliminar --}}
+                                            @if(Auth::user()->rol === 'admin')
+                                                @if($usuario->rol !== 'admin')
+                                                    <form action="{{ route('usuarios.destroy', $usuario->id_usuario) }}"
+                                                          method="POST" style="display:inline;"
+                                                          onsubmit="return confirmarEliminacion(event);">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="action-btn btn-delete" title="Eliminar">
+                                                            <i class="bi bi-trash-fill"></i>
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <button type="button" class="action-btn btn-disabled"
+                                                            title="No se puede eliminar este usuario" disabled
+                                                            style="cursor:not-allowed;opacity:0.6;background-color:#f8d7da;">
+                                                        <i class="bi bi-x-octagon-fill"></i>
+                                                    </button>
+                                                @endif
+                                            @endif
+                                            {{-- Sensei: sin botón de eliminar --}}
+                                        </div>
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -383,22 +391,22 @@
         <footer class="footer">
             <p>© 2025 Sistema de Gestión del Dojo</p>
         </footer>
-
     </div>
-    
+
+    {{-- ── Modal Editar Usuario ────────────────────────────────────────────── --}}
     <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <form id="editForm" method="POST" action="">
                     @csrf
-                    @method('PUT') 
+                    @method('PUT')
                     <div class="modal-header">
                         <h5 class="modal-title" id="editUserModalLabel">Editar Usuario</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <input type="hidden" id="edit_id_usuario" name="id_usuario"> 
-                        
+                        <input type="hidden" id="edit_id_usuario" name="id_usuario">
+
                         <div class="mb-3">
                             <label for="edit_nombre" class="form-label">Nombre(s)</label>
                             <input type="text" class="form-control" id="edit_nombre" name="nombre" required>
@@ -424,19 +432,21 @@
                             <input type="email" class="form-control" id="edit_correo" name="correo" required>
                         </div>
                         <div class="mb-3">
-                            <label for="edit_pass" class="form-label">Contraseña (Dejar vacío para no cambiar)</label>
+                            <label for="edit_pass" class="form-label">Contraseña (dejar vacío para no cambiar)</label>
                             <input type="password" class="form-control" id="edit_pass" name="pass" minlength="6" placeholder="******">
                         </div>
                         <div class="mb-3">
                             <label for="edit_rol" class="form-label">Rol</label>
                             <select id="edit_rol" name="rol" class="form-select" required>
+                                {{-- Sensei no puede asignar rol admin --}}
+                                @if(Auth::user()->rol === 'admin')
                                 <option value="admin">Administrador</option>
+                                @endif
                                 <option value="sensei">Sensei</option>
                                 <option value="tutor">Tutor</option>
                                 <option value="alumno">Alumno</option>
                             </select>
                         </div>
-                        
                     </div>
                     <div class="modal-footer">
                         <div class="d-flex justify-content-between w-100 gap-2">
@@ -448,35 +458,26 @@
             </div>
         </div>
     </div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
     <script>
-        // ... (Tu código JavaScript para SweetAlert, eliminación y búsqueda se mantiene) ...
-
         @if(session('sessionInsertado'))
-            const icono = '{{ session('sessionInsertado') == 'true' ? 'success' : 'error' }}';
-            const titulo = '{{ session('mensaje') }}';
             Swal.fire({
-                icon: icono,
-                title: titulo,
+                icon:  '{{ session('sessionInsertado') == 'true' ? 'success' : 'error' }}',
+                title: '{{ session('mensaje') }}',
                 showConfirmButton: false,
                 timer: 2000
             });
-
             const alertaTemp = document.getElementById('alerta-temp');
-            if (alertaTemp) {
-                alertaTemp.style.display = 'none';
-            }
+            if (alertaTemp) alertaTemp.style.display = 'none';
         @endif
-        
+
         function confirmarEliminacion(event) {
             event.preventDefault();
             const form = event.target;
-            
             Swal.fire({
                 title: '¿Estás seguro de eliminar?',
-                text: "¡No podrás recuperar este registro! Esta es una eliminación permanente.",
+                text: '¡No podrás recuperar este registro! Esta es una eliminación permanente.',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
@@ -484,19 +485,16 @@
                 confirmButtonText: 'Sí, ¡Eliminar!',
                 cancelButtonText: 'Cancelar'
             }).then((result) => {
-                if (result.isConfirmed) {
-                    form.submit();
-                }
+                if (result.isConfirmed) form.submit();
             });
             return false;
         }
 
         function confirmarCambioEstado(event, userId, userName, isChecked) {
-            event.preventDefault(); 
-            const form = document.getElementById(`toggleForm-${userId}`);
-            
+            event.preventDefault();
+            const form   = document.getElementById(`toggleForm-${userId}`);
             const accion = isChecked ? 'ACTIVAR' : 'DESACTIVAR';
-            const mensaje = isChecked 
+            const mensaje = isChecked
                 ? `¿Estás seguro de **activar** al usuario ${userName}? El usuario podrá ingresar al sistema.`
                 : `¿Estás seguro de **desactivar** al usuario ${userName}? El usuario NO podrá ingresar al sistema.`;
 
@@ -505,7 +503,7 @@
                 html: mensaje,
                 icon: isChecked ? 'question' : 'warning',
                 showCancelButton: true,
-                confirmButtonColor: isChecked ? '#28a745' : '#dc3545', 
+                confirmButtonColor: isChecked ? '#28a745' : '#dc3545',
                 cancelButtonColor: '#6c757d',
                 confirmButtonText: `Sí, ${accion}`,
                 cancelButtonText: 'Cancelar'
@@ -517,24 +515,21 @@
                 }
             });
         }
-        
+
         function togglePassword() {
-            const passwordInput = document.getElementById('pass'); 
-            const toggleIcon = document.getElementById('toggleIcon');
-            
+            const passwordInput = document.getElementById('pass');
+            const toggleIcon    = document.getElementById('toggleIcon');
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
-                toggleIcon.classList.remove('bi-eye');
-                toggleIcon.classList.add('bi-eye-slash');
+                toggleIcon.classList.replace('bi-eye', 'bi-eye-slash');
             } else {
                 passwordInput.type = 'password';
-                toggleIcon.classList.remove('bi-eye-slash');
-                toggleIcon.classList.add('bi-eye');
+                toggleIcon.classList.replace('bi-eye-slash', 'bi-eye');
             }
         }
 
-        // Mostrar/ocultar sección bachiller según rol en formulario de registro
-        document.getElementById('rol').addEventListener('change', function() {
+        // Mostrar/ocultar sección bachiller según rol
+        document.getElementById('rol').addEventListener('change', function () {
             const wrapper = document.getElementById('bachillerRegistroWrapper');
             wrapper.style.display = (this.value === 'alumno') ? 'block' : 'none';
             if (this.value !== 'alumno') {
@@ -546,8 +541,8 @@
         function toggleBachillerReg(checked) {
             document.getElementById('bachillerRegFields').style.display = checked ? 'block' : 'none';
             if (!checked) {
-                ['numero_control','grupo','especialidad'].forEach(function(n) {
-                    const el = document.querySelector('#bachillerRegFields [name="'+n+'"]');
+                ['numero_control', 'grupo', 'especialidad'].forEach(function (n) {
+                    const el = document.querySelector('#bachillerRegFields [name="' + n + '"]');
                     if (el) el.value = '';
                 });
                 const t = document.querySelector('#bachillerRegFields [name="turno"]');
@@ -555,21 +550,20 @@
             }
         }
 
-        // Mostrar bachiller si old() ya lo tenía marcado
         if (document.getElementById('rol').value === 'alumno') {
             document.getElementById('bachillerRegistroWrapper').style.display = 'block';
         }
 
-        $(document).ready(function() {
-            $('.edit-user-btn').on('click', function() {
-                const userId = $(this).data('id');
-                const nombre = $(this).data('nombre');
+        $(document).ready(function () {
+            $('.edit-user-btn').on('click', function () {
+                const userId   = $(this).data('id');
+                const nombre   = $(this).data('nombre');
                 const apaterno = $(this).data('apaterno');
                 const amaterno = $(this).data('amaterno');
                 const fechaNaci = $(this).data('fecha_naci');
                 const telefono = $(this).data('telefono');
-                const correo = $(this).data('correo');
-                const rol = $(this).data('rol');
+                const correo   = $(this).data('correo');
+                const rol      = $(this).data('rol');
 
                 $('#edit_id_usuario').val(userId);
                 $('#edit_nombre').val(nombre);
@@ -579,22 +573,14 @@
                 $('#edit_telefono').val(telefono);
                 $('#edit_correo').val(correo);
                 $('#edit_rol').val(rol);
-
-                const updateUrl = `/usuarios/${userId}`; 
-                $('#editForm').attr('action', updateUrl);
-                
+                $('#editForm').attr('action', `/usuarios/${userId}`);
                 $('#edit_pass').val('');
             });
-            
-            $('#searchInput').on('keyup', function() {
+
+            $('#searchInput').on('keyup', function () {
                 const searchText = $(this).val().toLowerCase();
-                $('#usersTable tbody tr').each(function() {
-                    const rowText = $(this).text().toLowerCase();
-                    if (rowText.includes(searchText)) {
-                        $(this).show();
-                    } else {
-                        $(this).hide();
-                    }
+                $('#usersTable tbody tr').each(function () {
+                    $(this).toggle($(this).text().toLowerCase().includes(searchText));
                 });
             });
         });

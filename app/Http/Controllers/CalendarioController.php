@@ -14,6 +14,20 @@ class CalendarioController extends Controller
         return Auth::check() && Auth::user()->rol === 'admin';
     }
 
+    private function esSensei(): bool
+    {
+        return Auth::check() && Auth::user()->rol === 'sensei';
+    }
+
+    /**
+     * Admin y sensei pueden crear/editar eventos.
+     * Solo admin puede eliminar.
+     */
+    private function puedeGestionar(): bool
+    {
+        return $this->esAdmin() || $this->esSensei();
+    }
+
     /**
      * Tabla real en BD: calendario
      * Columnas: id_cal, titulo, fecha, hora, ubicacion, tipo, descripcion, id_usuario
@@ -21,7 +35,6 @@ class CalendarioController extends Controller
     public function index()
     {
         try {
-            // Tabla correcta: calendario (no 'eventos')
             $eventos = DB::table('calendario')
                 ->orderBy('fecha', 'asc')
                 ->orderBy('hora', 'asc')
@@ -38,7 +51,7 @@ class CalendarioController extends Controller
 
     public function store(Request $request)
     {
-        if (!$this->esAdmin()) {
+        if (!$this->puedeGestionar()) {
             return back()->with('error', 'No tienes permisos para crear eventos.');
         }
 
@@ -52,7 +65,6 @@ class CalendarioController extends Controller
         ]);
 
         try {
-            // PK en BD: id_cal (AUTO_INCREMENT, no se inserta)
             DB::table('calendario')->insert([
                 'titulo'      => $request->titulo,
                 'fecha'       => $request->fecha,
@@ -75,7 +87,7 @@ class CalendarioController extends Controller
 
     public function update(Request $request, $id)
     {
-        if (!$this->esAdmin()) {
+        if (!$this->puedeGestionar()) {
             return back()->with('error', 'No tienes permisos para editar eventos.');
         }
 
@@ -89,7 +101,6 @@ class CalendarioController extends Controller
         ]);
 
         try {
-            // PK real: id_cal
             $updated = DB::table('calendario')
                 ->where('id_cal', $id)
                 ->update([
@@ -115,12 +126,12 @@ class CalendarioController extends Controller
 
     public function destroy($id)
     {
+        // Solo admin puede eliminar eventos
         if (!$this->esAdmin()) {
             return back()->with('error', 'No tienes permisos para eliminar eventos.');
         }
 
         try {
-            // PK real: id_cal
             $deleted = DB::table('calendario')->where('id_cal', $id)->delete();
 
             return back()->with(

@@ -1,10 +1,8 @@
-{{-- 
-    CAMBIOS RESPECTO AL ORIGINAL:
-    1. JS: e.fecha comparado solo con los primeros 10 chars (YYYY-MM-DD) — la BD puede devolver datetime
-    2. JS: idSeguro usa id_cal (PK real de tabla calendario) en lugar de id_evento  
-    3. URLs de editar/eliminar usan /calendario/{id} en lugar de /eventos/{id}
-    4. Formularios apuntan a route('calendario.store'), route('calendario.update'), route('calendario.destroy')
-    5. Los valores de 'tipo' son texto libre (VARCHAR 50) — se mantienen como estaban
+{{--
+    PERMISOS:
+    - admin  : crear, editar, eliminar eventos
+    - sensei : crear, editar eventos (sin eliminar)
+    - otros  : solo lectura
 --}}
 <!DOCTYPE html>
 <html lang="es">
@@ -60,6 +58,14 @@
 
     @include('includes.menu')
 
+    @php
+        $rolActual   = Auth::check() ? Auth::user()->rol : null;
+        $esAdmin     = $rolActual === 'admin';
+        $esSensei    = $rolActual === 'sensei';
+        $puedeEditar = $esAdmin || $esSensei;   // crear y editar
+        $puedeEliminar = $esAdmin;               // solo admin elimina
+    @endphp
+
     <div class="main-content">
         <header class="header mb-4">
             <div class="d-flex justify-content-between align-items-center w-100">
@@ -73,7 +79,8 @@
                         <span>Calendario</span>
                     </div>
                 </div>
-                @if(Auth::check() && Auth::user()->rol == 'admin')
+                {{-- Botón "Nuevo Evento" visible para admin y sensei --}}
+                @if($puedeEditar)
                 <button class="btn btn-danger rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addEventModal">
                     <i class="bi bi-plus-circle me-2"></i> Nuevo Evento
                 </button>
@@ -130,7 +137,7 @@
         </div>
     </div>
 
-    <!-- Popup detalles -->
+    {{-- ── Popup detalles ────────────────────────────────────────────────── --}}
     <div class="popup-overlay" id="popupOverlay" onclick="closePopup()"></div>
     <div class="event-popup" id="eventPopup">
         <div class="popup-header" id="popupHeader">
@@ -154,21 +161,26 @@
                 <div class="event-detail-label mb-2"><i class="bi bi-card-text me-2"></i>Descripción</div>
                 <p id="popupDescription" style="margin:0;color:#495057;line-height:1.8;"></p>
             </div>
-            @if(Auth::check() && Auth::user()->rol == 'admin')
+
+            {{-- Botones de acción según rol --}}
+            @if($puedeEditar)
             <div id="adminButtons" style="display:none;gap:1rem;margin-top:2rem;" data-event-id="" data-event-title="">
                 <button onclick="editEvent()" class="btn btn-primary rounded-pill px-4" style="flex:1;">
                     <i class="bi bi-pencil-square me-2"></i>Editar
                 </button>
+                {{-- Eliminar solo para admin --}}
+                @if($puedeEliminar)
                 <button onclick="deleteEvent()" class="btn btn-danger rounded-pill px-4" style="flex:1;">
                     <i class="bi bi-trash3 me-2"></i>Eliminar
                 </button>
+                @endif
             </div>
             @endif
         </div>
     </div>
 
-    @if(Auth::check() && Auth::user()->rol == 'admin')
-    <!-- Modal Agregar Evento — apunta a CalendarioController@store -->
+    {{-- ── Modal Agregar Evento (admin y sensei) ────────────────────────── --}}
+    @if($puedeEditar)
     <div class="modal fade" id="addEventModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content" style="border-radius:25px;border:none;">
@@ -176,7 +188,6 @@
                     <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2"></i>Nuevo Evento</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                {{-- Route: calendario.store → CalendarioController@store --}}
                 <form action="{{ route('calendario.store') }}" method="POST">
                     @csrf
                     <div class="modal-body p-4">
@@ -221,7 +232,7 @@
         </div>
     </div>
 
-    <!-- Modal Editar Evento — acción dinámica vía JS -->
+    {{-- ── Modal Editar Evento (admin y sensei) ─────────────────────────── --}}
     <div class="modal fade" id="editEventModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content" style="border-radius:25px;border:none;">
@@ -277,8 +288,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Pasar eventos de PHP a JS — datos de tabla 'calendario'
-        const eventosData = @json($eventos);
+        const eventosData  = @json($eventos);
+        const puedeEditar  = {{ $puedeEditar  ? 'true' : 'false' }};
+        const puedeEliminar = {{ $puedeEliminar ? 'true' : 'false' }};
 
         let currentDate  = new Date();
         let currentMonth = currentDate.getMonth();
@@ -288,13 +300,13 @@
                             'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
         function renderCalendar() {
-            const firstDay       = new Date(currentYear, currentMonth, 1);
-            const lastDay        = new Date(currentYear, currentMonth + 1, 0);
-            const prevLastDay    = new Date(currentYear, currentMonth, 0);
-            const firstDayIndex  = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
-            const lastDayDate    = lastDay.getDate();
+            const firstDay        = new Date(currentYear, currentMonth, 1);
+            const lastDay         = new Date(currentYear, currentMonth + 1, 0);
+            const prevLastDay     = new Date(currentYear, currentMonth, 0);
+            const firstDayIndex   = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+            const lastDayDate     = lastDay.getDate();
             const prevLastDayDate = prevLastDay.getDate();
-            const nextDays       = 7 - (lastDay.getDay() === 0 ? 7 : lastDay.getDay());
+            const nextDays        = 7 - (lastDay.getDay() === 0 ? 7 : lastDay.getDay());
 
             document.getElementById('currentMonth').textContent = `${monthNames[currentMonth]} ${currentYear}`;
 
@@ -310,12 +322,10 @@
                 const today   = new Date();
                 const isToday = i === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
 
-                // CORRECCIÓN: comparar solo los primeros 10 chars (fecha sin hora)
                 const dayEvents = eventosData.filter(e => (e.fecha ? e.fecha.substring(0,10) : '') === dateStr);
 
                 let badges = '';
                 dayEvents.forEach(e => {
-                    // CORRECCIÓN: PK real es id_cal (no id_evento)
                     const idSeguro = e.id_cal !== undefined ? e.id_cal : 'null';
                     badges += `<div class="event-badge event-${e.tipo}"
                         onclick="event.stopPropagation(); showEvent(
@@ -331,8 +341,8 @@
                     </div>`;
                 });
 
-                const isAdmin = {{ Auth::check() && Auth::user()->rol == 'admin' ? 'true' : 'false' }};
-                const clickHandler = isAdmin ? `onclick="openAddEvent('${dateStr}')"` : '';
+                // Click en día vacío abre modal de creación solo si puede editar
+                const clickHandler = puedeEditar ? `onclick="openAddEvent('${dateStr}')"` : '';
 
                 days += `<div class="calendar-day ${isToday ? 'today' : ''}" ${clickHandler}>
                     <span class="day-number">${i}</span>${badges}
@@ -368,6 +378,7 @@
         }
 
         function openAddEvent(date) {
+            if (!puedeEditar) return;
             const modal = new bootstrap.Modal(document.getElementById('addEventModal'));
             document.getElementById('eventDateInput').value = date;
             modal.show();
@@ -375,9 +386,9 @@
 
         function showEvent(title, date, time, location, description, type, eventId) {
             if (event) event.stopPropagation();
-            document.getElementById('popupTitle').innerHTML = getEventIcon(type) + ' ' + title;
-            document.getElementById('popupDate').textContent = date;
-            document.getElementById('popupTime').textContent = time;
+            document.getElementById('popupTitle').innerHTML      = getEventIcon(type) + ' ' + title;
+            document.getElementById('popupDate').textContent     = date;
+            document.getElementById('popupTime').textContent     = time;
             document.getElementById('popupLocation').textContent = location || '—';
             document.getElementById('popupDescription').textContent = description || 'Sin descripción disponible';
             document.getElementById('popupHeader').style.background = getEventColor(type);
@@ -385,13 +396,13 @@
             const adminButtons = document.getElementById('adminButtons');
             if (adminButtons) {
                 adminButtons.style.display = 'flex';
-                adminButtons.setAttribute('data-event-id', eventId);
-                adminButtons.setAttribute('data-event-title', title);
-                adminButtons.setAttribute('data-event-date', date);
-                adminButtons.setAttribute('data-event-time', time);
-                adminButtons.setAttribute('data-event-location', location || '');
+                adminButtons.setAttribute('data-event-id',          eventId);
+                adminButtons.setAttribute('data-event-title',       title);
+                adminButtons.setAttribute('data-event-date',        date);
+                adminButtons.setAttribute('data-event-time',        time);
+                adminButtons.setAttribute('data-event-location',    location || '');
                 adminButtons.setAttribute('data-event-description', description || '');
-                adminButtons.setAttribute('data-event-type', type);
+                adminButtons.setAttribute('data-event-type',        type);
             }
             document.getElementById('popupOverlay').classList.add('show');
             document.getElementById('eventPopup').classList.add('show');
@@ -405,7 +416,12 @@
         }
 
         function getEventColor(type) {
-            const c = { tournament:'linear-gradient(135deg,#ff6b6b,#ee5a52)', exam:'linear-gradient(135deg,#4c6ef5,#364fc7)', class:'linear-gradient(135deg,#20c997,#12b886)', seminar:'linear-gradient(135deg,#fab005,#f59f00)' };
+            const c = {
+                tournament: 'linear-gradient(135deg,#ff6b6b,#ee5a52)',
+                exam:       'linear-gradient(135deg,#4c6ef5,#364fc7)',
+                class:      'linear-gradient(135deg,#20c997,#12b886)',
+                seminar:    'linear-gradient(135deg,#fab005,#f59f00)'
+            };
             return c[type] || 'linear-gradient(135deg,var(--karate-red),#d43f3d)';
         }
 
@@ -419,16 +435,17 @@
         }
 
         function editEvent() {
-            const ab = document.getElementById('adminButtons');
-            const eventId    = ab.getAttribute('data-event-id');
-            const title      = ab.getAttribute('data-event-title');
+            if (!puedeEditar) return;
+            const ab          = document.getElementById('adminButtons');
+            const eventId     = ab.getAttribute('data-event-id');
+            const title       = ab.getAttribute('data-event-title');
             const dateFormatted = ab.getAttribute('data-event-date');
-            const time       = ab.getAttribute('data-event-time');
-            const location   = ab.getAttribute('data-event-location');
+            const time        = ab.getAttribute('data-event-time');
+            const location    = ab.getAttribute('data-event-location');
             const description = ab.getAttribute('data-event-description');
-            const type       = ab.getAttribute('data-event-type');
+            const type        = ab.getAttribute('data-event-type');
 
-            const parts  = dateFormatted.split('/');
+            const parts   = dateFormatted.split('/');
             const dateISO = `${parts[2]}-${parts[1]}-${parts[0]}`;
 
             document.getElementById('editTitulo').value      = title;
@@ -437,33 +454,31 @@
             document.getElementById('editUbicacion').value   = location;
             document.getElementById('editDescripcion').value = description;
             document.getElementById('editTipo').value        = type;
-
-            // CORRECCIÓN: URL usa /calendario/{id} (CalendarioController@update, PK id_cal)
-            document.getElementById('editEventForm').action = `/calendario/${eventId}`;
+            document.getElementById('editEventForm').action  = `/calendario/${eventId}`;
 
             closePopup();
             new bootstrap.Modal(document.getElementById('editEventModal')).show();
         }
 
         function deleteEvent() {
-            const ab = document.getElementById('adminButtons');
+            if (!puedeEliminar) return;   // guarda JS (el backend también lo valida)
+            const ab      = document.getElementById('adminButtons');
             const eventId = ab.getAttribute('data-event-id');
             const title   = ab.getAttribute('data-event-title');
 
             if (!eventId || isNaN(eventId)) { alert('Error: ID de evento no válido.'); return; }
 
             if (confirm(`¿Eliminar el evento "${title}"? Esta acción no se puede deshacer.`)) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                // CORRECCIÓN: URL usa /calendario/{id} (no /eventos/{id})
-                form.action = `/calendario/${eventId}`;
+                const form   = document.createElement('form');
+                form.method  = 'POST';
+                form.action  = `/calendario/${eventId}`;
 
-                const csrf = document.createElement('input');
-                csrf.type = 'hidden'; csrf.name = '_token';
-                csrf.value = document.querySelector('meta[name="csrf-token"]').content;
+                const csrf   = document.createElement('input');
+                csrf.type    = 'hidden'; csrf.name  = '_token';
+                csrf.value   = document.querySelector('meta[name="csrf-token"]').content;
 
                 const method = document.createElement('input');
-                method.type = 'hidden'; method.name = '_method'; method.value = 'DELETE';
+                method.type  = 'hidden'; method.name = '_method'; method.value = 'DELETE';
 
                 form.appendChild(csrf); form.appendChild(method);
                 document.body.appendChild(form);
