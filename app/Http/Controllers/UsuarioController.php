@@ -97,11 +97,6 @@ class UsuarioController extends Controller
             'correo'         => 'required|email|unique:usuario,correo',
             'pass'           => 'required|min:6',
             'rol'            => 'required|in:admin,sensei,tutor,alumno',
-            'es_bachiller'   => 'nullable|boolean',
-            'numero_control' => 'nullable|string|max:20',
-            'grupo'          => 'nullable|string|max:10',
-            'especialidad'   => 'nullable|string|max:100',
-            'turno'          => 'nullable|in:Matutino,Vespertino,Nocturno',
         ]);
 
         // Sensei NO puede crear administradores
@@ -112,8 +107,6 @@ class UsuarioController extends Controller
         }
 
         try {
-            $esBachiller = $request->boolean('es_bachiller');
-
             DB::table('usuario')->insert([
                 'nombre'         => $validated['nombre'],
                 'apaterno'       => $validated['apaterno'],
@@ -125,10 +118,6 @@ class UsuarioController extends Controller
                 'rol'            => $validated['rol'],
                 'fecha_registro' => now()->toDateString(),
                 'estado'         => 1,
-                'numero_control' => $esBachiller ? ($validated['numero_control'] ?? null) : null,
-                'grupo'          => $esBachiller ? ($validated['grupo']          ?? null) : null,
-                'especialidad'   => $esBachiller ? ($validated['especialidad']   ?? null) : null,
-                'turno'          => $esBachiller ? ($validated['turno']          ?? null) : null,
             ]);
 
             return redirect()->route('usuarios.index')
@@ -145,7 +134,7 @@ class UsuarioController extends Controller
 
     // ── edit ─────────────────────────────────────────────────────────────────
 
-    public function edit(int $id)
+    public function edit($id)
     {
         $this->soloAdminOSensei();
 
@@ -169,7 +158,7 @@ class UsuarioController extends Controller
 
     // ── update ───────────────────────────────────────────────────────────────
 
-    public function update(Request $request,int $id)
+    public function update(Request $request, $id)
     {
         $this->soloAdminOSensei();
 
@@ -198,11 +187,6 @@ class UsuarioController extends Controller
             'correo'         => 'required|email|unique:usuario,correo,' . $id . ',id_usuario',
             'rol'            => 'required|in:admin,sensei,tutor,alumno',
             'pass'           => 'nullable|min:6',
-            'es_bachiller'   => 'nullable|boolean',
-            'numero_control' => 'nullable|string|max:20',
-            'grupo'          => 'nullable|string|max:10',
-            'especialidad'   => 'nullable|string|max:100',
-            'turno'          => 'nullable|in:Matutino,Vespertino,Nocturno',
         ]);
 
         // Sensei no puede asignar ni escalar a rol admin
@@ -213,8 +197,6 @@ class UsuarioController extends Controller
         }
 
         try {
-            $esBachiller = $request->boolean('es_bachiller');
-
             $data = [
                 'nombre'         => $validated['nombre'],
                 'apaterno'       => $validated['apaterno'],
@@ -223,10 +205,6 @@ class UsuarioController extends Controller
                 'telefono'       => $validated['tel'],
                 'correo'         => $validated['correo'],
                 'rol'            => $validated['rol'],
-                'numero_control' => $esBachiller ? ($validated['numero_control'] ?? null) : null,
-                'grupo'          => $esBachiller ? ($validated['grupo']          ?? null) : null,
-                'especialidad'   => $esBachiller ? ($validated['especialidad']   ?? null) : null,
-                'turno'          => $esBachiller ? ($validated['turno']          ?? null) : null,
             ];
 
             if (!empty($validated['pass'])) {
@@ -250,7 +228,7 @@ class UsuarioController extends Controller
 
     // ── destroy ──────────────────────────────────────────────────────────────
 
-    public function destroy(int $id)
+    public function destroy($id)
     {
         // Solo admin puede eliminar
         if (!$this->esAdmin()) {
@@ -279,7 +257,7 @@ class UsuarioController extends Controller
 
     // ── toggleActive ─────────────────────────────────────────────────────────
 
-    public function toggleActive(int $id)
+    public function toggleActive($id)
     {
         $this->soloAdminOSensei();
 

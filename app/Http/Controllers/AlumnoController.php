@@ -8,18 +8,11 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * ══════════════════════════════════════════════════════════════
- *  ESTRUCTURA BD (sin columnas extra en usuario):
- *
- *  - Grado actual del alumno:
- *      historial_grados WHERE id_usuario = ? ORDER BY fecha_obtencion DESC LIMIT 1
- *
- *  - Relación alumno ↔ tutor:
- *      usuario.rol = 'alumno' o 'tutor'
- *      tabla tutor: id_Tutor (FK→usuario.id_usuario), id_ocupacion, relacion_estudiante
- *      No existe tabla intermedia alumno-tutor → la relación se gestiona
- *      en historial o se asigna al registrar (registro_fisico guarda la fecha de inscripción)
- *
+ *  ESTRUCTURA BD:
+ *  - Grado actual: historial_grados ORDER BY fecha_obtencion DESC LIMIT 1
  *  - Documento médico: registro_fisico.certificado_medico
+ *  - Datos de bachiller: usuario.numero_control, grupo, especialidad, turno
+ *    (no todos los alumnos pertenecen al bachiller)
  * ══════════════════════════════════════════════════════════════
  */
 class AlumnoController extends Controller
@@ -27,7 +20,6 @@ class AlumnoController extends Controller
     public function index()
     {
         try {
-            // Grado actual: último registro en historial_grados por fecha
             $alumnos_registrados = DB::table('usuario as a')
                 ->leftJoin('historial_grados as hg', function ($join) {
                     $join->on('hg.id_usuario', '=', 'a.id_usuario')
@@ -47,11 +39,15 @@ class AlumnoController extends Controller
                     'g.nombreGrado',
                     DB::raw("CONCAT(a.nombre,' ',a.apaterno,' ',a.amaterno) AS nombre_alumno"),
                     'rf.certificado_medico',
-                    'rf.fecha_registro AS fecha_inscripcion'
+                    'rf.fecha_registro AS fecha_inscripcion',
+                    // Datos de bachiller
+                    'a.numero_control',
+                    'a.grupo',
+                    'a.especialidad',
+                    'a.turno'
                 )
                 ->get();
 
-            // Tutores: usuarios con rol='tutor' que tienen registro en tabla tutor
             $tutores = DB::table('tutor as t')
                 ->join('usuario as u', 't.id_Tutor', '=', 'u.id_usuario')
                 ->where('u.estado', 1)
@@ -64,8 +60,20 @@ class AlumnoController extends Controller
 
             $grados = DB::table('grado')->orderBy('id_grado', 'asc')->get();
 
+            // Usuarios con rol alumno sin registro previo en historial_grados
+            // (disponibles para registrar por primera vez)
+            $usuariosAlumno = DB::table('usuario')
+                ->where('rol', 'alumno')
+                ->where('estado', 1)
+                ->whereNotIn('id_usuario', function ($q) {
+                    $q->select('id_usuario')->from('registro_fisico');
+                })
+                ->select('id_usuario', DB::raw("CONCAT(nombre,' ',apaterno,' ',amaterno) AS nombre_completo"))
+                ->orderBy('nombre')
+                ->get();
+
             return view('usuariosViews.alumno', compact(
-                'alumnos_registrados', 'tutores', 'grados'
+                'alumnos_registrados', 'tutores', 'grados', 'usuariosAlumno'
             ));
 
         } catch (\Exception $e) {
@@ -74,28 +82,35 @@ class AlumnoController extends Controller
                 'alumnos_registrados' => collect(),
                 'tutores'             => collect(),
                 'grados'              => collect(),
+                'usuariosAlumno'      => collect(),
             ])->with('error', 'Error al cargar datos: ' . $e->getMessage());
         }
     }
 
     /**
      * Registrar alumno:
-     *  - El usuario ya existe con rol='alumno' (creado desde UsuarioController o RegistroController)
-     *  - Aquí se asigna: grado inicial (historial_grados) + documento médico (registro_fisico)
+     * - Asigna grado inicial (historial_grados)
+     * - Guarda documento médico (registro_fisico)
+     * - Si pertenece al bachiller, guarda datos en tabla usuario
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'id_alumno'        => 'required|exists:usuario,id_usuario',
-            'id_grado'         => 'required|integer|exists:grado,id_grado',
+        $request->validate([
+            'id_alumno'         => 'required|exists:usuario,id_usuario',
+            'id_grado'          => 'required|integer|exists:grado,id_grado',
             'fecha_inscripcion' => 'required|date',
-            'documento_medico' => 'required|file|mimes:pdf|max:5120',
+            'documento_medico'  => 'required|file|mimes:pdf|max:5120',
+            // Bachiller — opcionales
+            'es_bachiller'      => 'nullable|boolean',
+            'numero_control'    => 'nullable|string|max:20',
+            'grupo'             => 'nullable|string|max:10',
+            'especialidad'      => 'nullable|string|max:100',
+            'turno'             => 'nullable|in:Matutino,Vespertino,Nocturno',
         ]);
 
         try {
-            // Verificar que el usuario sea alumno
             $usuario = DB::table('usuario')
-                ->where('id_usuario', $validated['id_alumno'])
+                ->where('id_usuario', $request->id_alumno)
                 ->where('rol', 'alumno')
                 ->first();
 
@@ -106,41 +121,53 @@ class AlumnoController extends Controller
             $rutaDocumento = null;
             if ($request->hasFile('documento_medico')) {
                 $archivo       = $request->file('documento_medico');
-                $nombreArchivo = 'medico_' . $validated['id_alumno'] . '_' . time() . '.pdf';
+                $nombreArchivo = 'medico_' . $request->id_alumno . '_' . time() . '.pdf';
                 $rutaDocumento = $archivo->storeAs('documentos_medicos', $nombreArchivo, 'public');
             }
 
+            $esBachiller = $request->boolean('es_bachiller');
+
             DB::beginTransaction();
 
-            // 1. Insertar grado inicial en historial_grados
+            // 1. Grado inicial en historial_grados
             DB::table('historial_grados')->insert([
-                'id_usuario'      => $validated['id_alumno'],
-                'id_grado'        => $validated['id_grado'],
-                'fecha_obtencion' => $validated['fecha_inscripcion'],
+                'id_usuario'      => $request->id_alumno,
+                'id_grado'        => $request->id_grado,
+                'fecha_obtencion' => $request->fecha_inscripcion,
                 'observaciones'   => 'Grado inicial al momento de inscripción.',
             ]);
 
-            // 2. Guardar / actualizar certificado médico en registro_fisico
+            // 2. Certificado médico en registro_fisico
             $registroExistente = DB::table('registro_fisico')
-                ->where('id_usuario', $validated['id_alumno'])
+                ->where('id_usuario', $request->id_alumno)
                 ->first();
 
             if ($registroExistente) {
                 DB::table('registro_fisico')
-                    ->where('id_usuario', $validated['id_alumno'])
+                    ->where('id_usuario', $request->id_alumno)
                     ->update([
                         'certificado_medico' => $rutaDocumento,
-                        'fecha_registro'     => $validated['fecha_inscripcion'],
+                        'fecha_registro'     => $request->fecha_inscripcion,
                     ]);
             } else {
                 DB::table('registro_fisico')->insert([
-                    'id_usuario'         => $validated['id_alumno'],
+                    'id_usuario'         => $request->id_alumno,
                     'peso'               => 0,
                     'estatura'           => 0,
                     'certificado_medico' => $rutaDocumento,
-                    'fecha_registro'     => $validated['fecha_inscripcion'],
+                    'fecha_registro'     => $request->fecha_inscripcion,
                 ]);
             }
+
+            // 3. Datos de bachiller en tabla usuario
+            DB::table('usuario')
+                ->where('id_usuario', $request->id_alumno)
+                ->update([
+                    'numero_control' => $esBachiller ? ($request->numero_control ?? null) : null,
+                    'grupo'          => $esBachiller ? ($request->grupo          ?? null) : null,
+                    'especialidad'   => $esBachiller ? ($request->especialidad   ?? null) : null,
+                    'turno'          => $esBachiller ? ($request->turno          ?? null) : null,
+                ]);
 
             DB::commit();
             return redirect()->route('alumnos.index')->with('success', 'Alumno registrado con éxito.');
@@ -153,30 +180,40 @@ class AlumnoController extends Controller
     }
 
     /**
-     * Actualizar alumno: asignar nuevo grado (agrega registro en historial)
-     * y actualizar documento médico si se sube uno nuevo.
+     * Actualizar alumno:
+     * - Agrega nuevo grado al historial
+     * - Actualiza documento médico si se sube uno nuevo
+     * - Actualiza datos de bachiller (o los limpia si ya no pertenece)
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id)
     {
-        $validated = $request->validate([
+        $request->validate([
             'id_grado'          => 'required|integer|exists:grado,id_grado',
             'fecha_obtencion'   => 'required|date',
             'observaciones'     => 'nullable|string|max:500',
             'documento_medico'  => 'nullable|file|mimes:pdf|max:5120',
+            // Bachiller — opcionales
+            'es_bachiller'      => 'nullable|boolean',
+            'numero_control'    => 'nullable|string|max:20',
+            'grupo'             => 'nullable|string|max:10',
+            'especialidad'      => 'nullable|string|max:100',
+            'turno'             => 'nullable|in:Matutino,Vespertino,Nocturno',
         ]);
 
         try {
+            $esBachiller = $request->boolean('es_bachiller');
+
             DB::beginTransaction();
 
-            // Insertar nuevo registro en historial_grados (no se sobreescribe el historial)
+            // 1. Nuevo registro en historial_grados
             DB::table('historial_grados')->insert([
                 'id_usuario'      => $id,
-                'id_grado'        => $validated['id_grado'],
-                'fecha_obtencion' => $validated['fecha_obtencion'],
-                'observaciones'   => $validated['observaciones'] ?? null,
+                'id_grado'        => $request->id_grado,
+                'fecha_obtencion' => $request->fecha_obtencion,
+                'observaciones'   => $request->observaciones ?? null,
             ]);
 
-            // Actualizar documento médico si se proporcionó uno nuevo
+            // 2. Documento médico si se subió uno nuevo
             if ($request->hasFile('documento_medico')) {
                 $nombreArchivo = 'medico_' . $id . '_' . time() . '.pdf';
                 $ruta = $request->file('documento_medico')
@@ -186,6 +223,18 @@ class AlumnoController extends Controller
                     ->where('id_usuario', $id)
                     ->update(['certificado_medico' => $ruta]);
             }
+
+            // 3. Datos de bachiller:
+            //    - Si es_bachiller = true  → actualiza campos
+            //    - Si es_bachiller = false → pone NULL (ya no pertenece)
+            DB::table('usuario')
+                ->where('id_usuario', $id)
+                ->update([
+                    'numero_control' => $esBachiller ? ($request->numero_control ?? null) : null,
+                    'grupo'          => $esBachiller ? ($request->grupo          ?? null) : null,
+                    'especialidad'   => $esBachiller ? ($request->especialidad   ?? null) : null,
+                    'turno'          => $esBachiller ? ($request->turno          ?? null) : null,
+                ]);
 
             DB::commit();
             return redirect()->route('alumnos.index')->with('success', 'Alumno actualizado con éxito.');
@@ -198,9 +247,9 @@ class AlumnoController extends Controller
     }
 
     /**
-     * Devuelve el historial de grados de un alumno (para modal o vista detalle).
+     * Historial de grados para modal (devuelve JSON).
      */
-    public function historialGrados($id)
+    public function historialGrados(int $id)
     {
         try {
             $historial = DB::table('historial_grados as hg')
