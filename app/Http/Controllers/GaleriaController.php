@@ -167,7 +167,7 @@ class GaleriaController extends Controller
     }
 
     // ── destroy ───────────────────────────────────────────────────────────────
-    public function destroy($id)
+    public function destroy(int $id)
     {
         // Solo admin puede eliminar archivos individuales
         if (!$this->esAdmin()) {
@@ -216,7 +216,7 @@ class GaleriaController extends Controller
     }
 
     // ── toggleDestacado ───────────────────────────────────────────────────────
-    public function toggleDestacado($id)
+    public function toggleDestacado(int $id)
     {
         // Solo admin puede marcar/desmarcar destacados
         if (!$this->esAdmin()) {

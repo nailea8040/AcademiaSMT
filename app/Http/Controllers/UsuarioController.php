@@ -47,12 +47,17 @@ class UsuarioController extends Controller
         }
 
         // Filtros opcionales (buscar, rol, estado)
-        $filtros = $request->only(['buscar', 'rol', 'estado']);
+        // Usar ?? para garantizar que todas las claves existen aunque no vengan en la URL
+        $filtros = [
+            'buscar' => $request->input('buscar', ''),
+            'rol'    => $request->input('rol',    ''),
+            'estado' => $request->input('estado', ''),
+        ];
 
         if (!empty($filtros['buscar'])) {
             $b = $filtros['buscar'];
             $query->where(function ($q) use ($b) {
-                $q->where('nombre',  'like', "%{$b}%")
+                $q->where('nombre',   'like', "%{$b}%")
                   ->orWhere('apaterno', 'like', "%{$b}%")
                   ->orWhere('amaterno', 'like', "%{$b}%")
                   ->orWhere('correo',   'like', "%{$b}%");
@@ -68,7 +73,7 @@ class UsuarioController extends Controller
             }
         }
 
-        if ($filtros['estado'] !== null && $filtros['estado'] !== '') {
+        if ($filtros['estado'] !== '') {
             $query->where('estado', $filtros['estado']);
         }
 
@@ -140,7 +145,7 @@ class UsuarioController extends Controller
 
     // ── edit ─────────────────────────────────────────────────────────────────
 
-    public function edit($id)
+    public function edit(int $id)
     {
         $this->soloAdminOSensei();
 
@@ -164,7 +169,7 @@ class UsuarioController extends Controller
 
     // ── update ───────────────────────────────────────────────────────────────
 
-    public function update(Request $request, $id)
+    public function update(Request $request,int $id)
     {
         $this->soloAdminOSensei();
 
@@ -245,7 +250,7 @@ class UsuarioController extends Controller
 
     // ── destroy ──────────────────────────────────────────────────────────────
 
-    public function destroy($id)
+    public function destroy(int $id)
     {
         // Solo admin puede eliminar
         if (!$this->esAdmin()) {
@@ -274,7 +279,7 @@ class UsuarioController extends Controller
 
     // ── toggleActive ─────────────────────────────────────────────────────────
 
-    public function toggleActive($id)
+    public function toggleActive(int $id)
     {
         $this->soloAdminOSensei();
 

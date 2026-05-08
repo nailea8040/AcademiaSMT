@@ -85,7 +85,7 @@ class CalendarioController extends Controller
         }
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id)
     {
         if (!$this->puedeGestionar()) {
             return back()->with('error', 'No tienes permisos para editar eventos.');
@@ -124,7 +124,7 @@ class CalendarioController extends Controller
         }
     }
 
-    public function destroy($id)
+    public function destroy(int $id)
     {
         // Solo admin puede eliminar eventos
         if (!$this->esAdmin()) {
