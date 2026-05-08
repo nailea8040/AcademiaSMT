@@ -16,8 +16,8 @@
                 </a>
             </li>
 
-            {{-- Gestión de Usuarios — solo admin --}}
-            @if($rol === 'admin')
+            {{-- Gestión de Usuarios — admin y sensei --}}
+            @if(in_array($rol, ['admin', 'sensei']))
             <li>
                 <a href="{{ route('usuarios.index') }}"
                    title="Usuarios"
@@ -49,16 +49,16 @@
             </li>
             @endif
 
-                {{-- Asistencia — admin y sensei --}}
-    @if(in_array($rol, ['admin', 'sensei']))
-    <li>
-        <a href="{{ route('asistencia.index') }}"
-        title="Asistencia"
-        class="{{ Request::routeIs('asistencia.*') ? 'activo' : '' }}">
-            <i class="bi bi-calendar-check"></i>
-        </a>
-    </li>
-    @endif
+            {{-- Asistencia — admin y sensei --}}
+            @if(in_array($rol, ['admin', 'sensei']))
+            <li>
+                <a href="{{ route('asistencia.index') }}"
+                   title="Asistencia"
+                   class="{{ Request::routeIs('asistencia.*') ? 'activo' : '' }}">
+                    <i class="bi bi-calendar-check"></i>
+                </a>
+            </li>
+            @endif
 
             {{-- Pagos — todos los roles --}}
             @if(in_array($rol, ['admin', 'sensei', 'tutor', 'alumno']))

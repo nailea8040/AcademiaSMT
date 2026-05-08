@@ -12,105 +12,65 @@
         :root { --kr: #e85654; --kd: #2d2d2d; }
         body { background: #f4f6f9; min-height: 100vh; }
 
-        /* ── Sección header ─────────── */
         .section-heading {
             display: flex; align-items: center; gap: 12px;
             margin: 2rem 0 1.25rem;
         }
-        .section-heading h2 {
-            font-size: 1.35rem; font-weight: 800; color: var(--kd); margin: 0;
-        }
-        .section-heading .line {
-            flex: 1; height: 2px; background: #e9ecef; border-radius: 2px;
-        }
+        .section-heading h2 { font-size: 1.35rem; font-weight: 800; color: var(--kd); margin: 0; }
+        .section-heading .line { flex: 1; height: 2px; background: #e9ecef; border-radius: 2px; }
         .section-heading .count-pill {
             background: var(--kr); color: white;
             font-size: 0.78rem; font-weight: 700;
             padding: 3px 10px; border-radius: 20px;
         }
 
-        /* ── Tarjeta de EVENTO ──────── */
         .evento-card {
-            background: white;
-            border-radius: 20px;
-            overflow: hidden;
+            background: white; border-radius: 20px; overflow: hidden;
             box-shadow: 0 4px 20px rgba(0,0,0,0.07);
-            transition: transform 0.3s, box-shadow 0.3s;
-            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s; cursor: pointer;
         }
-        .evento-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 12px 36px rgba(0,0,0,0.13);
-        }
+        .evento-card:hover { transform: translateY(-6px); box-shadow: 0 12px 36px rgba(0,0,0,0.13); }
         .evento-mosaic {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: repeat(2, 90px);
-            gap: 3px;
-            background: #e9ecef;
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(2, 90px); gap: 3px; background: #e9ecef;
         }
-        .evento-mosaic .tile {
-            overflow: hidden; position: relative; background: #dee2e6;
+        .evento-mosaic .tile { overflow: hidden; position: relative; background: #dee2e6; }
+        .evento-mosaic .tile img, .evento-mosaic .tile video {
+            width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s;
         }
-        .evento-mosaic .tile img,
-        .evento-mosaic .tile video {
-            width: 100%; height: 100%; object-fit: cover; display: block;
-            transition: transform 0.4s;
-        }
-        .evento-card:hover .tile img,
-        .evento-card:hover .tile video { transform: scale(1.06); }
+        .evento-card:hover .tile img, .evento-card:hover .tile video { transform: scale(1.06); }
         .evento-mosaic .tile .video-play {
-            position: absolute; inset: 0;
-            display: flex; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.3);
+            position: absolute; inset: 0; display: flex; align-items: center;
+            justify-content: center; background: rgba(0,0,0,0.3);
         }
         .evento-mosaic .tile .video-play i { color: white; font-size: 1.4rem; }
         .evento-mosaic .tile-more {
             display: flex; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.55); color: white;
-            font-weight: 800; font-size: 1.15rem;
+            background: rgba(0,0,0,0.55); color: white; font-weight: 800; font-size: 1.15rem;
         }
-
-        .evento-info {
-            padding: 14px 16px 12px;
-        }
+        .evento-info { padding: 14px 16px 12px; }
         .evento-info h3 {
-            font-size: 0.95rem; font-weight: 800;
-            color: var(--kd); margin: 0 0 6px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-size: 0.95rem; font-weight: 800; color: var(--kd);
+            margin: 0 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .evento-stats {
-            display: flex; gap: 12px; font-size: 0.78rem; color: #888;
-        }
+        .evento-stats { display: flex; gap: 12px; font-size: 0.78rem; color: #888; }
         .evento-stats span { display: flex; align-items: center; gap: 4px; }
         .evento-stats i { font-size: 0.85rem; }
-
-        .evento-actions {
-            display: flex; gap: 6px; padding: 0 16px 14px;
-        }
+        .evento-actions { display: flex; gap: 6px; padding: 0 16px 14px; }
         .btn-evento {
             flex: 1; padding: 7px 0; border-radius: 10px; font-size: 0.8rem;
             font-weight: 700; border: none; cursor: pointer; transition: all 0.2s;
             display: flex; align-items: center; justify-content: center; gap: 5px;
         }
-        .btn-evento-ver {
-            background: var(--kr); color: white;
-        }
+        .btn-evento-ver { background: var(--kr); color: white; }
         .btn-evento-ver:hover { background: #d43f3d; }
-        .btn-evento-del {
-            background: #f8f9fa; color: #dc3545;
-            border: 1.5px solid #f5c6cb;
-        }
+        .btn-evento-del { background: #f8f9fa; color: #dc3545; border: 1.5px solid #f5c6cb; }
         .btn-evento-del:hover { background: #f8d7da; }
 
-        /* ── Grid de eventos ────────── */
         .eventos-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 1.5rem;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem;
         }
 
-        /* ── Lightbox de evento (carousel) ── */
         .ev-lightbox {
             display: none; position: fixed; inset: 0; z-index: 10000;
             background: rgba(0,0,0,0.97); flex-direction: column;
@@ -162,19 +122,13 @@
             transition: all 0.2s;
         }
         .ev-lb-thumb.active { opacity: 1; border-color: var(--kr); }
-        .ev-lb-thumb img, .ev-lb-thumb video {
-            width: 100%; height: 100%; object-fit: cover; display: block;
-        }
+        .ev-lb-thumb img, .ev-lb-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
         .ev-lb-thumb .thumb-vid-icon {
             position: absolute; inset: 0; display: flex;
-            align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.35);
+            align-items: center; justify-content: center; background: rgba(0,0,0,0.35);
         }
 
-        /* ── Filtros individuales ─── */
-        .filter-pills {
-            display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem;
-        }
+        .filter-pills { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
         .filter-pill {
             background: white; border: 2px solid transparent; border-radius: 50px;
             padding: 0.55rem 1.4rem; font-weight: 700; font-size: 0.88rem;
@@ -188,24 +142,16 @@
             border-color: var(--kr); box-shadow: 0 6px 20px rgba(232,86,84,0.35);
         }
 
-        /* ── Grid individuales ──── */
         .ind-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 1.25rem;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.25rem;
         }
         .ind-card {
-            position: relative; border-radius: 16px; overflow: hidden;
-            background: #dee2e6;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.09);
-            cursor: pointer; transition: all 0.35s;
+            position: relative; border-radius: 16px; overflow: hidden; background: #dee2e6;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.09); cursor: pointer; transition: all 0.35s;
             aspect-ratio: 4/3;
         }
         .ind-card:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 12px 32px rgba(0,0,0,0.18); }
-        .ind-card img, .ind-card video {
-            width: 100%; height: 100%; object-fit: cover; display: block;
-            transition: transform 0.35s;
-        }
+        .ind-card img, .ind-card video { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.35s; }
         .ind-card:hover img, .ind-card:hover video { transform: scale(1.07); }
         .ind-badge {
             position: absolute; top: 10px; right: 10px;
@@ -232,7 +178,6 @@
         .btn-ind:hover { background: rgba(255,255,255,0.35); transform: scale(1.12); }
         .btn-ind.del:hover { background: var(--kr); }
 
-        /* ── Lightbox individual ── */
         .lb {
             display: none; position: fixed; inset: 0; z-index: 9999;
             background: rgba(0,0,0,0.96); align-items: center; justify-content: center;
@@ -240,9 +185,7 @@
         }
         .lb.show { display: flex; }
         .lb-inner { max-width: 92%; max-height: 92%; position: relative; }
-        .lb-inner img, .lb-inner video {
-            max-width: 100%; max-height: 90vh; border-radius: 12px;
-        }
+        .lb-inner img, .lb-inner video { max-width: 100%; max-height: 90vh; border-radius: 12px; }
         .lb-close {
             position: absolute; top: -46px; right: 0;
             background: rgba(255,255,255,0.18); border: none; color: white;
@@ -252,7 +195,6 @@
         }
         .lb-close:hover { background: var(--kr); transform: rotate(90deg); }
 
-        /* ── Modal subida ────────── */
         .upload-tabs { display: flex; border-radius: 12px; overflow: hidden; border: 1.5px solid #dee2e6; margin-bottom: 1.25rem; }
         .upload-tab { flex: 1; padding: 0.65rem; border: none; background: #f8f9fa; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; color: #555; }
         .upload-tab.active { background: var(--kr); color: white; }
@@ -290,6 +232,14 @@
 
 @include('includes.menu')
 
+@php
+    $rolActual     = Auth::check() ? Auth::user()->rol : null;
+    $esAdmin       = $rolActual === 'admin';
+    $esSensei      = $rolActual === 'sensei';
+    $puedeSubir    = $esAdmin || $esSensei;   // subir archivos
+    $puedeEliminar = $esAdmin;                // solo admin elimina
+@endphp
+
 <div class="main-content">
     <header class="header mb-0">
         <div class="d-flex justify-content-between align-items-center w-100">
@@ -301,7 +251,8 @@
                     <span>Galería</span>
                 </div>
             </div>
-            @if(Auth::check() && Auth::user()->rol === 'admin')
+            {{-- Botón subir: visible para admin y sensei --}}
+            @if($puedeSubir)
             <button class="btn btn-danger rounded-pill px-4 py-2 d-flex align-items-center gap-2"
                     data-bs-toggle="modal" data-bs-target="#uploadModal">
                 <i class="bi bi-cloud-upload"></i> Subir Archivo
@@ -323,9 +274,7 @@
 
     <div class="content-wrapper">
 
-        {{-- ══════════════════════════════════════════
-             SECCIÓN 1: EVENTOS (galerías agrupadas)
-        ══════════════════════════════════════════ --}}
+        {{-- ══ SECCIÓN 1: EVENTOS (galerías agrupadas) ══ --}}
         <div class="section-heading">
             <h2><i class="bi bi-collection me-2" style="color:var(--kr)"></i>Eventos</h2>
             <span class="count-pill">{{ count($eventos) }}</span>
@@ -337,14 +286,12 @@
             @foreach($eventos as $evento)
             <div class="evento-card" onclick="abrirEvento('{{ addslashes($evento->nombre) }}')">
 
-                {{-- Mosaico de miniaturas --}}
                 <div class="evento-mosaic">
                     @foreach($evento->miniaturas as $i => $mini)
                         @if($i < 7)
                         <div class="tile {{ $i === 0 ? 'tile-main' : '' }}">
                             @if($mini->tipo === 'imagen')
-                                <img src="{{ asset('storage/' . $mini->ruta) }}"
-                                     alt="{{ $mini->titulo }}" loading="lazy">
+                                <img src="{{ asset('storage/' . $mini->ruta) }}" alt="{{ $mini->titulo }}" loading="lazy">
                             @else
                                 <video preload="none">
                                     <source src="{{ asset('storage/' . $mini->ruta) }}" type="video/mp4">
@@ -353,12 +300,9 @@
                             @endif
                         </div>
                         @elseif($i === 7)
-                        <div class="tile tile-more">
-                            +{{ $evento->total - 7 }}
-                        </div>
+                        <div class="tile tile-more">+{{ $evento->total - 7 }}</div>
                         @endif
                     @endforeach
-                    {{-- Rellenar si hay menos de 8 tiles --}}
                     @for($p = $evento->miniaturas->count(); $p < 8; $p++)
                     <div class="tile" style="background:#e9ecef;"></div>
                     @endfor
@@ -381,13 +325,13 @@
                             onclick="abrirEvento('{{ addslashes($evento->nombre) }}')">
                         <i class="bi bi-eye"></i> Ver galería
                     </button>
-                    @if(Auth::check() && Auth::user()->rol === 'admin')
+                    {{-- Eliminar evento: solo admin --}}
+                    @if($puedeEliminar)
                     <button class="btn-evento btn-evento-del"
                             onclick="eliminarEvento('{{ addslashes($evento->nombre) }}')">
                         <i class="bi bi-trash3"></i>
                     </button>
                     @endif
-                    {{-- Indicador de destacado del evento (lectura) --}}
                     @if($evento->destacado ?? false)
                     <span title="Tiene archivos destacados en el landing"
                           style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#b8860b;font-weight:600;padding:4px 10px;background:#fff9e6;border-radius:20px;border:1px solid #ffd700;">
@@ -402,16 +346,14 @@
         <div class="empty-state">
             <i class="bi bi-collection"></i>
             <p style="font-size:1rem; font-weight:600; color:#6c757d;">No hay galerías de eventos todavía</p>
-            @if(Auth::check() && Auth::user()->rol === 'admin')
+            @if($puedeSubir)
             <p style="font-size:0.88rem; color:#adb5bd;">Usa "Subir Archivo" → pestaña "Galería de evento"</p>
             @endif
         </div>
         @endif
 
 
-        {{-- ══════════════════════════════════════════
-             SECCIÓN 2: ARCHIVOS INDIVIDUALES
-        ══════════════════════════════════════════ --}}
+        {{-- ══ SECCIÓN 2: ARCHIVOS INDIVIDUALES ══ --}}
         <div class="section-heading" style="margin-top:2.5rem;">
             <h2><i class="bi bi-file-earmark-image me-2" style="color:var(--kr)"></i>Archivos Individuales</h2>
             <span class="count-pill">{{ count($individuales) }}</span>
@@ -456,11 +398,13 @@
                                 onclick="openLb('{{ asset('storage/' . $archivo->ruta) }}','{{ $archivo->tipo }}')">
                             <i class="bi bi-zoom-in"></i>
                         </button>
-                        @if(Auth::check() && Auth::user()->rol === 'admin')
+                        {{-- Eliminar archivo: solo admin --}}
+                        @if($puedeEliminar)
                         <button class="btn-ind del"
                                 onclick="delArchivo({{ $archivo->id_evento }},'{{ addslashes($archivo->titulo) }}')">
                             <i class="bi bi-trash3"></i>
                         </button>
+                        {{-- Destacado: solo admin --}}
                         <button class="btn-ind"
                                 onclick="toggleDestacado(this)"
                                 data-url="{{ route('galeria.destacado', $archivo->id_evento) }}"
@@ -479,7 +423,7 @@
         <div class="empty-state">
             <i class="bi bi-file-earmark-image"></i>
             <p style="font-size:1rem; font-weight:600; color:#6c757d;">No hay archivos individuales</p>
-            @if(Auth::check() && Auth::user()->rol === 'admin')
+            @if($puedeSubir)
             <p style="font-size:0.88rem; color:#adb5bd;">Usa "Subir Archivo" → pestaña "Archivo único"</p>
             @endif
         </div>
@@ -514,8 +458,8 @@
     <div class="ev-lb-thumbs" id="evLbThumbs"></div>
 </div>
 
-{{-- ── Modal Subida ─────────────────────────────────────────────── --}}
-@if(Auth::check() && Auth::user()->rol === 'admin')
+{{-- ── Modal Subida (admin y sensei) ───────────────────────────── --}}
+@if($puedeSubir)
 <div class="modal fade" id="uploadModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content" style="border-radius:22px;border:none;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
@@ -540,14 +484,12 @@
                         </button>
                     </div>
 
-                    {{-- Campo título (individual) --}}
                     <div id="wrap-titulo" class="mb-3">
                         <label class="form-label fw-semibold">Título del archivo</label>
                         <input type="text" name="titulo" id="upTitulo" class="form-control"
                                placeholder="Ej: Entrenamiento Viernes">
                     </div>
 
-                    {{-- Campo nombre evento (galería) --}}
                     <div id="wrap-evento" class="mb-3" style="display:none;">
                         <label class="form-label fw-semibold">
                             Nombre del evento
@@ -588,6 +530,16 @@
                                   placeholder="Notas sobre este contenido..."></textarea>
                     </div>
 
+                    {{-- Destacado: solo admin ve esta opción --}}
+                    @if($esAdmin)
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="destacado" id="upDestacado" value="1">
+                        <label class="form-check-label fw-semibold" for="upDestacado">
+                            <i class="bi bi-star-fill text-warning me-1"></i> Mostrar en el landing
+                        </label>
+                    </div>
+                    @endif
+
                     <div class="drop-zone" id="dropZone" onclick="document.getElementById('upFile').click()">
                         <i class="bi bi-cloud-arrow-up"></i>
                         <p id="dzText">Haz clic o arrastra archivos aquí</p>
@@ -615,7 +567,7 @@
 </div>
 @endif
 
-{{-- Form oculto para eliminar evento --}}
+{{-- Form oculto para eliminar evento completo --}}
 <form id="delEventoForm" method="POST" action="{{ route('galeria.destroyEvento') }}" style="display:none;">
     @csrf @method('DELETE')
     <input type="hidden" name="nombre_evento" id="delEventoNombre">
@@ -623,29 +575,22 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// ──────────────────────────────────────────────
-// Datos de eventos para el lightbox (inyectados desde PHP)
-// ──────────────────────────────────────────────
-const eventosData = @json($eventosData);
+const eventosData  = @json($eventosData);
+const puedeEliminar = {{ $puedeEliminar ? 'true' : 'false' }};
 
-// ──────────────────────────────────────────────
-// FILTROS de archivos individuales
-// ──────────────────────────────────────────────
+// ── Filtros individuales ──────────────────────────────────────────────
 document.querySelectorAll('.filter-pill').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const f = btn.dataset.filter;
         document.querySelectorAll('#indGrid .ind-card').forEach(card => {
-            const show = f === 'all' || card.dataset.type === f;
-            card.style.display = show ? '' : 'none';
+            card.style.display = (f === 'all' || card.dataset.type === f) ? '' : 'none';
         });
     });
 });
 
-// ──────────────────────────────────────────────
-// LIGHTBOX individual
-// ──────────────────────────────────────────────
+// ── Lightbox individual ───────────────────────────────────────────────
 function openLb(src, tipo) {
     document.getElementById('lbMedia').innerHTML = tipo === 'imagen'
         ? `<img src="${src}" alt="">`
@@ -661,9 +606,7 @@ function closeLb() {
     setTimeout(() => document.getElementById('lbMedia').innerHTML = '', 300);
 }
 
-// ──────────────────────────────────────────────
-// LIGHTBOX DE EVENTO (carousel + thumbnails)
-// ──────────────────────────────────────────────
+// ── Lightbox de evento (carousel) ────────────────────────────────────
 let evArchivos = [], evIdx = 0;
 
 function abrirEvento(nombre) {
@@ -694,9 +637,7 @@ function renderEvMedia() {
             <source src="${a.src}" type="video/mp4"></video>`;
     }
     document.getElementById('evLbCounter').textContent = `${evIdx + 1} / ${evArchivos.length}`;
-    // Actualizar thumb activo
     document.querySelectorAll('.ev-lb-thumb').forEach((t, i) => t.classList.toggle('active', i === evIdx));
-    // Scroll thumb activo a la vista
     const thumbEl = document.querySelector('.ev-lb-thumb.active');
     if (thumbEl) thumbEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 }
@@ -727,7 +668,6 @@ function evGoTo(idx) {
     renderEvMedia();
 }
 
-// Teclado para el lightbox de evento
 document.addEventListener('keydown', e => {
     if (document.getElementById('evLb').classList.contains('show')) {
         if (e.key === 'ArrowLeft')  evNavegar(-1);
@@ -738,10 +678,9 @@ document.addEventListener('keydown', e => {
     }
 });
 
-// ──────────────────────────────────────────────
-// ELIMINAR
-// ──────────────────────────────────────────────
+// ── Eliminar ──────────────────────────────────────────────────────────
 function delArchivo(id, titulo) {
+    if (!puedeEliminar) return;
     if (!confirm(`Eliminar "${titulo}"?\n\nEsta acción no se puede deshacer.`)) return;
     const f = document.createElement('form');
     f.method = 'POST'; f.action = `/galeria/${id}`;
@@ -752,42 +691,34 @@ function delArchivo(id, titulo) {
 }
 
 function eliminarEvento(nombre) {
+    if (!puedeEliminar) return;
     if (!confirm(`Eliminar el evento "${nombre}" y TODOS sus archivos?\n\nEsta acción no se puede deshacer.`)) return;
     document.getElementById('delEventoNombre').value = nombre;
     document.getElementById('delEventoForm').submit();
 }
 
-// ──────────────────────────────────────────────
-// MODAL SUBIDA
-// ──────────────────────────────────────────────
+// ── Modal subida ──────────────────────────────────────────────────────
 function setModo(modo) {
-    // Actualizar input hidden
     document.getElementById('upModo').value = modo;
-
-    // Tabs: usar data-modo para evitar errores por índice
     document.querySelectorAll('[data-modo]').forEach(btn => {
-        const isActive = btn.getAttribute('data-modo') === modo;
-        btn.classList.toggle('active', isActive);
+        btn.classList.toggle('active', btn.getAttribute('data-modo') === modo);
     });
-
-    // Mostrar/ocultar campos según modo
     document.getElementById('wrap-titulo').style.display = modo === 'individual' ? '' : 'none';
     document.getElementById('wrap-evento').style.display = modo === 'evento'     ? '' : 'none';
-
-    // Modo evento acepta múltiples archivos
     const fileInput = document.getElementById('upFile');
     if (fileInput) fileInput.multiple = (modo === 'evento');
-
     resetUpload();
 }
 
 function updateAccept() {
-    const t = document.getElementById('upTipo').value;
+    const t  = document.getElementById('upTipo').value;
     const el = document.getElementById('upFile');
     if (t === 'imagen') el.accept = 'image/jpeg,image/jpg,image/png';
     else if (t === 'video') el.accept = 'video/mp4';
     else el.removeAttribute('accept');
-    document.getElementById('dzHint').textContent = t==='imagen' ? 'JPG, PNG — máx. 10 MB' : t==='video' ? 'MP4 — máx. 50 MB' : 'Selecciona el tipo primero';
+    document.getElementById('dzHint').textContent = t==='imagen'
+        ? 'JPG, PNG — máx. 10 MB'
+        : t==='video' ? 'MP4 — máx. 50 MB' : 'Selecciona el tipo primero';
     checkBtn();
 }
 
@@ -796,7 +727,7 @@ function previewFiles(input) {
     c.innerHTML = '';
     Array.from(input.files).forEach((f, i) => {
         const isImg = f.type.startsWith('image/');
-        const div = document.createElement('div');
+        const div   = document.createElement('div');
         div.className = 'fprev-item';
         div.innerHTML = `<i class="bi ${isImg?'bi-file-earmark-image':'bi-file-earmark-play'}"></i>
             <span class="fn">${f.name}</span>
@@ -804,7 +735,7 @@ function previewFiles(input) {
             <button type="button" class="fr" onclick="removeFile(${i})"><i class="bi bi-x-lg"></i></button>`;
         c.appendChild(div);
     });
-    const n = input.files.length;
+    const n    = input.files.length;
     const wrap = document.getElementById('countWrap');
     wrap.style.display = n > 1 ? 'block' : 'none';
     if (n > 1) document.getElementById('countTxt').textContent = `${n} archivos seleccionados`;
@@ -820,13 +751,13 @@ function removeFile(idx) {
 }
 
 function checkBtn() {
-    const modo   = document.getElementById('upModo').value;
-    const tipo   = document.getElementById('upTipo').value;
-    const campo  = modo === 'individual'
+    const modo  = document.getElementById('upModo').value;
+    const tipo  = document.getElementById('upTipo').value;
+    const campo = modo === 'individual'
         ? document.getElementById('upTitulo').value.trim()
         : document.getElementById('upEvento').value.trim();
-    const n      = document.getElementById('upFile').files.length;
-    const ok     = tipo && campo && n > 0;
+    const n  = document.getElementById('upFile').files.length;
+    const ok = tipo && campo && n > 0;
     document.getElementById('btnUp').disabled = !ok;
     document.getElementById('btnUpTxt').textContent = n > 1 ? `Subir ${n} archivos` : 'Subir archivo';
 }
@@ -844,7 +775,7 @@ function resetUpload() {
 // Drag & Drop
 const dz = document.getElementById('dropZone');
 if (dz) {
-    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+    dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('over'); });
     dz.addEventListener('dragleave', () => dz.classList.remove('over'));
     dz.addEventListener('drop', e => {
         e.preventDefault(); dz.classList.remove('over');
@@ -856,108 +787,67 @@ if (dz) {
     });
 }
 
-// Limpiar al cerrar modal
 document.getElementById('uploadModal')?.addEventListener('hidden.bs.modal', () => {
     document.getElementById('upForm').reset();
     resetUpload();
     setModo('individual');
 });
 
-        // ── Toggle destacado (marcar para landing) ────────────────
-        async function toggleDestacado(id, btn) {
-            try {
-                const token = document.querySelector('meta[name="csrf-token"]');
-                const csrfToken = token ? token.content : '';
-                const res = await fetch(`/galeria/${id}/destacado`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'Accept': 'application/json',
-                    },
-                });
-                const data = await res.json();
-                if (data.success) {
-                    const estrella = btn.querySelector('i');
-                    if (data.destacado) {
-                        btn.style.background = '#ffd700';
-                        btn.title = 'Quitar del landing';
-                        if (estrella) estrella.style.color = '#333';
-                    } else {
-                        btn.style.background = 'rgba(255,255,255,0.2)';
-                        btn.title = 'Mostrar en landing';
-                        if (estrella) estrella.style.color = 'white';
-                    }
-                    // Toast de confirmación
-                    const toast = document.createElement('div');
-                    toast.textContent = data.message;
-                    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#222;color:#fff;padding:10px 20px;border-radius:8px;z-index:9999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.3)';
-                    document.body.appendChild(toast);
-                    setTimeout(() => toast.remove(), 2500);
-                }
-            } catch(e) {
-                alert('Error al actualizar destacado. Intenta de nuevo.');
-            }
+// ── Toggle destacado (solo admin) ─────────────────────────────────────
+async function toggleDestacado(btn) {
+    const url       = btn.getAttribute('data-url');
+    const csrfMeta  = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = csrfMeta ? csrfMeta.content : '';
+    const estrella  = btn.querySelector('i');
+
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+
+    try {
+        const res = await fetch(url, {
+            method:  'POST',
+            headers: {
+                'Content-Type':     'application/json',
+                'X-CSRF-TOKEN':     csrfToken,
+                'Accept':           'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+
+        if (!res.ok) {
+            alert('Error ' + res.status + ': ' + res.statusText);
+            return;
         }
-    
-                async function toggleDestacado(btn) {
-            const url        = btn.getAttribute('data-url');
-            const csrfMeta   = document.querySelector('meta[name="csrf-token"]');
-            const csrfToken  = csrfMeta ? csrfMeta.content : '';
-            const estrella   = btn.querySelector('i');
 
-            // Deshabilitar mientras procesa
-            btn.disabled = true;
-            btn.style.opacity = '0.5';
+        const data = await res.json();
 
-            try {
-                const res = await fetch(url, {
-                    method:  'POST',
-                    headers: {
-                        'Content-Type':  'application/json',
-                        'X-CSRF-TOKEN':  csrfToken,
-                        'Accept':        'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                });
-
-                if (!res.ok) {
-                    const txt = await res.text();
-                    console.error('Error HTTP', res.status, txt);
-                    alert('Error ' + res.status + ': ' + res.statusText);
-                    return;
-                }
-
-                const data = await res.json();
-
-                if (data.success) {
-                    btn.setAttribute('data-destacado', data.destacado);
-                    if (data.destacado) {
-                        btn.style.background = '#ffd700';
-                        btn.title = 'Quitar del landing';
-                        if (estrella) estrella.style.color = '#333';
-                    } else {
-                        btn.style.background = 'rgba(255,255,255,0.2)';
-                        btn.title = 'Mostrar en landing';
-                        if (estrella) estrella.style.color = 'white';
-                    }
-                    // Toast de confirmación
-                    const toast = document.createElement('div');
-                    toast.textContent = data.message;
-                    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#222;color:#fff;padding:10px 20px;border-radius:8px;z-index:9999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.3);transition:opacity .3s';
-                    document.body.appendChild(toast);
-                    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 2200);
-                } else {
-                    alert(data.message || 'Error al actualizar.');
-                }
-            } catch(e) {
-                console.error('toggleDestacado error:', e);
-                alert('Error de conexión. Revisa la consola.');
-            } finally {
-                btn.disabled = false;
-                btn.style.opacity = '1';
+        if (data.success) {
+            btn.setAttribute('data-destacado', data.destacado);
+            if (data.destacado) {
+                btn.style.background = '#ffd700';
+                btn.title = 'Quitar del landing';
+                if (estrella) estrella.style.color = '#333';
+            } else {
+                btn.style.background = 'rgba(255,255,255,0.2)';
+                btn.title = 'Mostrar en landing';
+                if (estrella) estrella.style.color = 'white';
             }
+            const toast = document.createElement('div');
+            toast.textContent = data.message;
+            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#222;color:#fff;padding:10px 20px;border-radius:8px;z-index:9999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,.3);transition:opacity .3s';
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 2200);
+        } else {
+            alert(data.message || 'Error al actualizar.');
         }
-    </script>
+    } catch(e) {
+        console.error('toggleDestacado error:', e);
+        alert('Error de conexión. Revisa la consola.');
+    } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
+}
+</script>
 </body>
 </html>

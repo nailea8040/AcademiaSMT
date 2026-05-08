@@ -15,6 +15,20 @@ class GaleriaController extends Controller
         return Auth::check() && Auth::user()->rol === 'admin';
     }
 
+    private function esSensei(): bool
+    {
+        return Auth::check() && Auth::user()->rol === 'sensei';
+    }
+
+    /**
+     * Admin y sensei pueden subir archivos.
+     * Solo admin puede eliminar.
+     */
+    private function puedeGestionar(): bool
+    {
+        return $this->esAdmin() || $this->esSensei();
+    }
+
     // ── index ─────────────────────────────────────────────────────────────────
     public function index()
     {
@@ -40,7 +54,6 @@ class GaleriaController extends Controller
                     'total_fotos'  => $archivosEvento->where('tipo', 'imagen')->count(),
                     'total_videos' => $archivosEvento->where('tipo', 'video')->count(),
                     'miniaturas'   => $archivosEvento->take(8),
-                    // Si algún archivo del evento está destacado, el evento lo es
                     'destacado'    => $archivosEvento->where('destacado', 1)->count() > 0,
                 ];
             }
@@ -57,11 +70,11 @@ class GaleriaController extends Controller
                 return [
                     $e->nombre => collect($e->archivos)->map(function ($a) {
                         return [
-                            'id'         => $a->id_evento,
-                            'titulo'     => $a->titulo,
-                            'tipo'       => $a->tipo,
-                            'src'        => asset('storage/' . $a->ruta),
-                            'destacado'  => $a->destacado ?? 0,
+                            'id'        => $a->id_evento,
+                            'titulo'    => $a->titulo,
+                            'tipo'      => $a->tipo,
+                            'src'       => asset('storage/' . $a->ruta),
+                            'destacado' => $a->destacado ?? 0,
                         ];
                     })->values()
                 ];
@@ -87,7 +100,7 @@ class GaleriaController extends Controller
     // ── store ─────────────────────────────────────────────────────────────────
     public function store(Request $request)
     {
-        if (!$this->esAdmin()) {
+        if (!$this->puedeGestionar()) {
             return back()->with('error', 'No tienes permisos para subir archivos.');
         }
 
@@ -112,7 +125,8 @@ class GaleriaController extends Controller
             $archivos     = $request->file('archivos');
             $modoEvento   = $request->modo === 'evento';
             $nombreEvento = $modoEvento ? trim($request->nombre_evento) : null;
-            $destacado    = $request->boolean('destacado') ? 1 : 0;
+            // Solo admin puede marcar como destacado
+            $destacado    = ($this->esAdmin() && $request->boolean('destacado')) ? 1 : 0;
             $subidos      = 0;
 
             DB::beginTransaction();
@@ -155,9 +169,11 @@ class GaleriaController extends Controller
     // ── destroy ───────────────────────────────────────────────────────────────
     public function destroy($id)
     {
+        // Solo admin puede eliminar archivos individuales
         if (!$this->esAdmin()) {
-            return back()->with('error', 'No tienes permisos.');
+            return back()->with('error', 'No tienes permisos para eliminar archivos.');
         }
+
         try {
             $archivo = DB::table('evento')->where('id_evento', $id)->first();
             if (!$archivo) return back()->with('error', 'Archivo no encontrado.');
@@ -175,9 +191,11 @@ class GaleriaController extends Controller
     // ── destroyEvento ─────────────────────────────────────────────────────────
     public function destroyEvento(Request $request)
     {
+        // Solo admin puede eliminar galerías de eventos completas
         if (!$this->esAdmin()) {
-            return back()->with('error', 'No tienes permisos.');
+            return back()->with('error', 'No tienes permisos para eliminar eventos.');
         }
+
         try {
             $nombre   = $request->input('nombre_evento');
             $archivos = DB::table('evento')->where('nombre_evento', $nombre)->get();
@@ -198,12 +216,9 @@ class GaleriaController extends Controller
     }
 
     // ── toggleDestacado ───────────────────────────────────────────────────────
-    /**
-     * POST /galeria/{id}/destacado
-     * Marca o desmarca un archivo como destacado en el landing
-     */
     public function toggleDestacado($id)
     {
+        // Solo admin puede marcar/desmarcar destacados
         if (!$this->esAdmin()) {
             return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
         }
@@ -222,9 +237,9 @@ class GaleriaController extends Controller
                 ->update(['destacado' => $nuevoValor]);
 
             return response()->json([
-                'success'    => true,
-                'destacado'  => $nuevoValor,
-                'message'    => $nuevoValor
+                'success'   => true,
+                'destacado' => $nuevoValor,
+                'message'   => $nuevoValor
                     ? 'Marcado como destacado en el landing.'
                     : 'Quitado de destacados.',
             ]);
