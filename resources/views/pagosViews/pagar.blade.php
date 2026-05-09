@@ -180,14 +180,16 @@
     const PREFERENCE_ID  = "{{ $preferenceId }}";
     const ID_PAGO        = {{ $pago->id_pago }};
 
-    const mp = new MercadoPago(PUBLIC_KEY, { locale: 'es-MX' });
+    const mp = new MercadoPago("{{ config('services.mercadopago.public_key') }}", { 
+    locale: 'es-MX' 
+});
 
     const bricksBuilder = mp.bricks();
 
     const settings = {
         initialization: {
             amount:       {{ $pago->monto }},
-            //preferenceId: PREFERENCE_ID,
+            preferenceId: "{{ $preferenceId }}",
         },
         customization: {
             // Muestra TODOS los métodos disponibles para MX:

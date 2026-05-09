@@ -39,6 +39,8 @@ class AlumnoController extends Controller
                     'g.nombreGrado',
                     DB::raw("CONCAT(a.nombre,' ',a.apaterno,' ',a.amaterno) AS nombre_alumno"),
                     'rf.certificado_medico',
+                    'rf.peso',
+                    'rf.estatura',
                     'rf.fecha_registro AS fecha_inscripcion',
                     // Datos de bachiller
                     'a.numero_control',
@@ -100,6 +102,9 @@ class AlumnoController extends Controller
             'id_grado'          => 'required|integer|exists:grado,id_grado',
             'fecha_inscripcion' => 'required|date',
             'documento_medico'  => 'required|file|mimes:pdf|max:5120',
+            // Físicos — opcionales al registrar (0 si no se conocen aún)
+            'peso'              => 'nullable|numeric|min:0|max:300',
+            'estatura'          => 'nullable|numeric|min:0|max:3',
             // Bachiller — opcionales
             'es_bachiller'      => 'nullable|boolean',
             'numero_control'    => 'nullable|string|max:20',
@@ -146,14 +151,16 @@ class AlumnoController extends Controller
                 DB::table('registro_fisico')
                     ->where('id_usuario', $request->id_alumno)
                     ->update([
+                        'peso'               => $request->filled('peso')     ? $request->peso     : $registroExistente->peso,
+                        'estatura'           => $request->filled('estatura') ? $request->estatura : $registroExistente->estatura,
                         'certificado_medico' => $rutaDocumento,
                         'fecha_registro'     => $request->fecha_inscripcion,
                     ]);
             } else {
                 DB::table('registro_fisico')->insert([
                     'id_usuario'         => $request->id_alumno,
-                    'peso'               => 0,
-                    'estatura'           => 0,
+                    'peso'               => $request->filled('peso')     ? $request->peso     : 0,
+                    'estatura'           => $request->filled('estatura') ? $request->estatura : 0,
                     'certificado_medico' => $rutaDocumento,
                     'fecha_registro'     => $request->fecha_inscripcion,
                 ]);
@@ -192,6 +199,9 @@ class AlumnoController extends Controller
             'fecha_obtencion'   => 'required|date',
             'observaciones'     => 'nullable|string|max:500',
             'documento_medico'  => 'nullable|file|mimes:pdf|max:5120',
+            // Físicos — opcionales
+            'peso'              => 'nullable|numeric|min:0|max:300',
+            'estatura'          => 'nullable|numeric|min:0|max:3',
             // Bachiller — opcionales
             'es_bachiller'      => 'nullable|boolean',
             'numero_control'    => 'nullable|string|max:20',
@@ -213,15 +223,20 @@ class AlumnoController extends Controller
                 'observaciones'   => $request->observaciones ?? null,
             ]);
 
-            // 2. Documento médico si se subió uno nuevo
+            // 2. Documento médico y datos físicos
+            $updateFisico = [];
             if ($request->hasFile('documento_medico')) {
                 $nombreArchivo = 'medico_' . $id . '_' . time() . '.pdf';
-                $ruta = $request->file('documento_medico')
+                $updateFisico['certificado_medico'] = $request->file('documento_medico')
                     ->storeAs('documentos_medicos', $nombreArchivo, 'public');
+            }
+            if ($request->filled('peso'))     $updateFisico['peso']     = $request->peso;
+            if ($request->filled('estatura')) $updateFisico['estatura'] = $request->estatura;
 
+            if (!empty($updateFisico)) {
                 DB::table('registro_fisico')
                     ->where('id_usuario', $id)
-                    ->update(['certificado_medico' => $ruta]);
+                    ->update($updateFisico);
             }
 
             // 3. Datos de bachiller:

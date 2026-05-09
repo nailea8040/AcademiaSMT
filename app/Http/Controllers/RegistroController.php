@@ -53,19 +53,29 @@ class RegistroController extends Controller
         $rules['especialidad']    = 'nullable|string|max:100';
         $rules['turno']           = 'nullable|in:Matutino,Vespertino,Nocturno';
 
+        // ── Campos físicos (solo alumnos) ─────────────────────────────────────
+        if ($rol === 'alumno') {
+            $rules['peso']     = 'nullable|numeric|min:0|max:300';
+            $rules['estatura'] = 'nullable|numeric|min:0|max:3';
+        }
+
         // ── Reglas adicionales para tutor ────────────────────────────────────
         if ($rol === 'tutor') {
             $rules['ocupacion']           = 'required|integer|exists:ocupacion,id_ocupacion';
             $rules['relacion_estudiante'] = 'required|string|max:50';
 
             if ($alumnoExtra) {
-                $rules['alumno_nombre']           = 'required|string|max:200';
-                $rules['alumno_correo']           = 'required|email|unique:usuario,correo';
-                $rules['alumno_pass']             = 'required|min:8';
-                $rules['alumno_grado']            = 'required|integer|exists:grado,id_grado';
-                $rules['alumno_fecha_inscrip']    = 'required|date';
-                $rules['alumno_documento_medico'] = 'required|file|mimes:pdf|max:5120';
-            }
+                    $rules['alumno_nombre']           = 'required|string|max:100';
+                    $rules['alumno_apaterno']         = 'required|string|max:100';
+                    $rules['alumno_amaterno']         = 'required|string|max:100';
+                    $rules['alumno_correo']           = 'required|email|unique:usuario,correo';
+                    $rules['alumno_pass']             = 'required|min:8';
+                    $rules['alumno_grado']            = 'required|integer|exists:grado,id_grado';
+                    $rules['alumno_fecha_inscrip']    = 'required|date';
+                    $rules['alumno_documento_medico'] = 'required|file|mimes:pdf|max:5120';
+                    $rules['alumno_peso']             = 'nullable|numeric|min:0|max:300';
+                    $rules['alumno_estatura']         = 'nullable|numeric|min:0|max:3';
+                }
         }
 
         // ── Reglas adicionales para alumno ───────────────────────────────────
@@ -80,14 +90,15 @@ class RegistroController extends Controller
             }
 
             if ($tutorNuevo) {
-                $rules['tutor_nombre']    = 'required|string|max:100';
-                $rules['tutor_apaterno']  = 'required|string|max:100';
-                $rules['tutor_amaterno']  = 'required|string|max:100';
-                $rules['tutor_correo']    = 'required|email|unique:usuario,correo';
-                $rules['tutor_tel']       = 'required|digits:10';
-                $rules['tutor_ocupacion'] = 'required|integer|exists:ocupacion,id_ocupacion';
-                $rules['tutor_pass']      = 'required|min:8';
-                $rules['tutor_relacion']  = 'required|string|max:50';
+                $rules['tutor_nombre']      = 'required|string|max:100';
+                $rules['tutor_apaterno']    = 'required|string|max:100';
+                $rules['tutor_amaterno']    = 'required|string|max:100';
+                $rules['tutor_fecha_naci']  = 'required|date|before:today';
+                $rules['tutor_correo']      = 'required|email|unique:usuario,correo';
+                $rules['tutor_tel']         = 'required|digits:10';
+                $rules['tutor_ocupacion']   = 'required|integer|exists:ocupacion,id_ocupacion';
+                $rules['tutor_pass']        = 'required|min:8';
+                $rules['tutor_relacion']    = 'required|string|max:50';
             } else {
                 $rules['id_Tutor'] = $esMayor
                     ? 'nullable|exists:tutor,id_Tutor'
@@ -111,7 +122,7 @@ class RegistroController extends Controller
                     'nombre'         => $validated['tutor_nombre'],
                     'apaterno'       => $validated['tutor_apaterno'],
                     'amaterno'       => $validated['tutor_amaterno'],
-                    'fecha_naci'     => now()->subYears(30)->toDateString(),
+                    'fecha_naci'     => $validated['tutor_fecha_naci'],
                     'telefono'       => $validated['tutor_tel'],
                     'correo'         => $validated['tutor_correo'],
                     'pass'           => Hash::make($validated['tutor_pass']),
@@ -164,11 +175,10 @@ class RegistroController extends Controller
 
                 // ── Caso B2: tutor + alumno extra ─────────────────────────────
                 if ($alumnoExtra) {
-                    $partes   = explode(' ', trim($validated['alumno_nombre']), 3);
                     $idAlumno = DB::table('usuario')->insertGetId([
-                        'nombre'         => $partes[0] ?? '-',
-                        'apaterno'       => $partes[1] ?? '-',
-                        'amaterno'       => $partes[2] ?? '',
+                        'nombre'         => $validated['alumno_nombre'],
+                        'apaterno'       => $validated['alumno_apaterno'],
+                        'amaterno'       => $validated['alumno_amaterno'],
                         'fecha_naci'     => now()->subYears(10)->toDateString(),
                         'telefono'       => $validated['tel'],
                         'correo'         => $validated['alumno_correo'],
@@ -196,11 +206,16 @@ class RegistroController extends Controller
 
                     DB::table('registro_fisico')->insert([
                         'id_usuario'         => $idAlumno,
-                        'peso'               => 0,
-                        'estatura'           => 0,
+                        'peso'               => !empty($validated['alumno_peso'])     ? $validated['alumno_peso']     : 0,
+                        'estatura'           => !empty($validated['alumno_estatura']) ? $validated['alumno_estatura'] : 0,
                         'certificado_medico' => $rutaDoc,
                         'fecha_registro'     => $validated['alumno_fecha_inscrip'],
                     ]);
+
+                    // Vincular el alumno al tutor recién registrado
+                    DB::table('tutor')
+                        ->where('id_Tutor', $idUsuario)
+                        ->update(['id_alumno_relacionado' => $idAlumno]);
                 }
             }
 
@@ -234,8 +249,8 @@ class RegistroController extends Controller
 
                 DB::table('registro_fisico')->insert([
                     'id_usuario'         => $idUsuario,
-                    'peso'               => 0,
-                    'estatura'           => 0,
+                    'peso'               => !empty($validated['peso'])     ? $validated['peso']     : 0,
+                    'estatura'           => !empty($validated['estatura']) ? $validated['estatura'] : 0,
                     'certificado_medico' => $rutaDoc,
                     'fecha_registro'     => $validated['Fecha_inscrip'],
                 ]);

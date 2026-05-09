@@ -226,8 +226,30 @@
 
                 {{-- Información médica --}}
                 <h3 class="section-title-header">
-                    <i class="bi bi-heart-pulse-fill"></i> Información Médica
+                    <i class="bi bi-heart-pulse-fill"></i> Información Médica y Física
                 </h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="peso">
+                            Peso <span style="font-weight:400;color:#888;">(kg, opcional)</span>
+                        </label>
+                        <div class="form-input-wrapper">
+                            <i class="bi bi-speedometer2 input-icon"></i>
+                            <input type="number" id="peso" class="form-input" name="peso"
+                                   placeholder="Ej: 55.5" step="0.1" min="0" max="300">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="estatura">
+                            Estatura <span style="font-weight:400;color:#888;">(metros, opcional)</span>
+                        </label>
+                        <div class="form-input-wrapper">
+                            <i class="bi bi-arrows-vertical input-icon"></i>
+                            <input type="number" id="estatura" class="form-input" name="estatura"
+                                   placeholder="Ej: 1.65" step="0.01" min="0" max="3">
+                        </div>
+                    </div>
+                </div>
                 <div class="form-grid full-width">
                     <div class="form-group">
                         <label class="form-label" for="documento_medico">
@@ -356,6 +378,8 @@
                                     data-grupo="{{ $alumno->grupo ?? '' }}"
                                     data-especialidad="{{ $alumno->especialidad ?? '' }}"
                                     data-turno="{{ $alumno->turno ?? '' }}"
+                                    data-peso="{{ $alumno->peso ?? '' }}"
+                                    data-estatura="{{ $alumno->estatura ?? '' }}"
                                     title="Actualizar">
                                     <i class="bi bi-pencil-fill"></i>
                                 </button>
@@ -503,8 +527,30 @@
             {{-- Documento médico --}}
             <div class="form-section" style="margin-top:20px;">
                 <h4 style="font-size:0.95rem;font-weight:700;color:#333;margin-bottom:12px;">
-                    <i class="bi bi-heart-pulse-fill"></i> Documento Médico
+                    <i class="bi bi-heart-pulse-fill"></i> Datos Físicos y Documento Médico
                 </h4>
+                <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                    <div class="form-field">
+                        <label class="field-label" for="edit_peso">
+                            Peso <span style="font-weight:400;color:#888;">(kg)</span>
+                        </label>
+                        <div class="field-wrapper">
+                            <i class="bi bi-speedometer2 field-icon"></i>
+                            <input type="number" id="edit_peso" name="peso" class="field-input"
+                                   placeholder="Ej: 55.5" step="0.1" min="0" max="300">
+                        </div>
+                    </div>
+                    <div class="form-field">
+                        <label class="field-label" for="edit_estatura">
+                            Estatura <span style="font-weight:400;color:#888;">(metros)</span>
+                        </label>
+                        <div class="field-wrapper">
+                            <i class="bi bi-arrows-vertical field-icon"></i>
+                            <input type="number" id="edit_estatura" name="estatura" class="field-input"
+                                   placeholder="Ej: 1.65" step="0.01" min="0" max="3">
+                        </div>
+                    </div>
+                </div>
                 <div class="form-row full-width">
                     <div class="form-field">
                         <label class="field-label" for="edit_documento_medico">
@@ -604,11 +650,15 @@ document.addEventListener('DOMContentLoaded', function () {
             const grupo         = this.dataset.grupo;
             const especialidad  = this.dataset.especialidad;
             const turno         = this.dataset.turno;
+            const peso          = this.dataset.peso;
+            const estatura      = this.dataset.estatura;
 
             document.getElementById('editNombreAlumno').textContent    = nombre;
             document.getElementById('edit_id_grado').value             = grado || '';
             document.getElementById('edit_fecha_obtencion').value      = fecha ? fecha.substring(0, 10) : '';
             document.getElementById('edit_observaciones').value        = '';
+            document.getElementById('edit_peso').value                 = peso || '';
+            document.getElementById('edit_estatura').value             = estatura || '';
             document.getElementById('editForm').action                 = '{{ url("/alumnos") }}/' + id;
 
             // Datos de bachiller

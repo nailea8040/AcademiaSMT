@@ -466,13 +466,31 @@
                         </div>
                         <div class="form-grid">
 
-                            <div class="form-group full">
+                            <div class="form-group">
                                 <label>Nombre(s) del alumno <span class="req">*</span></label>
                                 <div class="input-wrap">
                                     <span class="ico-cell"><i class="bi bi-person-fill"></i></span>
-                                    <input type="text" name="alumno_nombre" placeholder="Nombre(s) y apellidos" value="{{ old('alumno_nombre') }}">
+                                    <input type="text" name="alumno_nombre" placeholder="Nombre(s)" value="{{ old('alumno_nombre') }}">
                                 </div>
                                 @error('alumno_nombre')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                            </div>
+
+                            <div class="form-group">
+                                <label>Apellido Paterno <span class="req">*</span></label>
+                                <div class="input-wrap">
+                                    <span class="ico-cell"><i class="bi bi-person-fill"></i></span>
+                                    <input type="text" name="alumno_apaterno" placeholder="Apellido Paterno" value="{{ old('alumno_apaterno') }}">
+                                </div>
+                                @error('alumno_apaterno')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                            </div>
+
+                            <div class="form-group full">
+                                <label>Apellido Materno <span class="req">*</span></label>
+                                <div class="input-wrap">
+                                    <span class="ico-cell"><i class="bi bi-person-fill"></i></span>
+                                    <input type="text" name="alumno_amaterno" placeholder="Apellido Materno" value="{{ old('alumno_amaterno') }}">
+                                </div>
+                                @error('alumno_amaterno')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                             </div>
 
                             <div class="form-group">
@@ -536,6 +554,26 @@
                                     <input type="date" name="alumno_fecha_inscrip" value="{{ old('alumno_fecha_inscrip', date('Y-m-d')) }}">
                                 </div>
                                 @error('alumno_fecha_inscrip')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                            </div>
+
+                            <div class="form-group">
+                                <label>Peso <span style="font-weight:400;color:#888;font-size:10px;">(kg, opcional)</span></label>
+                                <div class="input-wrap">
+                                    <span class="ico-cell"><i class="bi bi-speedometer2"></i></span>
+                                    <input type="number" name="alumno_peso" placeholder="Ej: 40.0"
+                                           step="0.1" min="0" max="300" value="{{ old('alumno_peso') }}">
+                                </div>
+                                @error('alumno_peso')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                            </div>
+
+                            <div class="form-group">
+                                <label>Estatura <span style="font-weight:400;color:#888;font-size:10px;">(metros, opcional)</span></label>
+                                <div class="input-wrap">
+                                    <span class="ico-cell"><i class="bi bi-arrows-vertical"></i></span>
+                                    <input type="number" name="alumno_estatura" placeholder="Ej: 1.40"
+                                           step="0.01" min="0" max="3" value="{{ old('alumno_estatura') }}">
+                                </div>
+                                @error('alumno_estatura')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                             </div>
 
                             <div class="form-group full">
@@ -614,6 +652,26 @@
                         @error('Fecha_inscrip')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                     </div>
 
+                    <div class="form-group">
+                        <label>Peso <span style="font-weight:400;color:#888;font-size:10px;">(kg, opcional)</span></label>
+                        <div class="input-wrap">
+                            <span class="ico-cell"><i class="bi bi-speedometer2"></i></span>
+                            <input type="number" name="peso" placeholder="Ej: 55.5"
+                                   step="0.1" min="0" max="300" value="{{ old('peso') }}">
+                        </div>
+                        @error('peso')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label>Estatura <span style="font-weight:400;color:#888;font-size:10px;">(metros, opcional)</span></label>
+                        <div class="input-wrap">
+                            <span class="ico-cell"><i class="bi bi-arrows-vertical"></i></span>
+                            <input type="number" name="estatura" placeholder="Ej: 1.65"
+                                   step="0.01" min="0" max="3" value="{{ old('estatura') }}">
+                        </div>
+                        @error('estatura')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                    </div>
+
                     <div class="form-group full">
                         <label>Documento médico (PDF, máx. 5 MB) <span class="req">*</span></label>
                         <div class="input-wrap">
@@ -622,8 +680,6 @@
                         </div>
                         @error('documento_medico')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                     </div>
-
-                    {{-- ── Sección Bachiller ─────────────────────────── --}}
                     <div class="form-group full">
                         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
                             <input type="checkbox"
@@ -717,6 +773,15 @@
                                     <input type="text" name="tutor_nombre" placeholder="Nombre(s)" value="{{ old('tutor_nombre') }}">
                                 </div>
                                 @error('tutor_nombre')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                            </div>
+
+                            <div class="form-group">
+                                <label>Fecha de Nacimiento <span class="req">*</span></label>
+                                <div class="input-wrap">
+                                    <span class="ico-cell"><i class="bi bi-calendar-date"></i></span>
+                                    <input type="date" name="tutor_fecha_naci" value="{{ old('tutor_fecha_naci') }}">
+                                </div>
+                                @error('tutor_fecha_naci')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                             </div>
 
                             <div class="form-group">
@@ -980,13 +1045,13 @@ function toggleAlumno() {
         fields.classList.add('open');
         ico.className = 'bi bi-dash-circle-fill';
         txt.textContent = 'Cancelar — no registrar alumno ahora';
-        ['alumno_nombre','alumno_correo','alumno_pass','alumno_grado','alumno_fecha_inscrip','alumno_documento_medico']
+        ['alumno_nombre','alumno_apaterno','alumno_amaterno','alumno_correo','alumno_pass','alumno_grado','alumno_fecha_inscrip','alumno_documento_medico']
             .forEach(n => setReq(n, true));
     } else {
         fields.classList.remove('open');
         ico.className = 'bi bi-person-plus-fill';
         txt.textContent = '¿Deseas registrar a un alumno a tu cargo ahora?';
-        ['alumno_nombre','alumno_correo','alumno_pass','alumno_grado','alumno_fecha_inscrip','alumno_documento_medico']
+        ['alumno_nombre','alumno_apaterno','alumno_amaterno','alumno_correo','alumno_pass','alumno_grado','alumno_fecha_inscrip','alumno_documento_medico']
             .forEach(n => setReq(n, false));
     }
 }
@@ -1011,7 +1076,7 @@ function toggleTutor() {
         selectWrap.style.display = 'none';
         selectEl.required = false;
         selectEl.value = '';
-        ['tutor_nombre','tutor_apaterno','tutor_amaterno','tutor_correo','tutor_tel','tutor_ocupacion','tutor_pass','tutor_relacion']
+        ['tutor_nombre','tutor_apaterno','tutor_amaterno','tutor_fecha_naci','tutor_correo','tutor_tel','tutor_ocupacion','tutor_pass','tutor_relacion']
             .forEach(n => setReq(n, true));
     } else {
         fields.classList.remove('open');
@@ -1020,7 +1085,7 @@ function toggleTutor() {
         selectWrap.style.display = '';
         // Si es mayor de edad el tutor vuelve a ser opcional; si es menor, obligatorio
         selectEl.required = !esMayorEdad;
-        ['tutor_nombre','tutor_apaterno','tutor_amaterno','tutor_correo','tutor_tel','tutor_ocupacion','tutor_pass','tutor_relacion']
+        ['tutor_nombre','tutor_apaterno','tutor_amaterno','tutor_fecha_naci','tutor_correo','tutor_tel','tutor_ocupacion','tutor_pass','tutor_relacion']
             .forEach(n => setReq(n, false));
     }
 }

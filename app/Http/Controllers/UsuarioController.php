@@ -134,7 +134,7 @@ class UsuarioController extends Controller
 
     // ── edit ─────────────────────────────────────────────────────────────────
 
-    public function edit($id)
+    public function edit(int $id)
     {
         $this->soloAdminOSensei();
 
@@ -158,7 +158,7 @@ class UsuarioController extends Controller
 
     // ── update ───────────────────────────────────────────────────────────────
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id)
     {
         $this->soloAdminOSensei();
 
@@ -228,7 +228,7 @@ class UsuarioController extends Controller
 
     // ── destroy ──────────────────────────────────────────────────────────────
 
-    public function destroy($id)
+    public function destroy(int $id)
     {
         // Solo admin puede eliminar
         if (!$this->esAdmin()) {
@@ -257,7 +257,7 @@ class UsuarioController extends Controller
 
     // ── toggleActive ─────────────────────────────────────────────────────────
 
-    public function toggleActive($id)
+    public function toggleActive(int $id)
     {
         $this->soloAdminOSensei();
 
