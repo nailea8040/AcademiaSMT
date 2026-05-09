@@ -743,7 +743,6 @@
                                     <option value="">— Selecciona —</option>
                                     <option value="Matutino"   {{ old('turno')=='Matutino'   ?'selected':'' }}>Matutino</option>
                                     <option value="Vespertino" {{ old('turno')=='Vespertino' ?'selected':'' }}>Vespertino</option>
-                                    <option value="Nocturno"   {{ old('turno')=='Nocturno'   ?'selected':'' }}>Nocturno</option>
                                 </select>
                             </div>
                             @error('turno')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror

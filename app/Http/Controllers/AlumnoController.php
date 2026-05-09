@@ -110,7 +110,7 @@ class AlumnoController extends Controller
             'numero_control'    => 'nullable|string|max:20',
             'grupo'             => 'nullable|string|max:10',
             'especialidad'      => 'nullable|string|max:100',
-            'turno'             => 'nullable|in:Matutino,Vespertino,Nocturno',
+            'turno'             => 'nullable|in:Matutino,Vespertino',
         ]);
 
         try {
@@ -207,7 +207,7 @@ class AlumnoController extends Controller
             'numero_control'    => 'nullable|string|max:20',
             'grupo'             => 'nullable|string|max:10',
             'especialidad'      => 'nullable|string|max:100',
-            'turno'             => 'nullable|in:Matutino,Vespertino,Nocturno',
+            'turno'             => 'nullable|in:Matutino,Vespertino',
         ]);
 
         try {

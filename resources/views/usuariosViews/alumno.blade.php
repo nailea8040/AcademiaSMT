@@ -214,7 +214,6 @@
                                                 <option value="">— Selecciona —</option>
                                                 <option value="Matutino">Matutino</option>
                                                 <option value="Vespertino">Vespertino</option>
-                                                <option value="Nocturno">Nocturno</option>
                                             </select>
                                         </div>
                                     </div>
@@ -515,7 +514,6 @@
                                         <option value="">— Selecciona —</option>
                                         <option value="Matutino">Matutino</option>
                                         <option value="Vespertino">Vespertino</option>
-                                        <option value="Nocturno">Nocturno</option>
                                     </select>
                                 </div>
                             </div>

@@ -51,7 +51,7 @@ class RegistroController extends Controller
         $rules['numero_control']  = 'nullable|string|max:20';
         $rules['grupo']           = 'nullable|string|max:10';
         $rules['especialidad']    = 'nullable|string|max:100';
-        $rules['turno']           = 'nullable|in:Matutino,Vespertino,Nocturno';
+        $rules['turno']           = 'nullable|in:Matutino,Vespertino';
 
         // ── Campos físicos (solo alumnos) ─────────────────────────────────────
         if ($rol === 'alumno') {
@@ -254,6 +254,14 @@ class RegistroController extends Controller
                     'certificado_medico' => $rutaDoc,
                     'fecha_registro'     => $validated['Fecha_inscrip'],
                 ]);
+
+                // Vincular alumno con su tutor en id_alumno_relacionado
+                // Aplica tanto si el tutor es nuevo (Caso D) como si es existente (Caso C)
+                if ($idTutorFinal) {
+                    DB::table('tutor')
+                        ->where('id_Tutor', $idTutorFinal)
+                        ->update(['id_alumno_relacionado' => $idUsuario]);
+                }
             }
 
             DB::commit();
@@ -263,9 +271,15 @@ class RegistroController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('RegistroController@store: ' . $e->getMessage());
+            Log::error('RegistroController@store ERROR: ' . $e->getMessage()
+                . ' | File: ' . $e->getFile()
+                . ' | Line: ' . $e->getLine()
+                . ' | Trace: ' . $e->getTraceAsString()
+            );
             return redirect()->back()->withInput()
-                ->withErrors(['registro_error' => 'Error al registrar: ' . $e->getMessage()]);
+                ->withErrors([
+                    'registro_error' => '[Línea ' . $e->getLine() . '] ' . $e->getMessage()
+                ]);
         }
     }
 }
