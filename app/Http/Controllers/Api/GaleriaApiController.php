@@ -12,8 +12,22 @@ class GaleriaApiController extends Controller
 {
     private function esAdmin(Request $request): bool
     {
-        // BD usa 'admin', no 'administrador'
         return $request->user()->rol === 'admin';
+    }
+
+    private function esSensei(Request $request): bool
+    {
+        return $request->user()->rol === 'sensei';
+    }
+
+    /**
+     * Admin y sensei pueden subir archivos.
+     * Solo admin puede eliminar.
+     * Igual que GaleriaController (web).
+     */
+    private function puedeGestionar(Request $request): bool
+    {
+        return in_array($request->user()->rol, ['admin', 'sensei']);
     }
 
     /**
@@ -83,10 +97,11 @@ class GaleriaApiController extends Controller
      */
     public function store(Request $request)
     {
-        if (!$this->esAdmin($request)) {
+        // Web permite admin y sensei subir archivos — igualamos comportamiento
+        if (!$this->puedeGestionar($request)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Solo administradores pueden subir archivos.',
+                'message' => 'Solo administradores y senseis pueden subir archivos.',
             ], 403);
         }
 
@@ -98,6 +113,8 @@ class GaleriaApiController extends Controller
             'descripcion'   => 'nullable|string|max:1000',
             'archivos'      => 'required|array|min:1',
             'archivos.*'    => 'required|file|max:51200',
+            // Igual que GaleriaController web — solo admin puede marcar destacado
+            'destacado'     => 'nullable|boolean',
         ]);
 
         // Validación adicional por tipo
@@ -123,6 +140,9 @@ class GaleriaApiController extends Controller
                     'public'
                 );
 
+                // destacado solo lo puede marcar el admin (igual que GaleriaController web)
+                $destacado = ($this->esAdmin($request) && $request->boolean('destacado')) ? 1 : 0;
+
                 DB::table('evento')->insert([
                     'titulo'        => $modoEvento
                         ? $archivo->getClientOriginalName()
@@ -131,6 +151,7 @@ class GaleriaApiController extends Controller
                     'tipo'          => $request->tipo,
                     'ruta'          => $ruta,
                     'descripcion'   => $request->descripcion ?? null,
+                    'destacado'     => $destacado,
                     'id_usuario'    => $request->user()->id_usuario,
                     'created_at'    => now(),
                     'updated_at'    => now(),
@@ -160,7 +181,7 @@ class GaleriaApiController extends Controller
      * DELETE /api/galeria/{id}
      * Solo admin — elimina un archivo individual por id_evento
      */
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int|string $id)
     {
         if (!$this->esAdmin($request)) {
             return response()->json([

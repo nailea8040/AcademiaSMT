@@ -55,10 +55,11 @@ class TutorApiController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            // id_Tutor es FK → usuario.id_usuario (PK con T mayúscula en BD)
-            'id_Tutor'            => 'required|exists:usuario,id_usuario|unique:tutor,id_Tutor',
-            'id_ocupacion'        => 'required|exists:ocupacion,id_ocupacion',
-            'relacion_estudiante' => 'required|string|max:50',
+            'id_Tutor'              => 'required|exists:usuario,id_usuario|unique:tutor,id_Tutor',
+            'id_ocupacion'          => 'required|exists:ocupacion,id_ocupacion',
+            'relacion_estudiante'   => 'required|string|max:50',
+            // id_alumno_relacionado agregado — igual que TutorController web
+            'id_alumno_relacionado' => 'nullable|exists:usuario,id_usuario',
         ]);
 
         // Verificar que el usuario tenga rol='tutor'
@@ -75,9 +76,10 @@ class TutorApiController extends Controller
 
         try {
             DB::table('tutor')->insert([
-                'id_Tutor'            => $validated['id_Tutor'],
-                'id_ocupacion'        => $validated['id_ocupacion'],
-                'relacion_estudiante' => $validated['relacion_estudiante'],
+                'id_Tutor'              => $validated['id_Tutor'],
+                'id_ocupacion'          => $validated['id_ocupacion'],
+                'relacion_estudiante'   => $validated['relacion_estudiante'],
+                'id_alumno_relacionado' => $validated['id_alumno_relacionado'] ?? null,
             ]);
 
             return response()->json([
@@ -99,19 +101,22 @@ class TutorApiController extends Controller
      * Actualiza la ocupación y relación de un tutor
      * {id} = id_Tutor (FK → usuario.id_usuario)
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, int|string $id)
     {
         $validated = $request->validate([
-            'id_ocupacion'        => 'required|exists:ocupacion,id_ocupacion',
-            'relacion_estudiante' => 'required|string|max:50',
+            'id_ocupacion'          => 'required|exists:ocupacion,id_ocupacion',
+            'relacion_estudiante'   => 'required|string|max:50',
+            // id_alumno_relacionado agregado — igual que TutorController web
+            'id_alumno_relacionado' => 'nullable|exists:usuario,id_usuario',
         ]);
 
         try {
             $updated = DB::table('tutor')
                 ->where('id_Tutor', $id)
                 ->update([
-                    'id_ocupacion'        => $validated['id_ocupacion'],
-                    'relacion_estudiante' => $validated['relacion_estudiante'],
+                    'id_ocupacion'          => $validated['id_ocupacion'],
+                    'relacion_estudiante'   => $validated['relacion_estudiante'],
+                    'id_alumno_relacionado' => $validated['id_alumno_relacionado'] ?? null,
                 ]);
 
             if (!$updated) {

@@ -36,8 +36,9 @@ class RegistroApiController extends Controller
             'tel'            => 'required|digits:10',
             'correo'         => 'required|email|unique:usuario,correo',
             'pass'           => 'required|min:8',
-            'rol'            => 'required|in:admin,sensei,tutor,alumno',
-            'fecha_registro' => 'required|date',
+            // 'admin' eliminado — igual que RegistroController web (registro público no puede crear admins)
+            'rol'            => 'required|in:sensei,tutor,alumno',
+            // fecha_registro generada en el servidor igual que RegistroController web
         ];
  
         if ($rol === 'tutor') {
@@ -67,6 +68,8 @@ class RegistroApiController extends Controller
                 $rules['tutor_nombre']    = 'required|string|max:100';
                 $rules['tutor_apaterno']  = 'required|string|max:100';
                 $rules['tutor_amaterno']  = 'required|string|max:100';
+                // tutor_fecha_naci agregado — RegistroController web lo valida y lo guarda
+                $rules['tutor_fecha_naci'] = 'required|date|before:today';
                 $rules['tutor_correo']    = 'required|email|unique:usuario,correo';
                 $rules['tutor_tel']       = 'required|digits:10';
                 $rules['tutor_ocupacion'] = 'required|integer|exists:ocupacion,id_ocupacion';
@@ -81,6 +84,9 @@ class RegistroApiController extends Controller
  
         $validated = $request->validate($rules);
  
+        // Igual que RegistroController web: fecha_registro se genera en el servidor
+        $fechaRegistro = now()->toDateString();
+
         DB::beginTransaction();
  
         try {
@@ -92,12 +98,13 @@ class RegistroApiController extends Controller
                     'nombre'         => $validated['tutor_nombre'],
                     'apaterno'       => $validated['tutor_apaterno'],
                     'amaterno'       => $validated['tutor_amaterno'],
-                    'fecha_naci'     => now()->subYears(30)->toDateString(),
+                    // Usar fecha_naci real del tutor — RegistroController web también la usa
+                    'fecha_naci'     => $validated['tutor_fecha_naci'] ?? now()->subYears(30)->toDateString(),
                     'telefono'       => $validated['tutor_tel'],
                     'correo'         => $validated['tutor_correo'],
                     'pass'           => Hash::make($validated['tutor_pass']),
                     'rol'            => 'tutor',
-                    'fecha_registro' => $validated['fecha_registro'],
+                    'fecha_registro' => $fechaRegistro,  // generada en servidor
                     'estado'         => 1,
                 ]);
                 DB::table('tutor')->insert([
@@ -121,7 +128,7 @@ class RegistroApiController extends Controller
                 'correo'         => $validated['correo'],
                 'pass'           => Hash::make($validated['pass']),
                 'rol'            => $validated['rol'],
-                'fecha_registro' => $validated['fecha_registro'],
+                'fecha_registro' => $fechaRegistro,  // generada en servidor
                 'estado'         => 1,
             ]);
  
@@ -135,6 +142,8 @@ class RegistroApiController extends Controller
  
                 // Caso B2: tutor + alumno extra
                 if ($alumnoExtra) {
+                    // NOTA: el web espera alumno_nombre/alumno_apaterno/alumno_amaterno separados.
+                    // La API acepta alumno_nombre como nombre completo y hace explode().
                     $partes   = explode(' ', trim($validated['alumno_nombre']), 3);
                     $idAlumno = DB::table('usuario')->insertGetId([
                         'nombre'         => $partes[0] ?? '-',
@@ -145,7 +154,7 @@ class RegistroApiController extends Controller
                         'correo'         => $validated['alumno_correo'],
                         'pass'           => Hash::make($validated['alumno_pass']),
                         'rol'            => 'alumno',
-                        'fecha_registro' => $validated['fecha_registro'],
+                        'fecha_registro' => $fechaRegistro,  // generada en servidor
                         'estado'         => 1,
                     ]);
  

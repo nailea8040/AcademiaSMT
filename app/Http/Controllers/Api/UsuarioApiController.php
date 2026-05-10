@@ -16,14 +16,20 @@ class UsuarioApiController extends Controller
      */
     public function index(Request $request)
     {
-        $this->soloAdmin($request);
+        $this->soloAdminOSensei($request);
 
-        $usuarios = DB::table('usuario')
+        $query = DB::table('usuario')
             ->select('id_usuario', 'nombre', 'apaterno', 'amaterno',
                      'correo', 'rol', 'estado', 'telefono', 'fecha_naci', 'fecha_registro',
                      'numero_control', 'grupo', 'especialidad', 'turno')
-            ->orderBy('nombre')
-            ->get();
+            ->orderBy('nombre');
+
+        // Sensei NO ve administradores — igual que UsuarioController web
+        if ($request->user()->rol === 'sensei') {
+            $query->where('rol', '!=', 'admin');
+        }
+
+        $usuarios = $query->get();
 
         return response()->json(['success' => true, 'data' => $usuarios]);
     }
@@ -33,7 +39,7 @@ class UsuarioApiController extends Controller
      */
     public function store(Request $request)
     {
-        $this->soloAdmin($request);
+        $this->soloAdminOSensei($request);
 
         $validated = $request->validate([
             'nombre'         => 'required|string|max:100',
@@ -45,12 +51,17 @@ class UsuarioApiController extends Controller
             'pass'           => 'required|min:6',
             // ENUM real en BD: 'admin', 'sensei', 'tutor', 'alumno'
             'rol'            => 'required|in:admin,sensei,tutor,alumno',
-            'fecha_registro'  => 'required|date',
+            // fecha_registro se genera en el servidor — igual que UsuarioController web
             'numero_control'  => 'nullable|string|max:20',
             'grupo'           => 'nullable|string|max:10',
             'especialidad'    => 'nullable|string|max:100',
             'turno'           => 'nullable|in:Matutino,Vespertino,Nocturno',
         ]);
+
+        // Sensei no puede crear administradores — igual que UsuarioController web
+        if ($request->user()->rol === 'sensei' && $validated['rol'] === 'admin') {
+            return response()->json(['success' => false, 'message' => 'No tienes permiso para crear administradores.'], 403);
+        }
 
         try {
             $id = DB::table('usuario')->insertGetId([
@@ -62,7 +73,7 @@ class UsuarioApiController extends Controller
                 'correo'         => $validated['correo'],
                 'pass'           => Hash::make($validated['pass']),
                 'rol'            => $validated['rol'],
-                'fecha_registro' => $validated['fecha_registro'],
+                'fecha_registro' => now()->toDateString(), // generada en servidor
                 'estado'         => 1,
             ]);
 
@@ -77,7 +88,7 @@ class UsuarioApiController extends Controller
     /**
      * GET /api/usuarios/{id}
      */
-    public function show(Request $request, $id)
+    public function show(Request $request, int|string $id)
     {
         $authUser = $request->user();
 
@@ -102,7 +113,7 @@ class UsuarioApiController extends Controller
     /**
      * PUT /api/usuarios/{id}
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, int|string $id)
     {
         $authUser = $request->user();
 
@@ -153,7 +164,7 @@ class UsuarioApiController extends Controller
     /**
      * DELETE /api/usuarios/{id}
      */
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int|string $id)
     {
         $this->soloAdmin($request);
 
@@ -178,14 +189,19 @@ class UsuarioApiController extends Controller
     /**
      * PATCH /api/usuarios/{id}/toggle-estado
      */
-    public function toggleEstado(Request $request, $id)
+    public function toggleEstado(Request $request, int|string $id)
     {
-        $this->soloAdmin($request);
+        $this->soloAdminOSensei($request);
 
         $usuario = DB::table('usuario')->where('id_usuario', $id)->first();
 
         if (!$usuario) {
             return response()->json(['success' => false, 'message' => 'Usuario no encontrado.'], 404);
+        }
+
+        // Sensei no puede cambiar estado de administradores — igual que UsuarioController web
+        if ($request->user()->rol === 'sensei' && $usuario->rol === 'admin') {
+            return response()->json(['success' => false, 'message' => 'No tienes permiso para cambiar el estado de un administrador.'], 403);
         }
 
         $nuevoEstado = $usuario->estado == 1 ? 0 : 1;
@@ -239,12 +255,24 @@ class UsuarioApiController extends Controller
         }
     }
 
-    // ── Helper ───────────────────────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────────────────────
+
+    /** Solo admin — para operaciones destructivas (destroy). */
     private function soloAdmin(Request $request)
     {
-        // BD usa 'admin', no 'administrador'
         if ($request->user()->rol !== 'admin') {
             abort(response()->json(['success' => false, 'message' => 'Acceso solo para administradores.'], 403));
+        }
+    }
+
+    /**
+     * Admin o sensei — igual que UsuarioController web (soloAdminOSensei).
+     * Usado en: index, store, update, toggleEstado.
+     */
+    private function soloAdminOSensei(Request $request)
+    {
+        if (!in_array($request->user()->rol, ['admin', 'sensei'])) {
+            abort(response()->json(['success' => false, 'message' => 'Acceso solo para administradores y senseis.'], 403));
         }
     }
 }

@@ -11,8 +11,17 @@ class CalendarioApiController extends Controller
 {
     private function esAdmin(Request $request): bool
     {
-        // BD usa 'admin', no 'administrador'
         return $request->user()->rol === 'admin';
+    }
+
+    /**
+     * Admin y sensei pueden crear/editar eventos.
+     * Solo admin puede eliminar.
+     * Igual que CalendarioController (web).
+     */
+    private function puedeGestionar(Request $request): bool
+    {
+        return in_array($request->user()->rol, ['admin', 'sensei']);
     }
 
     /**
@@ -47,10 +56,11 @@ class CalendarioApiController extends Controller
      */
     public function store(Request $request)
     {
-        if (!$this->esAdmin($request)) {
+        // Web permite admin y sensei — igualamos comportamiento
+        if (!$this->puedeGestionar($request)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Solo administradores pueden crear eventos.',
+                'message' => 'Solo administradores y senseis pueden crear eventos.',
             ], 403);
         }
 
@@ -96,12 +106,13 @@ class CalendarioApiController extends Controller
      * PUT /api/calendario/{id}
      * Solo admin — PK real: id_cal
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, int|string $id)
     {
-        if (!$this->esAdmin($request)) {
+        // Web permite admin y sensei — igualamos comportamiento
+        if (!$this->puedeGestionar($request)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Solo administradores pueden editar eventos.',
+                'message' => 'Solo administradores y senseis pueden editar eventos.',
             ], 403);
         }
 
@@ -152,7 +163,7 @@ class CalendarioApiController extends Controller
      * DELETE /api/calendario/{id}
      * Solo admin — PK real: id_cal
      */
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int|string $id)
     {
         if (!$this->esAdmin($request)) {
             return response()->json([
