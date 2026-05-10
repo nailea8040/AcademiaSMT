@@ -67,29 +67,48 @@
                     </div>
                 </form>
 
-                {{-- Botones de descarga --}}
-                <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap">
-                    {{-- PDF --}}
-                    <a href="{{ route('asistencia.pdf', ['fecha' => $fecha]) }}"
-                       class="btn"
-                       style="background:#dc3545;color:white;display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">
-                        <i class="bi bi-file-earmark-pdf-fill" style="font-size:18px"></i>
-                        Descargar PDF
-                    </a>
+                {{-- Selector de tipo de exportación --}}
+                <div style="margin-top:16px">
+                    <label style="font-size:13px;font-weight:600;color:#555;display:block;margin-bottom:8px">
+                        <i class="bi bi-funnel"></i> Incluir en la descarga:
+                    </label>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px 16px;border-radius:20px;border:2px solid #e53935;background:#e53935;color:white;font-size:13px;font-weight:600;transition:all .2s">
+                            <input type="radio" name="filtro_descarga" value="todos" checked style="display:none" id="rdTodos">
+                            <i class="bi bi-people-fill"></i> Todos
+                        </label>
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px 16px;border-radius:20px;border:2px solid #e53935;background:white;color:#e53935;font-size:13px;font-weight:600;transition:all .2s" id="lblBachiller">
+                            <input type="radio" name="filtro_descarga" value="bachiller" style="display:none" id="rdBachiller">
+                            <i class="bi bi-mortarboard-fill"></i> Solo Bachiller
+                        </label>
+                    </div>
 
-                    {{-- Excel / CSV --}}
-                    <a href="{{ route('asistencia.excel', ['fecha' => $fecha]) }}"
-                       class="btn"
-                       style="background:#1d6f42;color:white;display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">
-                        <i class="bi bi-file-earmark-excel-fill" style="font-size:18px"></i>
-                        Descargar Excel
-                    </a>
+                    {{-- Botones de descarga --}}
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center">
+                        {{-- PDF --}}
+                        <a id="btnPdf"
+                           href="{{ route('asistencia.pdf', ['fecha' => $fecha, 'filtro' => 'todos']) }}"
+                           class="btn"
+                           style="background:#dc3545;color:white;display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">
+                            <i class="bi bi-file-earmark-pdf-fill" style="font-size:18px"></i>
+                            Descargar PDF
+                        </a>
 
-                    {{-- Contador --}}
-                    <span style="display:flex;align-items:center;color:#555;font-size:14px;gap:6px">
-                        <i class="bi bi-people-fill" style="color:#e53935"></i>
-                        <strong>{{ $asistencias->count() }}</strong> asistencia(s) registrada(s)
-                    </span>
+                        {{-- Excel / CSV --}}
+                        <a id="btnExcel"
+                           href="{{ route('asistencia.excel', ['fecha' => $fecha, 'filtro' => 'todos']) }}"
+                           class="btn"
+                           style="background:#1d6f42;color:white;display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">
+                            <i class="bi bi-file-earmark-excel-fill" style="font-size:18px"></i>
+                            Descargar Excel
+                        </a>
+
+                        {{-- Contador --}}
+                        <span style="display:flex;align-items:center;color:#555;font-size:14px;gap:6px">
+                            <i class="bi bi-people-fill" style="color:#e53935"></i>
+                            <strong>{{ $asistencias->count() }}</strong> asistencia(s) registrada(s)
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -205,20 +224,16 @@
 </div>
 
 <script>
+// ── Filtro tabla ─────────────────────────────────────────────────────────────
 function filtrar(tipo) {
-    const filas       = document.querySelectorAll('#tablaAsistencia tbody tr');
-    const btnTodos    = document.getElementById('btnTodos');
-    const btnBachiller= document.getElementById('btnBachiller');
+    const filas        = document.querySelectorAll('#tablaAsistencia tbody tr');
+    const btnTodos     = document.getElementById('btnTodos');
+    const btnBachiller = document.getElementById('btnBachiller');
 
     filas.forEach(fila => {
-        if (tipo === 'todos') {
-            fila.style.display = '';
-        } else {
-            fila.style.display = fila.classList.contains('es-bachiller') ? '' : 'none';
-        }
+        fila.style.display = (tipo === 'todos' || fila.classList.contains('es-bachiller')) ? '' : 'none';
     });
 
-    // Actualizar estilos de botones
     if (tipo === 'todos') {
         btnTodos.style.background     = '#e53935';
         btnTodos.style.color          = 'white';
@@ -231,6 +246,54 @@ function filtrar(tipo) {
         btnTodos.style.color          = '#e53935';
     }
 }
+
+// ── Filtro descarga PDF/Excel ────────────────────────────────────────────────
+(function () {
+    const fecha    = "{{ $fecha }}";
+    const urlPdf   = "{{ route('asistencia.pdf',   ['fecha' => $fecha]) }}";
+    const urlExcel = "{{ route('asistencia.excel', ['fecha' => $fecha]) }}";
+
+    const btnPdf   = document.getElementById('btnPdf');
+    const btnExcel = document.getElementById('btnExcel');
+    const rdTodos      = document.getElementById('rdTodos');
+    const rdBachiller  = document.getElementById('rdBachiller');
+    const lblTodos     = rdTodos.closest('label');
+    const lblBachiller = document.getElementById('lblBachiller');
+
+    function actualizarLinks() {
+        const filtro = rdBachiller.checked ? 'bachiller' : 'todos';
+        btnPdf.href   = urlPdf   + '&filtro=' + filtro;
+        btnExcel.href = urlExcel + '&filtro=' + filtro;
+    }
+
+    function actualizarEstiloRadios() {
+        if (rdTodos.checked) {
+            lblTodos.style.background     = '#e53935';
+            lblTodos.style.color          = 'white';
+            lblBachiller.style.background = 'white';
+            lblBachiller.style.color      = '#e53935';
+        } else {
+            lblBachiller.style.background = '#e53935';
+            lblBachiller.style.color      = 'white';
+            lblTodos.style.background     = 'white';
+            lblTodos.style.color          = '#e53935';
+        }
+        actualizarLinks();
+    }
+
+    // Hacer clic en el label completo activa el radio oculto
+    lblTodos.addEventListener('click', () => {
+        rdTodos.checked = true;
+        actualizarEstiloRadios();
+    });
+    lblBachiller.addEventListener('click', () => {
+        rdBachiller.checked = true;
+        actualizarEstiloRadios();
+    });
+
+    // Estado inicial
+    actualizarEstiloRadios();
+})();
 </script>
 
 </body>

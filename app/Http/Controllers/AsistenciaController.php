@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Collection;
 
 /**
  * AsistenciaController  —  panel web
@@ -43,20 +44,25 @@ class AsistenciaController extends Controller
 
     public function descargarPdf(Request $request)
     {
-        $fecha = $request->get('fecha', now()->toDateString());
+        $fecha  = $request->get('fecha', now()->toDateString());
+        $filtro = $request->get('filtro', 'todos'); // 'todos' | 'bachiller'
 
         try {
             $asistencias = $this->obtenerAsistencias($fecha);
+
+            if ($filtro === 'bachiller') {
+                $asistencias = $asistencias->filter(fn($a) => !is_null($a->numero_control))->values();
+            }
             $fechaFormato = \Carbon\Carbon::parse($fecha)->format('d/m/Y');
 
             // Generar HTML del PDF
-            $html = $this->generarHtml($asistencias, $fecha, $fechaFormato);
+            $html = $this->generarHtml($asistencias, $fecha, $fechaFormato, $filtro);
 
-            // Usar DomPDF (incluido en Laravel por defecto)
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($html)
                 ->setPaper('letter', 'portrait');
 
-            $nombreArchivo = 'asistencia_' . str_replace('-', '', $fecha) . '.pdf';
+            $sufijo = $filtro === 'bachiller' ? '_bachiller' : '';
+            $nombreArchivo = 'asistencia_' . str_replace('-', '', $fecha) . $sufijo . '.pdf';
 
             return $pdf->download($nombreArchivo);
 
@@ -70,28 +76,35 @@ class AsistenciaController extends Controller
 
     public function descargarExcel(Request $request)
     {
-        $fecha = $request->get('fecha', now()->toDateString());
+        $fecha  = $request->get('fecha', now()->toDateString());
+        $filtro = $request->get('filtro', 'todos'); // 'todos' | 'bachiller'
 
         try {
             $asistencias = $this->obtenerAsistencias($fecha);
+
+            if ($filtro === 'bachiller') {
+                $asistencias = $asistencias->filter(fn($a) => !is_null($a->numero_control))->values();
+            }
+
             $fechaFormato = \Carbon\Carbon::parse($fecha)->format('d/m/Y');
 
-            // Generar CSV con BOM UTF-8 para que Excel lo abra correctamente
-            $nombreArchivo = 'asistencia_' . str_replace('-', '', $fecha) . '.csv';
+            $sufijo        = $filtro === 'bachiller' ? '_bachiller' : '';
+            $nombreArchivo = 'asistencia_' . str_replace('-', '', $fecha) . $sufijo . '.csv';
 
             $headers = [
                 'Content-Type'        => 'text/csv; charset=UTF-8',
                 'Content-Disposition' => 'attachment; filename="' . $nombreArchivo . '"',
             ];
 
-            $callback = function () use ($asistencias, $fecha, $fechaFormato) {
+            $callback = function () use ($asistencias, $fecha, $fechaFormato, $filtro) {
                 $output = fopen('php://output', 'w');
 
                 // BOM UTF-8 para compatibilidad con Excel
                 fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
                 // Título
-                fputcsv($output, ['Academia de Karate-Do SMT — Asistencia del ' . $fechaFormato]);
+                $tituloFiltro = $filtro === 'bachiller' ? ' (Solo Bachiller)' : '';
+                fputcsv($output, ['Academia de Karate-Do SMT — Asistencia del ' . $fechaFormato . $tituloFiltro]);
                 fputcsv($output, []);
 
                 // Encabezados
@@ -168,10 +181,11 @@ class AsistenciaController extends Controller
     /**
      * Genera el HTML del reporte para DomPDF
      */
-    private function generarHtml($asistencias, string $fecha, string $fechaFormato): string
+    private function generarHtml($asistencias, string $fecha, string $fechaFormato, string $filtro = 'todos'): string
     {
         $totalBachilleres = $asistencias->filter(fn($a) => $a->numero_control)->count();
         $totalOtros       = $asistencias->count() - $totalBachilleres;
+        $tituloFiltro     = $filtro === 'bachiller' ? ' — Solo Bachiller' : '';
 
         $filas = '';
         $i = 1;
@@ -210,7 +224,7 @@ class AsistenciaController extends Controller
             </style>
         </head>
         <body>
-            <h1>Academia de Karate-Do SMT — Lista de Asistencia</h1>
+            <h1>Academia de Karate-Do SMT — Lista de Asistencia{$tituloFiltro}</h1>
             <h2>Fecha: {$fechaFormato} &nbsp;|&nbsp; Total: <strong>{$asistencias->count()}</strong> alumnos</h2>
             <table>
                 <thead>
