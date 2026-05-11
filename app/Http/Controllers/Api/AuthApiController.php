@@ -38,7 +38,7 @@ class AuthApiController extends Controller
         if ((int) $usuario->estado !== 1) {
             return response()->json([
                 'success' => false,
-                'message' => 'Su cuenta está inactiva. Contacte al administrador.',
+                'message' => 'Su cuenta está inactiva. Contacte al director de academia a cargo.',
             ], 403);
         }
 

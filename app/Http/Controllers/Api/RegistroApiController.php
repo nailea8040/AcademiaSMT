@@ -36,9 +36,14 @@ class RegistroApiController extends Controller
             'tel'            => 'required|digits:10',
             'correo'         => 'required|email|unique:usuario,correo',
             'pass'           => 'required|min:8',
-            // 'admin' eliminado — igual que RegistroController web (registro público no puede crear admins)
             'rol'            => 'required|in:sensei,tutor,alumno',
-            // fecha_registro generada en el servidor igual que RegistroController web
+            // fecha_registro generada en el servidor
+            // Bachiller — opcionales para cualquier rol (RegistroController web los acepta globalmente)
+            'es_bachiller'   => 'nullable|boolean',
+            'numero_control' => 'nullable|string|max:20',
+            'grupo'          => 'nullable|string|max:10',
+            'especialidad'   => 'nullable|string|max:100',
+            'turno'          => 'nullable|in:Matutino,Vespertino',
         ];
  
         if ($rol === 'tutor') {
@@ -52,6 +57,9 @@ class RegistroApiController extends Controller
                 $rules['alumno_grado']            = 'required|integer|exists:grado,id_grado';
                 $rules['alumno_fecha_inscrip']    = 'required|date';
                 $rules['alumno_documento_medico'] = 'required|file|mimes:pdf|max:5120';
+                // Físicos del alumno extra — RegistroController web los acepta
+                $rules['alumno_peso']             = 'nullable|numeric|min:0|max:300';
+                $rules['alumno_estatura']         = 'nullable|numeric|min:0|max:3';
             }
         }
  
@@ -59,6 +67,9 @@ class RegistroApiController extends Controller
             $rules['grado']            = 'required|integer|exists:grado,id_grado';
             $rules['Fecha_inscrip']    = 'required|date';
             $rules['documento_medico'] = 'required|file|mimes:pdf|max:5120';
+            // Registro físico — opcionales igual que RegistroController web
+            $rules['peso']             = 'nullable|numeric|min:0|max:300';
+            $rules['estatura']         = 'nullable|numeric|min:0|max:3';
  
             $esMayor = $request->filled('fecha_naci')
                 ? \Carbon\Carbon::parse($request->fecha_naci)->age >= 18
@@ -119,17 +130,24 @@ class RegistroApiController extends Controller
             }
  
             // ── Insertar usuario principal ───────────────────────────
+            $esBachiller = filter_var($request->input('es_bachiller', false), FILTER_VALIDATE_BOOLEAN);
+
             $idUsuario = DB::table('usuario')->insertGetId([
-                'nombre'         => $validated['nombre'],
-                'apaterno'       => $validated['apaterno'],
-                'amaterno'       => $validated['amaterno'],
-                'fecha_naci'     => $validated['fecha_naci'],
-                'telefono'       => $validated['tel'],
-                'correo'         => $validated['correo'],
-                'pass'           => Hash::make($validated['pass']),
-                'rol'            => $validated['rol'],
-                'fecha_registro' => $fechaRegistro,  // generada en servidor
-                'estado'         => 1,
+                'nombre'          => $validated['nombre'],
+                'apaterno'        => $validated['apaterno'],
+                'amaterno'        => $validated['amaterno'],
+                'fecha_naci'      => $validated['fecha_naci'],
+                'telefono'        => $validated['tel'],
+                'correo'          => $validated['correo'],
+                'pass'            => Hash::make($validated['pass']),
+                'rol'             => $validated['rol'],
+                'fecha_registro'  => $fechaRegistro,
+                'estado'          => 1,
+                // Bachiller — igual que RegistroController web
+                'numero_control'  => $esBachiller ? ($validated['numero_control'] ?? null) : null,
+                'grupo'           => $esBachiller ? ($validated['grupo']          ?? null) : null,
+                'especialidad'    => $esBachiller ? ($validated['especialidad']   ?? null) : null,
+                'turno'           => $esBachiller ? ($validated['turno']          ?? null) : null,
             ]);
  
             // ── Caso B: tutor ────────────────────────────────────────
@@ -176,8 +194,8 @@ class RegistroApiController extends Controller
  
                     DB::table('registro_fisico')->insert([
                         'id_usuario'         => $idAlumno,
-                        'peso'               => 0,
-                        'estatura'           => 0,
+                        'peso'               => !empty($validated['alumno_peso'])     ? $validated['alumno_peso']     : 0,
+                        'estatura'           => !empty($validated['alumno_estatura']) ? $validated['alumno_estatura'] : 0,
                         'certificado_medico' => $rutaDoc,
                         'fecha_registro'     => $validated['alumno_fecha_inscrip'],
                     ]);
@@ -214,8 +232,8 @@ class RegistroApiController extends Controller
  
                 DB::table('registro_fisico')->insert([
                     'id_usuario'         => $idUsuario,
-                    'peso'               => 0,
-                    'estatura'           => 0,
+                    'peso'               => !empty($validated['peso'])     ? $validated['peso']     : 0,
+                    'estatura'           => !empty($validated['estatura']) ? $validated['estatura'] : 0,
                     'certificado_medico' => $rutaDoc,
                     'fecha_registro'     => $validated['Fecha_inscrip'],
                 ]);
