@@ -81,6 +81,20 @@ Route::middleware('auth')->group(function () {
     Route::put('/alumnos/{id}',               [AlumnoController::class, 'update'])->name('alumnos.update');
     Route::get('/alumnos/{id}/historial',     [AlumnoController::class, 'historialGrados'])->name('alumnos.historial');
 
+    // Catálogo de grados
+Route::post('/grados',       [AlumnoController::class, 'storeGrado'])->name('grados.store');
+Route::put ('/grados/{id}',  [AlumnoController::class, 'updateGrado'])->name('grados.update');
+
+// Catálogo de seminarios
+Route::post  ('/seminarios',       [AlumnoController::class, 'storeSeminario'])  ->name('seminarios.store');
+Route::put   ('/seminarios/{id}',  [AlumnoController::class, 'updateSeminario']) ->name('seminarios.update');
+Route::delete('/seminarios/{id}',  [AlumnoController::class, 'destroySeminario'])->name('seminarios.destroy');
+
+// Historial de seminarios por alumno
+Route::get   ('/alumnos/{id}/historial-seminarios',   [AlumnoController::class, 'historialSeminarios'])      ->name('alumnos.historial-seminarios');
+Route::post  ('/alumnos/{id}/historial-seminarios',   [AlumnoController::class, 'storeHistorialSeminario'])  ->name('alumnos.historial-seminarios.store');
+Route::delete('/alumnos/historial-seminarios/{id}',   [AlumnoController::class, 'destroyHistorialSeminario'])->name('alumnos.historial-seminarios.destroy');
+
     // ── Pagos ─────────────────────────────────────────────────────────────
     // IMPORTANTE: las rutas con segmentos estáticos ('resultado', 'pagar')
     // deben ir ANTES de las rutas con parámetros dinámicos ({id})
