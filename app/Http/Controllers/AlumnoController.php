@@ -9,14 +9,17 @@ use Illuminate\Support\Facades\Log;
 /**
  * ══════════════════════════════════════════════════════════════
  *  ESTRUCTURA BD:
- *  - Grado actual: historial_grados ORDER BY fecha_obtencion DESC LIMIT 1
- *  - Documento médico: registro_fisico.certificado_medico
- *  - Datos de bachiller: usuario.numero_control, grupo, especialidad, turno
- *    (no todos los alumnos pertenecen al bachiller)
+ *  - Grado actual:      historial_grados ORDER BY fecha_obtencion DESC LIMIT 1
+ *  - Documento médico:  registro_fisico.certificado_medico
+ *  - Bachiller:         usuario.numero_control, grupo, especialidad, turno
+ *  - Seminarios:        seminario (catálogo) + historial_seminarios (participaciones)
+ *    NOTA: seminario.id_usuario fue eliminado; el catálogo ya no pertenece a un usuario.
  * ══════════════════════════════════════════════════════════════
  */
 class AlumnoController extends Controller
 {
+    // ── index ─────────────────────────────────────────────────────────────────
+
     public function index()
     {
         try {
@@ -42,7 +45,6 @@ class AlumnoController extends Controller
                     'rf.peso',
                     'rf.estatura',
                     'rf.fecha_registro AS fecha_inscripcion',
-                    // Datos de bachiller
                     'a.numero_control',
                     'a.grupo',
                     'a.especialidad',
@@ -50,20 +52,8 @@ class AlumnoController extends Controller
                 )
                 ->get();
 
-            $tutores = DB::table('tutor as t')
-                ->join('usuario as u', 't.id_Tutor', '=', 'u.id_usuario')
-                ->where('u.estado', 1)
-                ->select(
-                    't.id_Tutor',
-                    DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_completo"),
-                    't.relacion_estudiante'
-                )
-                ->get();
-
             $grados = DB::table('grado')->orderBy('id_grado', 'asc')->get();
 
-            // Usuarios con rol alumno sin registro previo en historial_grados
-            // (disponibles para registrar por primera vez)
             $usuariosAlumno = DB::table('usuario')
                 ->where('rol', 'alumno')
                 ->where('estado', 1)
@@ -74,27 +64,29 @@ class AlumnoController extends Controller
                 ->orderBy('nombre')
                 ->get();
 
+            // Catálogo de seminarios para el selector del modal
+            $seminarios = DB::table('seminario')
+                ->orderBy('fecha', 'desc')
+                ->select('id_seminario', 'nombre_seminario', 'fecha', 'maestro')
+                ->get();
+
             return view('usuariosViews.alumno', compact(
-                'alumnos_registrados', 'tutores', 'grados', 'usuariosAlumno'
+                'alumnos_registrados', 'grados', 'usuariosAlumno', 'seminarios'
             ));
 
         } catch (\Exception $e) {
             Log::error('AlumnoController@index: ' . $e->getMessage());
             return view('usuariosViews.alumno', [
                 'alumnos_registrados' => collect(),
-                'tutores'             => collect(),
                 'grados'              => collect(),
                 'usuariosAlumno'      => collect(),
+                'seminarios'          => collect(),
             ])->with('error', 'Error al cargar datos: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Registrar alumno:
-     * - Asigna grado inicial (historial_grados)
-     * - Guarda documento médico (registro_fisico)
-     * - Si pertenece al bachiller, guarda datos en tabla usuario
-     */
+    // ── store ─────────────────────────────────────────────────────────────────
+
     public function store(Request $request)
     {
         $request->validate([
@@ -102,10 +94,8 @@ class AlumnoController extends Controller
             'id_grado'          => 'required|integer|exists:grado,id_grado',
             'fecha_inscripcion' => 'required|date',
             'documento_medico'  => 'required|file|mimes:pdf|max:5120',
-            // Físicos — opcionales al registrar (0 si no se conocen aún)
             'peso'              => 'nullable|numeric|min:0|max:300',
             'estatura'          => 'nullable|numeric|min:0|max:3',
-            // Bachiller — opcionales
             'es_bachiller'      => 'nullable|boolean',
             'numero_control'    => 'nullable|string|max:20',
             'grupo'             => 'nullable|string|max:10',
@@ -134,7 +124,6 @@ class AlumnoController extends Controller
 
             DB::beginTransaction();
 
-            // 1. Grado inicial en historial_grados
             DB::table('historial_grados')->insert([
                 'id_usuario'      => $request->id_alumno,
                 'id_grado'        => $request->id_grado,
@@ -142,7 +131,6 @@ class AlumnoController extends Controller
                 'observaciones'   => 'Grado inicial al momento de inscripción.',
             ]);
 
-            // 2. Certificado médico en registro_fisico
             $registroExistente = DB::table('registro_fisico')
                 ->where('id_usuario', $request->id_alumno)
                 ->first();
@@ -166,7 +154,6 @@ class AlumnoController extends Controller
                 ]);
             }
 
-            // 3. Datos de bachiller en tabla usuario
             DB::table('usuario')
                 ->where('id_usuario', $request->id_alumno)
                 ->update([
@@ -186,28 +173,22 @@ class AlumnoController extends Controller
         }
     }
 
-    /**
-     * Actualizar alumno:
-     * - Agrega nuevo grado al historial
-     * - Actualiza documento médico si se sube uno nuevo
-     * - Actualiza datos de bachiller (o los limpia si ya no pertenece)
-     */
+    // ── update ────────────────────────────────────────────────────────────────
+
     public function update(Request $request, int $id)
     {
         $request->validate([
-            'id_grado'          => 'required|integer|exists:grado,id_grado',
-            'fecha_obtencion'   => 'required|date',
-            'observaciones'     => 'nullable|string|max:500',
-            'documento_medico'  => 'nullable|file|mimes:pdf|max:5120',
-            // Físicos — opcionales
-            'peso'              => 'nullable|numeric|min:0|max:300',
-            'estatura'          => 'nullable|numeric|min:0|max:3',
-            // Bachiller — opcionales
-            'es_bachiller'      => 'nullable|boolean',
-            'numero_control'    => 'nullable|string|max:20',
-            'grupo'             => 'nullable|string|max:10',
-            'especialidad'      => 'nullable|string|max:100',
-            'turno'             => 'nullable|in:Matutino,Vespertino',
+            'id_grado'         => 'required|integer|exists:grado,id_grado',
+            'fecha_obtencion'  => 'required|date',
+            'observaciones'    => 'nullable|string|max:500',
+            'documento_medico' => 'nullable|file|mimes:pdf|max:5120',
+            'peso'             => 'nullable|numeric|min:0|max:300',
+            'estatura'         => 'nullable|numeric|min:0|max:3',
+            'es_bachiller'     => 'nullable|boolean',
+            'numero_control'   => 'nullable|string|max:20',
+            'grupo'            => 'nullable|string|max:10',
+            'especialidad'     => 'nullable|string|max:100',
+            'turno'            => 'nullable|in:Matutino,Vespertino',
         ]);
 
         try {
@@ -215,7 +196,6 @@ class AlumnoController extends Controller
 
             DB::beginTransaction();
 
-            // 1. Nuevo registro en historial_grados
             DB::table('historial_grados')->insert([
                 'id_usuario'      => $id,
                 'id_grado'        => $request->id_grado,
@@ -223,7 +203,6 @@ class AlumnoController extends Controller
                 'observaciones'   => $request->observaciones ?? null,
             ]);
 
-            // 2. Documento médico y datos físicos
             $updateFisico = [];
             if ($request->hasFile('documento_medico')) {
                 $nombreArchivo = 'medico_' . $id . '_' . time() . '.pdf';
@@ -234,14 +213,9 @@ class AlumnoController extends Controller
             if ($request->filled('estatura')) $updateFisico['estatura'] = $request->estatura;
 
             if (!empty($updateFisico)) {
-                DB::table('registro_fisico')
-                    ->where('id_usuario', $id)
-                    ->update($updateFisico);
+                DB::table('registro_fisico')->where('id_usuario', $id)->update($updateFisico);
             }
 
-            // 3. Datos de bachiller:
-            //    - Si es_bachiller = true  → actualiza campos
-            //    - Si es_bachiller = false → pone NULL (ya no pertenece)
             DB::table('usuario')
                 ->where('id_usuario', $id)
                 ->update([
@@ -261,9 +235,8 @@ class AlumnoController extends Controller
         }
     }
 
-    /**
-     * Historial de grados para modal (devuelve JSON).
-     */
+    // ── historialGrados ───────────────────────────────────────────────────────
+
     public function historialGrados(int $id)
     {
         try {
@@ -279,6 +252,236 @@ class AlumnoController extends Controller
         } catch (\Exception $e) {
             Log::error('AlumnoController@historialGrados: ' . $e->getMessage());
             return response()->json(['error' => 'Error al obtener historial.'], 500);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  SEMINARIOS
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * GET /seminarios
+     * Lista el catálogo de seminarios (para admin/sensei).
+     */
+    public function seminarios()
+    {
+        try {
+            $seminarios = DB::table('seminario')
+                ->orderBy('fecha', 'desc')
+                ->get();
+
+            return response()->json(['success' => true, 'data' => $seminarios]);
+
+        } catch (\Exception $e) {
+            Log::error('AlumnoController@seminarios: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al obtener seminarios.'], 500);
+        }
+    }
+
+    /**
+     * POST /seminarios
+     * Admin/sensei crea un nuevo seminario en el catálogo.
+     * NOTA: seminario.id_usuario fue eliminado; no se inserta.
+     */
+    public function storeSeminario(Request $request)
+    {
+        $request->validate([
+            'nombre_seminario' => 'required|string|max:150',
+            'fecha'            => 'required|date',
+            'maestro'          => 'required|string|max:150',
+            'descripcion'      => 'nullable|string',
+            'resultado'        => 'nullable|string|max:50',
+        ]);
+
+        try {
+            $id = DB::table('seminario')->insertGetId([
+                'nombre_seminario' => $request->nombre_seminario,
+                'fecha'            => $request->fecha,
+                'maestro'          => $request->maestro,
+                'descripcion'      => $request->descripcion,
+                'resultado'        => $request->resultado,
+            ]);
+
+            return redirect()->route('alumnos.index')
+                ->with('success', 'Seminario creado con éxito.');
+
+        } catch (\Exception $e) {
+            Log::error('AlumnoController@storeSeminario: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error al crear el seminario: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * PUT /seminarios/{id}
+     * Admin/sensei actualiza un seminario del catálogo.
+     */
+    public function updateSeminario(Request $request, int $id)
+    {
+        $request->validate([
+            'nombre_seminario' => 'required|string|max:150',
+            'fecha'            => 'required|date',
+            'maestro'          => 'required|string|max:150',
+            'descripcion'      => 'nullable|string',
+            'resultado'        => 'nullable|string|max:50',
+        ]);
+
+        try {
+            $updated = DB::table('seminario')
+                ->where('id_seminario', $id)
+                ->update([
+                    'nombre_seminario' => $request->nombre_seminario,
+                    'fecha'            => $request->fecha,
+                    'maestro'          => $request->maestro,
+                    'descripcion'      => $request->descripcion,
+                    'resultado'        => $request->resultado,
+                ]);
+
+            return redirect()->route('alumnos.index')->with(
+                $updated ? 'success' : 'error',
+                $updated ? 'Seminario actualizado.' : 'No se encontró el seminario.'
+            );
+
+        } catch (\Exception $e) {
+            Log::error('AlumnoController@updateSeminario: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error al actualizar: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * DELETE /seminarios/{id}
+     * Solo admin elimina un seminario del catálogo.
+     * También elimina las participaciones relacionadas en historial_seminarios.
+     */
+    public function destroySeminario(int $id)
+    {
+        try {
+            DB::beginTransaction();
+            // Primero eliminar participaciones (FK)
+            DB::table('historial_seminarios')->where('id_seminario', $id)->delete();
+            $deleted = DB::table('seminario')->where('id_seminario', $id)->delete();
+            DB::commit();
+
+            return redirect()->route('alumnos.index')->with(
+                $deleted ? 'success' : 'error',
+                $deleted ? 'Seminario eliminado.' : 'No se encontró el seminario.'
+            );
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('AlumnoController@destroySeminario: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error al eliminar: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * GET /alumnos/{id}/historial-seminarios
+     * Devuelve JSON con los seminarios de un alumno (para modal).
+     * El alumno autenticado solo puede ver los suyos; admin/sensei ven cualquiera.
+     */
+    public function historialSeminarios(int $id)
+    {
+        try {
+            // Si hay sesión activa verificar permiso
+            if (auth()->check()) {
+                $authUser = auth()->user();
+                if ($authUser->rol === 'alumno' && (int) $authUser->id_usuario !== $id) {
+                    return response()->json(['error' => 'Sin permiso.'], 403);
+                }
+            }
+
+            $historial = DB::table('historial_seminarios as hs')
+                ->join('seminario as s', 'hs.id_seminario', '=', 's.id_seminario')
+                ->where('hs.id_usuario', $id)
+                ->orderBy('s.fecha', 'desc')
+                ->select(
+                    'hs.id',
+                    's.id_seminario',
+                    's.nombre_seminario',
+                    's.fecha',
+                    's.maestro',
+                    's.descripcion',
+                    's.resultado',
+                    'hs.fecha_participacion',
+                    'hs.observaciones'
+                )
+                ->get();
+
+            return response()->json($historial);
+
+        } catch (\Exception $e) {
+            Log::error('AlumnoController@historialSeminarios: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al obtener historial.'], 500);
+        }
+    }
+
+    /**
+     * POST /alumnos/{id}/historial-seminarios
+     * Admin/sensei vincula un alumno a un seminario existente.
+     */
+    public function storeHistorialSeminario(Request $request, int $id)
+    {
+        $request->validate([
+            'id_seminario'       => 'required|integer|exists:seminario,id_seminario',
+            'fecha_participacion' => 'required|date',
+            'observaciones'      => 'nullable|string|max:500',
+        ]);
+
+        try {
+            // Verificar que el alumno exista
+            $alumno = DB::table('usuario')
+                ->where('id_usuario', $id)
+                ->where('rol', 'alumno')
+                ->first();
+
+            if (!$alumno) {
+                return redirect()->back()->with('error', 'Alumno no encontrado.');
+            }
+
+            // Evitar duplicado en el mismo seminario
+            $existe = DB::table('historial_seminarios')
+                ->where('id_usuario', $id)
+                ->where('id_seminario', $request->id_seminario)
+                ->exists();
+
+            if ($existe) {
+                return redirect()->back()
+                    ->with('error', 'Este alumno ya tiene registrada su participación en ese seminario.');
+            }
+
+            DB::table('historial_seminarios')->insert([
+                'id_usuario'          => $id,
+                'id_seminario'        => $request->id_seminario,
+                'fecha_participacion' => $request->fecha_participacion,
+                'observaciones'       => $request->observaciones,
+            ]);
+
+            return redirect()->route('alumnos.index')
+                ->with('success', 'Participación en seminario registrada con éxito.');
+
+        } catch (\Exception $e) {
+            Log::error('AlumnoController@storeHistorialSeminario: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error al registrar: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * DELETE /alumnos/historial-seminarios/{id}
+     * Admin/sensei elimina una participación específica del historial.
+     * {id} = historial_seminarios.id (PK)
+     */
+    public function destroyHistorialSeminario(int $id)
+    {
+        try {
+            $deleted = DB::table('historial_seminarios')->where('id', $id)->delete();
+
+            return redirect()->route('alumnos.index')->with(
+                $deleted ? 'success' : 'error',
+                $deleted ? 'Participación eliminada.' : 'No se encontró el registro.'
+            );
+
+        } catch (\Exception $e) {
+            Log::error('AlumnoController@destroyHistorialSeminario: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error al eliminar: ' . $e->getMessage());
         }
     }
 }

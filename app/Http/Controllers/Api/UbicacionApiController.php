@@ -9,15 +9,13 @@ use Illuminate\Support\Facades\Log;
 
 class UbicacionApiController extends Controller
 {
-    /** * GET /api/ubicacion 
-     * Obtiene la última ubicación registrada del dojo.
-     */
+    /** GET /api/ubicacion */
     public function index()
     {
         try {
-            // Obtenemos el registro más reciente de la nueva tabla
+            // Trae el registro más reciente
             $row = DB::table('ubicacion_dojo')
-                ->latest('actualizado_en')
+                ->orderBy('actualizado_en', 'desc')
                 ->first();
 
             if (!$row) {
@@ -28,7 +26,6 @@ class UbicacionApiController extends Controller
                 ]);
             }
 
-            // Mapeamos los nombres de la tabla a lo que espera el Frontend
             return response()->json([
                 'success'   => true,
                 'ubicacion' => [
@@ -36,24 +33,21 @@ class UbicacionApiController extends Controller
                     'longitud'     => $row->longitud,
                     'radio_metros' => $row->radio_metros,
                     'actualizado'  => $row->actualizado_en,
-                    'por'          => $row->guardado_por
+                    'por'          => $row->guardado_por,
                 ],
             ]);
 
         } catch (\Exception $e) {
             Log::error('UbicacionApi@index: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al obtener ubicación.'], 500);
+            return response()->json(['success' => false, 'message' => 'Error.'], 500);
         }
     }
 
-    /** * POST /api/ubicacion 
-     * Guarda o actualiza la ubicación. Solo accesible para admin/sensei.
-     */
+    /** POST /api/ubicacion — solo admin/sensei */
     public function store(Request $request)
     {
         $user = $request->user();
 
-        // Verificación de rol basada en tu lógica actual
         if (!in_array($user->rol, ['admin', 'sensei'])) {
             return response()->json([
                 'success' => false,
@@ -68,35 +62,50 @@ class UbicacionApiController extends Controller
         ]);
 
         try {
-            $radio = $validated['radio_metros'] ?? 50;
+            $radioMetros = $validated['radio_metros'] ?? 50;
 
-            // Usamos updateOrInsert con ID 1 para mantener un único registro de configuración
-            // o podrías usar solo insert() si deseas guardar un histórico de cambios.
-            DB::table('ubicacion_dojo')->updateOrInsert(
-                ['id' => 1], 
-                [
-                    'latitud'        => $validated['latitud'],
-                    'longitud'       => $validated['longitud'],
-                    'radio_metros'   => $radio,
-                    'guardado_por'   => $user->id_usuario,
-                    'actualizado_en' => now(),
-                ]
-            );
+            // Actualiza si ya existe un registro, inserta si no
+            $existe = DB::table('ubicacion_dojo')->first();
+
+            if ($existe) {
+                DB::table('ubicacion_dojo')
+                    ->where('id', $existe->id)
+                    ->update([
+                        'latitud'      => $validated['latitud'],
+                        'longitud'     => $validated['longitud'],
+                        'radio_metros' => $radioMetros,
+                        'guardado_por' => $user->id_usuario,
+                        // actualizado_en se actualiza solo por ON UPDATE CURRENT_TIMESTAMP
+                    ]);
+            } else {
+                DB::table('ubicacion_dojo')->insert([
+                    'latitud'      => $validated['latitud'],
+                    'longitud'     => $validated['longitud'],
+                    'radio_metros' => $radioMetros,
+                    'guardado_por' => $user->id_usuario,
+                ]);
+            }
+
+            // Devolver los datos actualizados
+            $row = DB::table('ubicacion_dojo')
+                ->orderBy('actualizado_en', 'desc')
+                ->first();
 
             return response()->json([
                 'success'   => true,
                 'message'   => 'Ubicación del dojo guardada correctamente.',
                 'ubicacion' => [
-                    'latitud'      => $validated['latitud'],
-                    'longitud'     => $validated['longitud'],
-                    'radio_metros' => $radio,
-                    'actualizado'  => now()->toDateTimeString(),
+                    'latitud'      => $row->latitud,
+                    'longitud'     => $row->longitud,
+                    'radio_metros' => $row->radio_metros,
+                    'actualizado'  => $row->actualizado_en,
+                    'por'          => $row->guardado_por,
                 ],
             ]);
 
         } catch (\Exception $e) {
             Log::error('UbicacionApi@store: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al guardar la ubicación.'], 500);
+            return response()->json(['success' => false, 'message' => 'Error al guardar.'], 500);
         }
     }
 }
