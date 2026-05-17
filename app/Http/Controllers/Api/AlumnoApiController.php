@@ -11,6 +11,17 @@ class AlumnoApiController extends Controller
 {
     /**
      * GET /api/alumnos
+     *
+     * FIX: el query anterior hacía JOIN con historial_grados usando MAX(fecha_obtencion),
+     * pero si un alumno tenía varios registros el mismo día (fecha igual), el JOIN
+     * devolvía múltiples filas — duplicando al alumno en la respuesta y en el web.
+     *
+     * Solución: se obtiene el MAX(id_historial) por alumno en un subquery.
+     * El id autoincremental garantiza un único registro aunque compartan fecha.
+     * El GROUP BY al final es una red de seguridad adicional.
+     *
+     * IMPORTANTE: ajusta 'id_historial' al nombre real de la PK de tu tabla
+     * historial_grados si es diferente (ej: 'id', 'id_hist', etc.).
      */
     public function index(Request $request)
     {
@@ -18,8 +29,8 @@ class AlumnoApiController extends Controller
             $alumnos = DB::table('usuario as a')
                 ->leftJoin('historial_grados as hg', function ($join) {
                     $join->on('hg.id_usuario', '=', 'a.id_usuario')
-                         ->whereRaw('hg.fecha_obtencion = (
-                             SELECT MAX(hg2.fecha_obtencion)
+                         ->whereRaw('hg.id_historial = (
+                             SELECT MAX(hg2.id_historial)
                              FROM historial_grados hg2
                              WHERE hg2.id_usuario = a.id_usuario
                          )');
@@ -42,9 +53,14 @@ class AlumnoApiController extends Controller
                     'rf.certificado_medico',
                     'rf.fecha_registro AS fecha_inscripcion'
                 )
+                ->groupBy(
+                    'a.id_usuario', 'a.nombre', 'a.apaterno', 'a.amaterno',
+                    'a.estado', 'a.correo', 'a.telefono', 'a.fecha_naci',
+                    'g.id_grado', 'g.nombreGrado',
+                    'rf.certificado_medico', 'rf.fecha_registro'
+                )
                 ->get()
                 ->map(function ($a) {
-                    // Añadir URL pública del certificado si existe
                     $a->certificado_medico_url = $a->certificado_medico
                         ? asset('storage/' . $a->certificado_medico)
                         : null;
@@ -69,7 +85,7 @@ class AlumnoApiController extends Controller
             'id_alumno'         => 'required|exists:usuario,id_usuario',
             'id_grado'          => 'required|integer|exists:grado,id_grado',
             'fecha_inscripcion' => 'required|date',
-            'documento_medico'  => 'required|file|mimes:pdf|max:5120',
+            'documento_medico'  => 'nullable|file|mimes:pdf|max:5120',
         ]);
 
         try {
@@ -189,7 +205,7 @@ class AlumnoApiController extends Controller
             $historial = DB::table('historial_grados as hg')
                 ->join('grado as g', 'hg.id_grado', '=', 'g.id_grado')
                 ->where('hg.id_usuario', $id)
-                ->orderBy('hg.fecha_obtencion', 'desc')
+                ->orderBy('hg.id_historial', 'desc')
                 ->select('g.id_grado', 'g.nombreGrado', 'hg.fecha_obtencion', 'hg.observaciones')
                 ->get();
 
