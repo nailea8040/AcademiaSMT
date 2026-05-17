@@ -526,48 +526,43 @@
                 <table>
                     <thead>
                         <tr>
-                            <th style="min-width:180px;">Alumno</th>
-                            <th style="min-width:120px;">Grado Actual</th>
-                            <th style="min-width:160px;">Bachiller</th>
-                            <th style="min-width:100px;">Inscripción</th>
-                            <th style="min-width:100px;">Datos Físicos</th>
-                            <th style="min-width:110px;">Doc. Médico</th>
-                            <th style="min-width:80px;">Estado</th>
-                            <th style="min-width:90px;">Acciones</th>
+                            <th style="min-width:180px;vertical-align:middle;">Alumno</th>
+                            <th style="min-width:120px;vertical-align:middle;">Grado Actual</th>
+                            <th style="min-width:150px;vertical-align:middle;">Bachiller</th>
+                            <th style="min-width:95px;vertical-align:middle;">Inscripción</th>
+                            <th style="min-width:90px;vertical-align:middle;">Datos Físicos</th>
+                            <th style="min-width:100px;vertical-align:middle;">Doc. Médico</th>
+                            <th style="min-width:75px;vertical-align:middle;">Estado</th>
+                            <th style="min-width:80px;vertical-align:middle;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="alumnosTable">
                         @forelse($alumnos_registrados as $alumno)
                         <tr>
-                            <td>{{ $alumno->nombre_alumno }}</td>
+                            <td style="vertical-align:middle;">{{ $alumno->nombre_alumno }}</td>
 
-                            <td>{{ $alumno->nombreGrado ?? '— Sin asignar —' }}</td>
+                            <td style="vertical-align:middle;">{{ $alumno->nombreGrado ?? '— Sin asignar —' }}</td>
 
-                            <td style="white-space:nowrap;">
+                            <td style="vertical-align:middle;">
                                 @if($alumno->numero_control)
-                                    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-                                        <span class="sch-pill">
-                                            <i class="bi bi-mortarboard-fill"></i>
-                                            {{ $alumno->numero_control }}
-                                        </span>
-                                        @if($alumno->grupo)
-                                            <span class="badge-bachiller">{{ $alumno->grupo }}</span>
-                                        @endif
-                                    </div>
+                                    <span style="display:block;font-size:0.82rem;font-weight:700;color:#2e7d32;">
+                                        <i class="bi bi-mortarboard-fill"></i> {{ $alumno->numero_control }}
+                                    </span>
+                                    @if($alumno->grupo)
+                                        <span style="display:block;font-size:0.78rem;color:#555;">Grupo: {{ $alumno->grupo }}</span>
+                                    @endif
                                     @if($alumno->especialidad)
-                                        <div style="font-size:0.75rem;color:#666;margin-top:3px;">
-                                            {{ $alumno->especialidad }}
-                                            @if($alumno->turno)
-                                                · {{ $alumno->turno }}
-                                            @endif
-                                        </div>
+                                        <span style="display:block;font-size:0.78rem;color:#555;">{{ $alumno->especialidad }}</span>
+                                    @endif
+                                    @if($alumno->turno)
+                                        <span style="display:block;font-size:0.78rem;color:#555;">{{ $alumno->turno }}</span>
                                     @endif
                                 @else
-                                    <span class="badge-no-bachiller">—</span>
+                                    <span style="color:#bdbdbd;">—</span>
                                 @endif
                             </td>
 
-                            <td>
+                            <td style="vertical-align:middle;">
                                 @if($alumno->fecha_inscripcion)
                                     {{ \Carbon\Carbon::parse($alumno->fecha_inscripcion)->format('d/m/Y') }}
                                 @else
@@ -575,12 +570,12 @@
                                 @endif
                             </td>
 
-                            <td>
+                            <td style="vertical-align:middle;">
                                 @if($alumno->peso && $alumno->peso > 0)
-                                    <span style="display:block;">{{ number_format($alumno->peso, 1) }} kg</span>
+                                    <span style="display:block;font-size:0.85rem;">{{ number_format($alumno->peso, 1) }} kg</span>
                                 @endif
                                 @if($alumno->estatura && $alumno->estatura > 0)
-                                    <span style="display:block;">{{ number_format($alumno->estatura, 2) }} m</span>
+                                    <span style="display:block;font-size:0.85rem;">{{ number_format($alumno->estatura, 2) }} m</span>
                                 @endif
                                 @if((!$alumno->peso || $alumno->peso == 0) && (!$alumno->estatura || $alumno->estatura == 0))
                                     <span style="color:#bdbdbd;">—</span>
