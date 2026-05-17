@@ -98,6 +98,7 @@
                     <li class="nav-item"><a class="nav-link text-white" href="#galeria">Galería</a></li>
                     <li class="nav-item"><a class="nav-link text-white" href="#clases">Clases</a></li>
                     <li class="nav-item"><a class="nav-link text-white" href="#horarios">Horarios</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="#maestros">Maestros</a></li>
                     <li class="nav-item"><a class="nav-link text-white" href="#contacto">Contacto</a></li>
                     <li class="nav-item border-start ps-3">
                         <a class="btn btn-modern btn-sm" href="{{ route('login') }}"><i class="bi bi-lock"></i> Acceso</a>
@@ -453,7 +454,7 @@
 </section>
 
     
-    <section id="instructores" class="section-padding bg-dark-custom">
+    <section id="maestros" class="section-padding bg-dark-custom">
         <div class="container">
             <div class="text-center mb-5">
                 <h2 class="fw-bold display-5 text-black">Nuestros Maestros</h2>
