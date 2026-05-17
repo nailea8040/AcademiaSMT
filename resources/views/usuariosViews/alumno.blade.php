@@ -566,16 +566,12 @@
 
                             <td>
                                 @if($alumno->peso && $alumno->peso > 0)
-                                    {{ number_format($alumno->peso, 1) }} kg
-                                @else
-                                    <span style="color:#bdbdbd;">—</span>
+                                    <span style="display:block;">{{ number_format($alumno->peso, 1) }} kg</span>
                                 @endif
-                            </td>
-
-                            <td>
                                 @if($alumno->estatura && $alumno->estatura > 0)
-                                    {{ number_format($alumno->estatura, 2) }} m
-                                @else
+                                    <span style="display:block;">{{ number_format($alumno->estatura, 2) }} m</span>
+                                @endif
+                                @if((!$alumno->peso || $alumno->peso == 0) && (!$alumno->estatura || $alumno->estatura == 0))
                                     <span style="color:#bdbdbd;">—</span>
                                 @endif
                             </td>
@@ -627,7 +623,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center">
+                            <td colspan="8" class="text-center">
                                 No hay alumnos registrados.
                             </td>
                         </tr>
