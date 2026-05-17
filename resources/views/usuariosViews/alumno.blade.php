@@ -565,6 +565,22 @@
                             </td>
 
                             <td>
+                                @if($alumno->peso && $alumno->peso > 0)
+                                    {{ number_format($alumno->peso, 1) }} kg
+                                @else
+                                    <span style="color:#bdbdbd;">—</span>
+                                @endif
+                            </td>
+
+                            <td>
+                                @if($alumno->estatura && $alumno->estatura > 0)
+                                    {{ number_format($alumno->estatura, 2) }} m
+                                @else
+                                    <span style="color:#bdbdbd;">—</span>
+                                @endif
+                            </td>
+
+                            <td>
                                 @if($alumno->certificado_medico)
                                     <a href="{{ asset('storage/' . $alumno->certificado_medico) }}"
                                        target="_blank" class="btn btn-sm btn-info"
@@ -611,7 +627,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="text-center">
+                            <td colspan="9" class="text-center">
                                 No hay alumnos registrados.
                             </td>
                         </tr>

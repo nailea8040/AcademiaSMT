@@ -7,27 +7,22 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * ══════════════════════════════════════════════════════════════
- *  ESTRUCTURA BD:
- *  - Grado actual:      historial_grados ORDER BY fecha_obtencion DESC LIMIT 1
- *  - Documento médico:  registro_fisico.certificado_medico
- *  - Bachiller:         usuario.numero_control, grupo, especialidad, turno
- *  - Seminarios:        seminario (catálogo) + historial_seminarios (participaciones)
- *    NOTA: seminario.id_usuario fue eliminado; el catálogo ya no pertenece a un usuario.
- * ══════════════════════════════════════════════════════════════
+ * FIX duplicados en index():
+ *   Se reemplazó MAX(fecha_obtencion) por MAX(id) en el subquery de historial_grados.
+ *   Si un alumno tenía varios registros el mismo día, el JOIN anterior devolvía
+ *   múltiples filas. Con MAX(id) solo se trae el registro más reciente.
+ *   Se agrega GROUP BY como red de seguridad adicional.
  */
 class AlumnoController extends Controller
 {
-    // ── index ─────────────────────────────────────────────────────────────────
-
     public function index()
     {
         try {
             $alumnos_registrados = DB::table('usuario as a')
                 ->leftJoin('historial_grados as hg', function ($join) {
                     $join->on('hg.id_usuario', '=', 'a.id_usuario')
-                         ->whereRaw('hg.fecha_obtencion = (
-                             SELECT MAX(hg2.fecha_obtencion)
+                         ->whereRaw('hg.id = (
+                             SELECT MAX(hg2.id)
                              FROM historial_grados hg2
                              WHERE hg2.id_usuario = a.id_usuario
                          )');
@@ -50,6 +45,12 @@ class AlumnoController extends Controller
                     'a.especialidad',
                     'a.turno'
                 )
+                ->groupBy(
+                    'a.id_usuario', 'a.estado', 'g.id_grado', 'g.nombreGrado',
+                    'rf.certificado_medico', 'rf.peso', 'rf.estatura', 'rf.fecha_registro',
+                    'a.numero_control', 'a.grupo', 'a.especialidad', 'a.turno',
+                    'a.nombre', 'a.apaterno', 'a.amaterno'
+                )
                 ->get();
 
             $grados = DB::table('grado')->orderBy('id_grado', 'asc')->get();
@@ -64,7 +65,6 @@ class AlumnoController extends Controller
                 ->orderBy('nombre')
                 ->get();
 
-            // Catálogo de seminarios para el selector del modal
             $seminarios = DB::table('seminario')
                 ->orderBy('fecha', 'desc')
                 ->select('id_seminario', 'nombre_seminario', 'fecha', 'maestro')
@@ -84,8 +84,6 @@ class AlumnoController extends Controller
             ])->with('error', 'Error al cargar datos: ' . $e->getMessage());
         }
     }
-
-    // ── store ─────────────────────────────────────────────────────────────────
 
     public function store(Request $request)
     {
@@ -173,8 +171,6 @@ class AlumnoController extends Controller
         }
     }
 
-    // ── update ────────────────────────────────────────────────────────────────
-
     public function update(Request $request, int $id)
     {
         $request->validate([
@@ -235,15 +231,13 @@ class AlumnoController extends Controller
         }
     }
 
-    // ── historialGrados ───────────────────────────────────────────────────────
-
     public function historialGrados(int $id)
     {
         try {
             $historial = DB::table('historial_grados as hg')
                 ->join('grado as g', 'hg.id_grado', '=', 'g.id_grado')
                 ->where('hg.id_usuario', $id)
-                ->orderBy('hg.fecha_obtencion', 'desc')
+                ->orderBy('hg.id', 'desc')
                 ->select('g.nombreGrado', 'g.orden', 'hg.fecha_obtencion', 'hg.observaciones')
                 ->get();
 
@@ -255,35 +249,17 @@ class AlumnoController extends Controller
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    //  SEMINARIOS
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * GET /seminarios
-     * Lista el catálogo de seminarios (para admin/sensei).
-     */
     public function seminarios()
     {
         try {
-            $seminarios = DB::table('seminario')
-                ->orderBy('fecha', 'desc')
-                ->get();
-
+            $seminarios = DB::table('seminario')->orderBy('fecha', 'desc')->get();
             return response()->json(['success' => true, 'data' => $seminarios]);
-
         } catch (\Exception $e) {
             Log::error('AlumnoController@seminarios: ' . $e->getMessage());
             return response()->json(['error' => 'Error al obtener seminarios.'], 500);
         }
     }
 
-    /**
-     * POST /seminarios
-     * Admin/sensei crea un nuevo seminario en el catálogo.
-     * Devuelve JSON para que el modal lo agregue al selector dinámicamente.
-     * NOTA: seminario.id_usuario fue eliminado; no se inserta.
-     */
     public function storeSeminario(Request $request)
     {
         $request->validate([
@@ -305,25 +281,14 @@ class AlumnoController extends Controller
 
             $seminario = DB::table('seminario')->where('id_seminario', $id)->first();
 
-            return response()->json([
-                'success'   => true,
-                'message'   => 'Seminario creado con éxito.',
-                'seminario' => $seminario,
-            ]);
+            return response()->json(['success' => true, 'message' => 'Seminario creado.', 'seminario' => $seminario]);
 
         } catch (\Exception $e) {
             Log::error('AlumnoController@storeSeminario: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al crear el seminario: ' . $e->getMessage(),
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 
-    /**
-     * PUT /seminarios/{id}
-     * Admin/sensei actualiza un seminario del catálogo.
-     */
     public function updateSeminario(Request $request, int $id)
     {
         $request->validate([
@@ -335,39 +300,25 @@ class AlumnoController extends Controller
         ]);
 
         try {
-            $updated = DB::table('seminario')
-                ->where('id_seminario', $id)
-                ->update([
-                    'nombre_seminario' => $request->nombre_seminario,
-                    'fecha'            => $request->fecha,
-                    'maestro'          => $request->maestro,
-                    'descripcion'      => $request->descripcion ?? null,
-                    'resultado'        => $request->resultado   ?? null,
-                ]);
+            $updated = DB::table('seminario')->where('id_seminario', $id)->update([
+                'nombre_seminario' => $request->nombre_seminario,
+                'fecha'            => $request->fecha,
+                'maestro'          => $request->maestro,
+                'descripcion'      => $request->descripcion ?? null,
+                'resultado'        => $request->resultado   ?? null,
+            ]);
 
-            if (!$updated) {
-                return response()->json(['success' => false, 'message' => 'No se encontró el seminario.'], 404);
-            }
+            if (!$updated) return response()->json(['success' => false, 'message' => 'No encontrado.'], 404);
 
             $seminario = DB::table('seminario')->where('id_seminario', $id)->first();
-
-            return response()->json([
-                'success'   => true,
-                'message'   => 'Seminario actualizado.',
-                'seminario' => $seminario,
-            ]);
+            return response()->json(['success' => true, 'message' => 'Seminario actualizado.', 'seminario' => $seminario]);
 
         } catch (\Exception $e) {
             Log::error('AlumnoController@updateSeminario: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al actualizar: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 
-    /**
-     * DELETE /seminarios/{id}
-     * Admin/sensei elimina un seminario del catálogo.
-     * También elimina las participaciones relacionadas en historial_seminarios.
-     */
     public function destroySeminario(int $id)
     {
         try {
@@ -375,29 +326,15 @@ class AlumnoController extends Controller
             DB::table('historial_seminarios')->where('id_seminario', $id)->delete();
             $deleted = DB::table('seminario')->where('id_seminario', $id)->delete();
             DB::commit();
-
-            if (!$deleted) {
-                return response()->json(['success' => false, 'message' => 'No se encontró el seminario.'], 404);
-            }
-
+            if (!$deleted) return response()->json(['success' => false, 'message' => 'No encontrado.'], 404);
             return response()->json(['success' => true, 'message' => 'Seminario eliminado.']);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('AlumnoController@destroySeminario: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al eliminar: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    //  GRADOS — catálogo
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * POST /grados
-     * Admin/sensei agrega un nuevo grado al catálogo.
-     * Devuelve JSON para que el modal actualice la lista dinámicamente.
-     */
     public function storeGrado(Request $request)
     {
         $request->validate([
@@ -409,32 +346,15 @@ class AlumnoController extends Controller
         ]);
 
         try {
-            $id = DB::table('grado')->insertGetId([
-                'nombreGrado' => $request->nombreGrado,
-                'orden'       => $request->orden,
-            ]);
-
+            $id    = DB::table('grado')->insertGetId(['nombreGrado' => $request->nombreGrado, 'orden' => $request->orden]);
             $grado = DB::table('grado')->where('id_grado', $id)->first();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Grado creado con éxito.',
-                'grado'   => $grado,
-            ]);
-
+            return response()->json(['success' => true, 'message' => 'Grado creado.', 'grado' => $grado]);
         } catch (\Exception $e) {
             Log::error('AlumnoController@storeGrado: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al crear el grado: ' . $e->getMessage(),
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 
-    /**
-     * PUT /grados/{id}
-     * Admin/sensei edita un grado existente.
-     */
     public function updateGrado(Request $request, int $id)
     {
         $request->validate([
@@ -446,43 +366,19 @@ class AlumnoController extends Controller
         ]);
 
         try {
-            $updated = DB::table('grado')
-                ->where('id_grado', $id)
-                ->update([
-                    'nombreGrado' => $request->nombreGrado,
-                    'orden'       => $request->orden,
-                ]);
-
-            if (!$updated) {
-                return response()->json(['success' => false, 'message' => 'No se encontró el grado.'], 404);
-            }
-
+            $updated = DB::table('grado')->where('id_grado', $id)->update(['nombreGrado' => $request->nombreGrado, 'orden' => $request->orden]);
+            if (!$updated) return response()->json(['success' => false, 'message' => 'No encontrado.'], 404);
             $grado = DB::table('grado')->where('id_grado', $id)->first();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Grado actualizado.',
-                'grado'   => $grado,
-            ]);
-
+            return response()->json(['success' => true, 'message' => 'Grado actualizado.', 'grado' => $grado]);
         } catch (\Exception $e) {
             Log::error('AlumnoController@updateGrado: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al actualizar: ' . $e->getMessage(),
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 
-    /**
-     * GET /alumnos/{id}/historial-seminarios
-     * Devuelve JSON con los seminarios de un alumno (para modal).
-     * El alumno autenticado solo puede ver los suyos; admin/sensei ven cualquiera.
-     */
     public function historialSeminarios(int $id)
     {
         try {
-            // Si hay sesión activa verificar permiso
             if (auth()->check()) {
                 $authUser = auth()->user();
                 if ($authUser->rol === 'alumno' && (int) $authUser->id_usuario !== $id) {
@@ -494,17 +390,7 @@ class AlumnoController extends Controller
                 ->join('seminario as s', 'hs.id_seminario', '=', 's.id_seminario')
                 ->where('hs.id_usuario', $id)
                 ->orderBy('s.fecha', 'desc')
-                ->select(
-                    'hs.id',
-                    's.id_seminario',
-                    's.nombre_seminario',
-                    's.fecha',
-                    's.maestro',
-                    's.descripcion',
-                    's.resultado',
-                    'hs.fecha_participacion',
-                    'hs.observaciones'
-                )
+                ->select('hs.id', 's.id_seminario', 's.nombre_seminario', 's.fecha', 's.maestro', 's.descripcion', 's.resultado', 'hs.fecha_participacion', 'hs.observaciones')
                 ->get();
 
             return response()->json($historial);
@@ -515,29 +401,14 @@ class AlumnoController extends Controller
         }
     }
 
-    /**
-     * POST /alumnos/{id}/historial-seminarios
-     * Admin/sensei registra la participación de un alumno en un seminario.
-     *
-     * Soporta dos modos según el campo 'modo':
-     *   modo = 'existente' → usa id_seminario existente del catálogo
-     *   modo = 'nuevo'     → crea primero el seminario en el catálogo y luego
-     *                        registra la participación, todo en una transacción.
-     *
-     * Devuelve JSON para que el modal actualice la lista sin recargar la página.
-     */
     public function storeHistorialSeminario(Request $request, int $id)
     {
-        $modo = $request->input('modo', 'existente');
-
-        // ── Reglas base ──────────────────────────────────────────────────────
+        $modo  = $request->input('modo', 'existente');
         $rules = [
             'modo'                => 'required|in:existente,nuevo',
             'fecha_participacion' => 'required|date',
             'observaciones'       => 'nullable|string|max:500',
         ];
-
-        // ── Reglas según modo ────────────────────────────────────────────────
         if ($modo === 'existente') {
             $rules['id_seminario'] = 'required|integer|exists:seminario,id_seminario';
         } else {
@@ -551,28 +422,16 @@ class AlumnoController extends Controller
         try {
             $validated = $request->validate($rules);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Datos inválidos.',
-                'errors'  => $e->errors(),
-            ], 422);
+            return response()->json(['success' => false, 'message' => 'Datos inválidos.', 'errors' => $e->errors()], 422);
         }
 
         try {
-            // Verificar que el alumno exista
-            $alumno = DB::table('usuario')
-                ->where('id_usuario', $id)
-                ->where('rol', 'alumno')
-                ->first();
-
-            if (!$alumno) {
-                return response()->json(['success' => false, 'message' => 'Alumno no encontrado.'], 404);
-            }
+            $alumno = DB::table('usuario')->where('id_usuario', $id)->where('rol', 'alumno')->first();
+            if (!$alumno) return response()->json(['success' => false, 'message' => 'Alumno no encontrado.'], 404);
 
             DB::beginTransaction();
 
-            // ── Modo nuevo: crear seminario en el catálogo primero ───────────
-            $idSeminario = null;
+            $idSeminario    = null;
             $seminarioNuevo = null;
 
             if ($modo === 'nuevo') {
@@ -588,21 +447,12 @@ class AlumnoController extends Controller
                 $idSeminario = $validated['id_seminario'];
             }
 
-            // ── Evitar duplicado ─────────────────────────────────────────────
-            $existe = DB::table('historial_seminarios')
-                ->where('id_usuario', $id)
-                ->where('id_seminario', $idSeminario)
-                ->exists();
-
+            $existe = DB::table('historial_seminarios')->where('id_usuario', $id)->where('id_seminario', $idSeminario)->exists();
             if ($existe) {
                 DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Este alumno ya tiene registrada su participación en ese seminario.',
-                ], 409);
+                return response()->json(['success' => false, 'message' => 'Este alumno ya tiene registrada su participación en ese seminario.'], 409);
             }
 
-            // ── Insertar participación ───────────────────────────────────────
             $nuevoId = DB::table('historial_seminarios')->insertGetId([
                 'id_usuario'          => $id,
                 'id_seminario'        => $idSeminario,
@@ -612,61 +462,30 @@ class AlumnoController extends Controller
 
             DB::commit();
 
-            // Devolver el registro completo para que el modal lo renderice
             $registro = DB::table('historial_seminarios as hs')
                 ->join('seminario as s', 'hs.id_seminario', '=', 's.id_seminario')
                 ->where('hs.id', $nuevoId)
-                ->select(
-                    'hs.id',
-                    's.id_seminario',
-                    's.nombre_seminario',
-                    's.fecha',
-                    's.maestro',
-                    's.descripcion',
-                    's.resultado',
-                    'hs.fecha_participacion',
-                    'hs.observaciones'
-                )
+                ->select('hs.id', 's.id_seminario', 's.nombre_seminario', 's.fecha', 's.maestro', 's.descripcion', 's.resultado', 'hs.fecha_participacion', 'hs.observaciones')
                 ->first();
 
-            return response()->json([
-                'success'        => true,
-                'message'        => 'Participación registrada con éxito.',
-                'registro'       => $registro,
-                // Si se creó un seminario nuevo, devolverlo para agregarlo al selector
-                'seminario_nuevo' => $seminarioNuevo,
-            ], 201);
+            return response()->json(['success' => true, 'message' => 'Participación registrada.', 'registro' => $registro, 'seminario_nuevo' => $seminarioNuevo], 201);
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('AlumnoController@storeHistorialSeminario: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al registrar: ' . $e->getMessage(),
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 
-    /**
-     * DELETE /alumnos/historial-seminarios/{id}
-     * Admin/sensei elimina una participación específica del historial.
-     * {id} = historial_seminarios.id (PK)
-     * Devuelve JSON para que el modal elimine el card sin recargar la página.
-     */
     public function destroyHistorialSeminario(int $id)
     {
         try {
             $deleted = DB::table('historial_seminarios')->where('id', $id)->delete();
-
-            if (!$deleted) {
-                return response()->json(['success' => false, 'message' => 'No se encontró el registro.'], 404);
-            }
-
+            if (!$deleted) return response()->json(['success' => false, 'message' => 'No encontrado.'], 404);
             return response()->json(['success' => true, 'message' => 'Participación eliminada.']);
-
         } catch (\Exception $e) {
             Log::error('AlumnoController@destroyHistorialSeminario: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al eliminar: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 }

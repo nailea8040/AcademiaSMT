@@ -9,6 +9,17 @@ use Illuminate\Support\Facades\Log;
 
 class AlumnoApiController extends Controller
 {
+    /**
+     * GET /api/alumnos
+     *
+     * FIX duplicados: se filtra por MAX(id) en historial_grados, no por
+     * MAX(fecha_obtencion), porque si el alumno tiene varios registros el mismo
+     * día el JOIN anterior devolvía una fila por cada uno.
+     * El MAX(id) garantiza un único registro (el más reciente) por alumno.
+     * El GROUP BY es red de seguridad adicional.
+     *
+     * También se agregan peso y estatura desde registro_fisico.
+     */
     public function index(Request $request)
     {
         try {
@@ -37,13 +48,16 @@ class AlumnoApiController extends Controller
                     'g.nombreGrado',
                     DB::raw("CONCAT(a.nombre,' ',a.apaterno,' ',a.amaterno) AS nombre_completo"),
                     'rf.certificado_medico',
-                    'rf.fecha_registro AS fecha_inscripcion'
+                    'rf.fecha_registro AS fecha_inscripcion',
+                    'rf.peso',
+                    'rf.estatura'
                 )
                 ->groupBy(
                     'a.id_usuario', 'a.nombre', 'a.apaterno', 'a.amaterno',
                     'a.estado', 'a.correo', 'a.telefono', 'a.fecha_naci',
                     'g.id_grado', 'g.nombreGrado',
-                    'rf.certificado_medico', 'rf.fecha_registro'
+                    'rf.certificado_medico', 'rf.fecha_registro',
+                    'rf.peso', 'rf.estatura'
                 )
                 ->get()
                 ->map(function ($a) {
@@ -63,7 +77,6 @@ class AlumnoApiController extends Controller
 
     /**
      * POST /api/alumnos
-     * multipart/form-data porque incluye PDF
      */
     public function store(Request $request)
     {
@@ -72,6 +85,8 @@ class AlumnoApiController extends Controller
             'id_grado'          => 'required|integer|exists:grado,id_grado',
             'fecha_inscripcion' => 'required|date',
             'documento_medico'  => 'nullable|file|mimes:pdf|max:5120',
+            'peso'              => 'nullable|numeric|min:0|max:300',
+            'estatura'          => 'nullable|numeric|min:0|max:3',
         ]);
 
         try {
@@ -89,9 +104,9 @@ class AlumnoApiController extends Controller
 
             $rutaDoc = null;
             if ($request->hasFile('documento_medico')) {
-                $archivo  = $request->file('documento_medico');
-                $nombre   = 'medico_' . $validated['id_alumno'] . '_' . time() . '.pdf';
-                $rutaDoc  = $archivo->storeAs('documentos_medicos', $nombre, 'public');
+                $archivo = $request->file('documento_medico');
+                $nombre  = 'medico_' . $validated['id_alumno'] . '_' . time() . '.pdf';
+                $rutaDoc = $archivo->storeAs('documentos_medicos', $nombre, 'public');
             }
 
             DB::beginTransaction();
@@ -113,12 +128,14 @@ class AlumnoApiController extends Controller
                     ->update([
                         'certificado_medico' => $rutaDoc,
                         'fecha_registro'     => $validated['fecha_inscripcion'],
+                        'peso'               => $validated['peso']     ?? $existe->peso,
+                        'estatura'           => $validated['estatura'] ?? $existe->estatura,
                     ]);
             } else {
                 DB::table('registro_fisico')->insert([
                     'id_usuario'         => $validated['id_alumno'],
-                    'peso'               => 0,
-                    'estatura'           => 0,
+                    'peso'               => $validated['peso']     ?? 0,
+                    'estatura'           => $validated['estatura'] ?? 0,
                     'certificado_medico' => $rutaDoc,
                     'fecha_registro'     => $validated['fecha_inscripcion'],
                 ]);
@@ -140,20 +157,25 @@ class AlumnoApiController extends Controller
 
     /**
      * PUT /api/alumnos/{id}
-     * Asigna nuevo grado y opcionalmente nuevo documento médico
+     * Inserta nuevo grado en historial y actualiza datos físicos opcionales.
+     * NO crea filas duplicadas en la lista porque index() filtra por MAX(id).
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id)
     {
         $validated = $request->validate([
             'id_grado'         => 'required|integer|exists:grado,id_grado',
             'fecha_obtencion'  => 'required|date',
             'observaciones'    => 'nullable|string|max:500',
             'documento_medico' => 'nullable|file|mimes:pdf|max:5120',
+            'peso'             => 'nullable|numeric|min:0|max:300',
+            'estatura'         => 'nullable|numeric|min:0|max:3',
         ]);
 
         try {
             DB::beginTransaction();
 
+            // Solo inserta en historial — NO duplica en la lista
+            // porque index() siempre trae solo el MAX(id) por alumno
             DB::table('historial_grados')->insert([
                 'id_usuario'      => $id,
                 'id_grado'        => $validated['id_grado'],
@@ -161,14 +183,26 @@ class AlumnoApiController extends Controller
                 'observaciones'   => $validated['observaciones'] ?? null,
             ]);
 
+            // Actualizar registro físico
+            $updateFisico = [];
+
             if ($request->hasFile('documento_medico')) {
                 $nombre = 'medico_' . $id . '_' . time() . '.pdf';
-                $ruta   = $request->file('documento_medico')
+                $updateFisico['certificado_medico'] = $request->file('documento_medico')
                     ->storeAs('documentos_medicos', $nombre, 'public');
+            }
 
+            if (!is_null($validated['peso'] ?? null)) {
+                $updateFisico['peso'] = $validated['peso'];
+            }
+            if (!is_null($validated['estatura'] ?? null)) {
+                $updateFisico['estatura'] = $validated['estatura'];
+            }
+
+            if (!empty($updateFisico)) {
                 DB::table('registro_fisico')
                     ->where('id_usuario', $id)
-                    ->update(['certificado_medico' => $ruta]);
+                    ->update($updateFisico);
             }
 
             DB::commit();
@@ -185,7 +219,7 @@ class AlumnoApiController extends Controller
     /**
      * GET /api/alumnos/{id}/historial-grados
      */
-    public function historialGrados($id)
+    public function historialGrados(int $id)
     {
         try {
             $historial = DB::table('historial_grados as hg')
