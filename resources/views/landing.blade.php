@@ -98,9 +98,9 @@
                     <li class="nav-item"><a class="nav-link text-white" href="#galeria">Galería</a></li>
                     <li class="nav-item"><a class="nav-link text-white" href="#clases">Clases</a></li>
                     <li class="nav-item"><a class="nav-link text-white" href="#horarios">Horarios</a></li>
-                    <li class="nav-item"><a class="btn btn-modern btn-sm" href="#contacto">Contacto</a></li>
+                    <li class="nav-item"><a class="nav-link text-white" href="#contacto">Contacto</a></li>
                     <li class="nav-item border-start ps-3">
-                        <a class="nav-link text-white" href="{{ route('login') }}"><i class="bi bi-lock"></i> Acceso</a>
+                        <a class="btn btn-modern btn-sm" href="{{ route('login') }}"><i class="bi bi-lock"></i> Acceso</a>
                     </li>
                 </ul>
             </div>
