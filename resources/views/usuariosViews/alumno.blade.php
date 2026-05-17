@@ -526,13 +526,14 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Alumno</th>
-                            <th>Grado Actual</th>
-                            <th>Bachiller</th>
-                            <th>Inscripción</th>
-                            <th>Doc. Médico</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
+                            <th style="min-width:180px;">Alumno</th>
+                            <th style="min-width:120px;">Grado Actual</th>
+                            <th style="min-width:160px;">Bachiller</th>
+                            <th style="min-width:100px;">Inscripción</th>
+                            <th style="min-width:100px;">Datos Físicos</th>
+                            <th style="min-width:110px;">Doc. Médico</th>
+                            <th style="min-width:80px;">Estado</th>
+                            <th style="min-width:90px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="alumnosTable">
@@ -542,14 +543,24 @@
 
                             <td>{{ $alumno->nombreGrado ?? '— Sin asignar —' }}</td>
 
-                            <td>
+                            <td style="white-space:nowrap;">
                                 @if($alumno->numero_control)
-                                    <span class="sch-pill">
-                                        <i class="bi bi-mortarboard-fill"></i>
-                                        {{ $alumno->numero_control }}
-                                    </span>
-                                    @if($alumno->grupo)
-                                        <span class="badge-bachiller">{{ $alumno->grupo }}</span>
+                                    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+                                        <span class="sch-pill">
+                                            <i class="bi bi-mortarboard-fill"></i>
+                                            {{ $alumno->numero_control }}
+                                        </span>
+                                        @if($alumno->grupo)
+                                            <span class="badge-bachiller">{{ $alumno->grupo }}</span>
+                                        @endif
+                                    </div>
+                                    @if($alumno->especialidad)
+                                        <div style="font-size:0.75rem;color:#666;margin-top:3px;">
+                                            {{ $alumno->especialidad }}
+                                            @if($alumno->turno)
+                                                · {{ $alumno->turno }}
+                                            @endif
+                                        </div>
                                     @endif
                                 @else
                                     <span class="badge-no-bachiller">—</span>
