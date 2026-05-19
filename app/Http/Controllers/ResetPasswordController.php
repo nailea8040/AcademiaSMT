@@ -102,6 +102,7 @@ class ResetPasswordController extends Controller
                     ->with('mensaje', '¡Listo! Si el correo está registrado, recibirás el enlace de recuperación.');
             }
 
+            /*
             // Prevenir spam: mínimo 2 minutos entre solicitudes
             if ($usuario->ultima_solicitud_token) {
                 $ultimaSolicitud = Carbon::parse($usuario->ultima_solicitud_token);
@@ -110,7 +111,7 @@ class ResetPasswordController extends Controller
                         ->with('sessionRecuperarContrasennia', 'true')
                         ->with('mensaje', '¡Listo! Si el correo está registrado, recibirás el enlace de recuperación.');
                 }
-            }
+            }*/
 
             $token    = Str::uuid()->toString();
             $expiraEn = Carbon::now()->addMinutes(10);
