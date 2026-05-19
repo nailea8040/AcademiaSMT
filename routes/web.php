@@ -59,7 +59,7 @@ Route::get('/calendario', [CalendarioController::class, 'index'])->name('calenda
 Route::middleware('auth')->group(function () {
 
     // ── Dashboard ─────────────────────────────────────────────────────────
-    RRoute::get('/principal', [PrincipalController::class, 'index'])->name('principal');
+    Route::get('/principal', [PrincipalController::class, 'index'])->name('principal');
 
     // ── Perfil ────────────────────────────────────────────────────────────
     Route::get('/perfil', [PerfilController::class, 'index'])->name('perfil');
