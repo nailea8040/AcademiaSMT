@@ -134,11 +134,17 @@ class ResetPasswordController extends Controller
                 ->with('mensaje', '¡Listo! Revisa tu correo para el enlace de recuperación.');
 
         } catch (\Exception $e) {
-            Log::error('ResetPassword@sendResetLinkEmail: ' . $e->getMessage());
-            return redirect()->route('password.request')
-                ->with('sessionRecuperarContrasennia', 'false')
-                ->with('mensaje', 'Hubo un error al enviar el correo.');
-        }
+    DB::rollBack();
+    
+    // Registra en el log de todas formas
+    Log::error('ResetPassword@sendResetLinkEmail: ' . $e->getMessage());
+
+    // CAMBIA ESTA LÍNEA TEMPORALMENTE:
+    // En lugar del mensaje fijo, le pasamos el error real del sistema ($e->getMessage())
+    return redirect()->route('password.request')
+        ->with('sessionRecuperarContrasennia', 'false')
+        ->with('mensaje', 'Error real: ' . $e->getMessage());
+}
     }
 
     // ── Actualizar contraseña ─────────────────────────────────────────────────
