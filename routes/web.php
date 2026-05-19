@@ -16,6 +16,7 @@ use App\Http\Controllers\RegistroController;
 use App\Http\Controllers\ContactoController;
 use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\AsistenciaController;
+use App\Http\Controllers\PrincipalController;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RUTAS PÚBLICAS — sin login
@@ -58,7 +59,7 @@ Route::get('/calendario', [CalendarioController::class, 'index'])->name('calenda
 Route::middleware('auth')->group(function () {
 
     // ── Dashboard ─────────────────────────────────────────────────────────
-    Route::get('/principal', fn() => view('usuariosViews.principal'))->name('principal');
+    RRoute::get('/principal', [PrincipalController::class, 'index'])->name('principal');
 
     // ── Perfil ────────────────────────────────────────────────────────────
     Route::get('/perfil', [PerfilController::class, 'index'])->name('perfil');
