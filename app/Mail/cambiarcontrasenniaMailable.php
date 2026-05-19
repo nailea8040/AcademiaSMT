@@ -27,15 +27,15 @@ class cambiarcontrasenniaMailable extends Mailable
      * Get the message envelope.
      */
     public function envelope(): Envelope
-    {
-        return new Envelope(
-            from: new Address(
-                config('mail.from.address'), 
-                config('mail.from.name')
-            ),
-            subject: 'Recuperacion de Contraseña - Academia Karate-Do',
-        );
-    }
+{
+    return new Envelope(
+        from: new Address(
+            env('MAIL_FROM_ADDRESS', 'academiacentralkaratedosmt@gmail.com'), 
+            env('MAIL_FROM_NAME', 'Academia Karate-Do SMT')
+        ),
+        subject: 'Recuperación de Contraseña - Academia Karate-Do SMT',
+    );
+}
 
     /**
      * Get the message content definition.
