@@ -129,5 +129,15 @@
             });
         });
     </script>
+    @if ($errors->any())
+    <script>
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de Validación',
+            html: '{!! implode("<br>", $errors->all()) !!}',
+            confirmButtonColor: '#dc3545'
+        });
+    </script>
+@endif
 </body>
 </html>
