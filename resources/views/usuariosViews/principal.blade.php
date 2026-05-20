@@ -9,6 +9,10 @@
     <link rel="stylesheet" href="{{ asset('css/estilo2.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    {{-- jsPDF para descarga de reportes (solo admin/sensei lo usan) --}}
+    @if(in_array(Auth::user()->rol ?? '', ['admin','sensei']))
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    @endif
     <style>
         /* ── Hero ──────────────────────────────────────────────── */
         .hero-section {
@@ -24,21 +28,20 @@
             background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='20'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
             pointer-events: none;
         }
-        .hero-title   { font-size: clamp(1.6rem,4vw,2.4rem); color:#fff; font-weight:800; margin:0 0 8px; }
-        .hero-subtitle{ font-size:1rem; color:rgba(255,255,255,.8); margin-bottom:32px; }
-        .stats-grid   { display:flex; justify-content:center; gap:20px; flex-wrap:wrap; margin-bottom:32px; }
-        .stat-hero    {
+        .hero-title    { font-size:clamp(1.6rem,4vw,2.4rem); color:#fff; font-weight:800; margin:0 0 8px; }
+        .hero-subtitle { font-size:1rem; color:rgba(255,255,255,.8); margin-bottom:32px; }
+        .stats-grid    { display:flex; justify-content:center; gap:20px; flex-wrap:wrap; margin-bottom:32px; }
+        .stat-hero {
             background:rgba(255,255,255,.15); backdrop-filter:blur(4px);
             border:1px solid rgba(255,255,255,.25); border-radius:16px;
             padding:20px 28px; min-width:140px; text-align:center; color:#fff;
         }
         .stat-hero .num { font-size:2rem; font-weight:900; display:block; }
         .stat-hero .lbl { font-size:.75rem; opacity:.85; text-transform:uppercase; letter-spacing:.05em; }
-        .cta-buttons  { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+        .cta-buttons { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
         .btn-hero-primary {
             background:#fff; color:#e53935; font-weight:700; padding:12px 28px;
-            border-radius:12px; text-decoration:none; display:inline-flex; align-items:center; gap:8px;
-            transition:.2s;
+            border-radius:12px; text-decoration:none; display:inline-flex; align-items:center; gap:8px; transition:.2s;
         }
         .btn-hero-primary:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,.15); }
         .btn-hero-secondary {
@@ -48,12 +51,12 @@
         }
         .btn-hero-secondary:hover { background:rgba(255,255,255,.25); }
 
-        /* ── Dashboard grid ─────────────────────────────────────── */
+        /* ── Dashboard ─────────────────────────────────────────── */
         .dashboard-wrap { padding:32px 24px; max-width:1400px; margin:0 auto; }
         .section-title  { font-size:1.3rem; font-weight:800; color:#1a1a2e; margin:0 0 20px; display:flex; align-items:center; gap:10px; }
-        .section-title i{ color:#e53935; }
+        .section-title i { color:#e53935; }
 
-        /* KPI cards */
+        /* KPI */
         .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:32px; }
         .kpi-card {
             background:#fff; border-radius:16px; padding:20px 22px;
@@ -66,20 +69,57 @@
         .kpi-card.blue   { border-color:#1565c0; }
         .kpi-val  { font-size:1.9rem; font-weight:900; color:#1a1a2e; }
         .kpi-lbl  { font-size:.75rem; color:#718096; text-transform:uppercase; letter-spacing:.05em; }
-        .kpi-icon { font-size:1.4rem; margin-bottom:4px; }
+        .kpi-icon { font-size:1.4rem; margin-bottom:4px; color:#e53935; }
         .kpi-card.green  .kpi-icon { color:#43a047; }
         .kpi-card.orange .kpi-icon { color:#fb8c00; }
         .kpi-card.purple .kpi-icon { color:#7b1fa2; }
         .kpi-card.blue   .kpi-icon { color:#1565c0; }
-        .kpi-card        .kpi-icon { color:#e53935; }
 
-        /* Chart cards */
-        .charts-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr)); gap:20px; margin-bottom:32px; }
-        .chart-card  {
+        /* ── Grid de gráficas: siempre 2 columnas en escritorio ── */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        .charts-grid .chart-card.full { grid-column: 1 / -1; }
+        @media(max-width: 860px) {
+            .charts-grid { grid-template-columns: 1fr; }
+            .charts-grid .chart-card.full { grid-column: 1; }
+        }
+
+        /* Chart card con interacción para descarga */
+        .chart-card {
             background:#fff; border-radius:20px; padding:24px;
             box-shadow:0 2px 16px rgba(0,0,0,.07);
+            position: relative;
+            transition: box-shadow .2s, transform .15s;
         }
-        .chart-card.full { grid-column:1/-1; }
+        .chart-card.clickable { cursor: pointer; }
+        .chart-card.clickable:hover {
+            box-shadow: 0 6px 28px rgba(229,57,53,.18);
+            transform: translateY(-2px);
+        }
+        /* Hint de descarga — solo visible para admin/sensei */
+        .pdf-hint {
+            display: none;
+            position: absolute;
+            top: 14px; right: 16px;
+            background: #e53935;
+            color: #fff;
+            font-size: .7rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 999px;
+            gap: 5px;
+            align-items: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .2s;
+        }
+        .can-download .pdf-hint { display: flex; }
+        .chart-card.clickable:hover .pdf-hint { opacity: 1; }
+
         .chart-title { font-size:1rem; font-weight:700; color:#2d3748; margin:0 0 18px; display:flex; align-items:center; gap:8px; }
         .chart-title i { color:#e53935; }
         .chart-wrap  { position:relative; }
@@ -94,15 +134,12 @@
         .stancados-table td { padding:12px 14px; border-bottom:1px solid #f0f0f0; color:#374151; }
         .stancados-table tr:last-child td { border-bottom:none; }
         .stancados-table tr:hover td { background:#fef9f9; }
-        .badge-meses {
-            display:inline-block; padding:3px 10px; border-radius:999px; font-size:.7rem; font-weight:700;
-        }
+        .badge-meses { display:inline-block; padding:3px 10px; border-radius:999px; font-size:.7rem; font-weight:700; }
         .badge-warn  { background:#fff3e0; color:#e65100; }
         .badge-alert { background:#ffebee; color:#c62828; }
         .empty-state { text-align:center; padding:32px; color:#9e9e9e; }
         .empty-state i { font-size:2rem; display:block; margin-bottom:8px; }
 
-        /* Responsive */
         @media(max-width:640px) {
             .dashboard-wrap { padding:16px 12px; }
             .kpi-grid { grid-template-columns:1fr 1fr; }
@@ -187,7 +224,7 @@
             <div class="kpi-card blue">
                 <i class="bi bi-person-x-fill kpi-icon"></i>
                 <span class="kpi-val">{{ count($alumnosEstancados) }}</span>
-                <span class="kpi-lbl">Alumnos sin avance (+12 m)</span>
+                <span class="kpi-lbl">Sin avance +12 meses</span>
             </div>
             <div class="kpi-card">
                 <i class="bi bi-award-fill kpi-icon"></i>
@@ -196,42 +233,54 @@
             </div>
         </div>
 
-        {{-- ── Gráficas principales ── --}}
+        {{-- ── Fila 1: Ingresos (ancho completo) ── --}}
         <h2 class="section-title"><i class="bi bi-graph-up-arrow"></i> Finanzas y Matrículas</h2>
         <div class="charts-grid">
 
-            {{-- Ingresos por mes --}}
-            <div class="chart-card full">
+            {{-- Ingresos por mes — ancho completo --}}
+            <div class="chart-card full {{ in_array(Auth::user()->rol ?? '', ['admin','sensei']) ? 'clickable can-download' : '' }}"
+                 data-chart-id="chartIngresos"
+                 data-chart-title="Ingresos por Mes (últimos 12 meses)">
+                <span class="pdf-hint"><i class="bi bi-file-earmark-pdf-fill"></i> Descargar PDF</span>
                 <p class="chart-title"><i class="bi bi-cash-coin"></i> Ingresos por Mes (últimos 12 meses)</p>
                 <div class="chart-wrap" style="height:260px">
                     <canvas id="chartIngresos"></canvas>
                 </div>
             </div>
 
-            {{-- Nuevos alumnos por mes --}}
-            <div class="chart-card">
+            {{-- Alumnos nuevos por mes --}}
+            <div class="chart-card {{ in_array(Auth::user()->rol ?? '', ['admin','sensei']) ? 'clickable can-download' : '' }}"
+                 data-chart-id="chartAlumnos"
+                 data-chart-title="Alumnos Nuevos por Mes (últimos 12 meses)">
+                <span class="pdf-hint"><i class="bi bi-file-earmark-pdf-fill"></i> Descargar PDF</span>
                 <p class="chart-title"><i class="bi bi-person-plus-fill"></i> Alumnos Nuevos por Mes</p>
-                <div class="chart-wrap" style="height:240px">
+                <div class="chart-wrap" style="height:260px">
                     <canvas id="chartAlumnos"></canvas>
                 </div>
             </div>
 
             {{-- Ingresos por concepto --}}
-            <div class="chart-card">
+            <div class="chart-card {{ in_array(Auth::user()->rol ?? '', ['admin','sensei']) ? 'clickable can-download' : '' }}"
+                 data-chart-id="chartConceptos"
+                 data-chart-title="Ingresos por Concepto de Pago">
+                <span class="pdf-hint"><i class="bi bi-file-earmark-pdf-fill"></i> Descargar PDF</span>
                 <p class="chart-title"><i class="bi bi-pie-chart-fill"></i> Ingresos por Concepto</p>
-                <div class="chart-wrap" style="height:240px">
+                <div class="chart-wrap" style="height:260px">
                     <canvas id="chartConceptos"></canvas>
                 </div>
             </div>
 
         </div>
 
-        {{-- ── Alumnos por grado ── --}}
+        {{-- ── Fila 2: Grados ── --}}
         <h2 class="section-title"><i class="bi bi-diagram-3-fill"></i> Distribución por Grado</h2>
         <div class="charts-grid">
-            <div class="chart-card full">
+            <div class="chart-card full {{ in_array(Auth::user()->rol ?? '', ['admin','sensei']) ? 'clickable can-download' : '' }}"
+                 data-chart-id="chartGrados"
+                 data-chart-title="Alumnos Actuales por Grado">
+                <span class="pdf-hint"><i class="bi bi-file-earmark-pdf-fill"></i> Descargar PDF</span>
                 <p class="chart-title"><i class="bi bi-bar-chart-steps"></i> Alumnos Actuales por Grado</p>
-                <div class="chart-wrap" style="height:280px">
+                <div class="chart-wrap" style="height:300px">
                     <canvas id="chartGrados"></canvas>
                 </div>
             </div>
@@ -289,25 +338,24 @@
     @include('includes.pie')
     </div>{{-- /main-content --}}
 
-    {{-- ═══ SCRIPTS ═══ --}}
     <script>
-    // ── Datos desde Laravel ─────────────────────────────────────────────
-    const dataIngresos = @json($ingresosPorMes);
-    const dataAlumnos  = @json($alumnosPorMes);
-    const dataGrados   = @json($alumnosPorGrado);
-    const dataConceptos= @json($ingresosPorConcepto);
+    // ── Datos desde Laravel ──────────────────────────────────────────────
+    const dataIngresos  = @json($ingresosPorMes);
+    const dataAlumnos   = @json($alumnosPorMes);
+    const dataGrados    = @json($alumnosPorGrado);
+    const dataConceptos = @json($ingresosPorConcepto);
+    const puedeDescargar = {{ in_array(Auth::user()->rol ?? '', ['admin','sensei']) ? 'true' : 'false' }};
 
-    // ── Paleta ──────────────────────────────────────────────────────────
+    // ── Paleta ───────────────────────────────────────────────────────────
     const RED    = '#e53935';
     const RED_L  = 'rgba(229,57,53,0.12)';
     const GREEN  = '#43a047';
     const GREEN_L= 'rgba(67,160,71,0.12)';
     const CINTAS = [
         '#f5f5f5','#fdd835','#ffb300','#43a047','#2e7d32',
-        '#7b1fa2','#4a148c','#795548','#4e342e','#3e2723',
-        '#212121','#37474f',
+        '#7b1fa2','#4a148c','#795548','#4e342e','#3e2723','#212121','#37474f',
     ];
-    const MULTI  = ['#e53935','#fb8c00','#43a047','#1565c0','#7b1fa2','#00838f','#f06292','#558b2f'];
+    const MULTI = ['#e53935','#fb8c00','#43a047','#1565c0','#7b1fa2','#00838f','#f06292','#558b2f'];
 
     // ── Opciones base ────────────────────────────────────────────────────
     const baseOpts = {
@@ -325,19 +373,17 @@
         },
     };
 
-    // ── 1. Ingresos por mes (bar + line overlay) ─────────────────────────
+    // Registro de instancias Chart.js para poder leerlas al exportar
+    const chartInstances = {};
+
+    // ── 1. Ingresos por mes ──────────────────────────────────────────────
     (function() {
-        const labels  = dataIngresos.map(d => d.mes_label);
-        const montos  = dataIngresos.map(d => parseFloat(d.total_ingresos));
-        const npagos  = dataIngresos.map(d => parseInt(d.total_pagos));
+        const labels = dataIngresos.map(d => d.mes_label);
+        const montos = dataIngresos.map(d => parseFloat(d.total_ingresos));
+        const npagos = dataIngresos.map(d => parseInt(d.total_pagos));
+        if (!labels.length) return;
 
-        if (!labels.length) {
-            document.getElementById('chartIngresos').closest('.chart-card').innerHTML +=
-                '<p style="text-align:center;color:#9e9e9e;padding:16px">Sin datos de ingresos aún.</p>';
-            return;
-        }
-
-        new Chart(document.getElementById('chartIngresos'), {
+        chartInstances['chartIngresos'] = new Chart(document.getElementById('chartIngresos'), {
             type: 'bar',
             data: {
                 labels,
@@ -370,35 +416,18 @@
                 ...baseOpts,
                 plugins: {
                     ...baseOpts.plugins,
-                    legend: {
-                        display: true,
-                        position: 'top',
-                        labels: { usePointStyle: true, padding: 16, font: { size: 12 } }
-                    },
+                    legend: { display:true, position:'top', labels:{ usePointStyle:true, padding:16, font:{size:12} } },
                     tooltip: {
                         ...baseOpts.plugins.tooltip,
-                        callbacks: {
-                            label: ctx => ctx.datasetIndex === 0
-                                ? ` $${ctx.raw.toLocaleString('es-MX', {minimumFractionDigits:2})}`
-                                : ` ${ctx.raw} pagos`
-                        }
+                        callbacks: { label: ctx => ctx.datasetIndex===0
+                            ? ` $${ctx.raw.toLocaleString('es-MX',{minimumFractionDigits:2})}`
+                            : ` ${ctx.raw} pagos` }
                     }
                 },
                 scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-                    y: {
-                        position: 'left',
-                        ticks: {
-                            callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v),
-                            font: { size: 11 }
-                        },
-                        grid: { color: '#f0f0f0' }
-                    },
-                    y2: {
-                        position: 'right',
-                        grid: { drawOnChartArea: false },
-                        ticks: { font: { size: 11 } }
-                    }
+                    x:  { grid:{display:false}, ticks:{font:{size:11}} },
+                    y:  { position:'left',  ticks:{ callback:v=>'$'+(v>=1000?(v/1000).toFixed(0)+'k':v), font:{size:11} }, grid:{color:'#f0f0f0'} },
+                    y2: { position:'right', grid:{drawOnChartArea:false}, ticks:{font:{size:11}} }
                 }
             }
         });
@@ -408,14 +437,9 @@
     (function() {
         const labels = dataAlumnos.map(d => d.mes_label);
         const vals   = dataAlumnos.map(d => parseInt(d.total_alumnos));
+        if (!labels.length) return;
 
-        if (!labels.length) {
-            document.getElementById('chartAlumnos').closest('.chart-card').innerHTML +=
-                '<p style="text-align:center;color:#9e9e9e;padding:16px">Sin registros de alumnos aún.</p>';
-            return;
-        }
-
-        new Chart(document.getElementById('chartAlumnos'), {
+        chartInstances['chartAlumnos'] = new Chart(document.getElementById('chartAlumnos'), {
             type: 'line',
             data: {
                 labels,
@@ -436,35 +460,23 @@
                 ...baseOpts,
                 plugins: {
                     ...baseOpts.plugins,
-                    tooltip: {
-                        ...baseOpts.plugins.tooltip,
-                        callbacks: { label: ctx => ` ${ctx.raw} alumno(s)` }
-                    }
+                    tooltip: { ...baseOpts.plugins.tooltip, callbacks:{ label: ctx=>` ${ctx.raw} alumno(s)` } }
                 },
                 scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-                    y: {
-                        beginAtZero: true,
-                        ticks: { stepSize: 1, font: { size: 11 } },
-                        grid: { color: '#f0f0f0' }
-                    }
+                    x: { grid:{display:false}, ticks:{font:{size:11}} },
+                    y: { beginAtZero:true, ticks:{stepSize:1,font:{size:11}}, grid:{color:'#f0f0f0'} }
                 }
             }
         });
     })();
 
-    // ── 3. Ingresos por concepto (doughnut) ─────────────────────────────
+    // ── 3. Ingresos por concepto ─────────────────────────────────────────
     (function() {
         const labels = dataConceptos.map(d => d.concepto);
         const vals   = dataConceptos.map(d => parseFloat(d.total));
+        if (!labels.length) return;
 
-        if (!labels.length) {
-            document.getElementById('chartConceptos').closest('.chart-card').innerHTML +=
-                '<p style="text-align:center;color:#9e9e9e;padding:16px">Sin datos de conceptos aún.</p>';
-            return;
-        }
-
-        new Chart(document.getElementById('chartConceptos'), {
+        chartInstances['chartConceptos'] = new Chart(document.getElementById('chartConceptos'), {
             type: 'doughnut',
             data: {
                 labels,
@@ -481,11 +493,7 @@
                 maintainAspectRatio: false,
                 cutout: '62%',
                 plugins: {
-                    legend: {
-                        display: true,
-                        position: 'right',
-                        labels: { font: { size: 11 }, padding: 10, usePointStyle: true }
-                    },
+                    legend: { display:true, position:'right', labels:{ font:{size:11}, padding:10, usePointStyle:true } },
                     tooltip: {
                         ...baseOpts.plugins.tooltip,
                         callbacks: {
@@ -501,51 +509,29 @@
         });
     })();
 
-    // ── 4. Alumnos por grado (horizontal bar) ───────────────────────────
+    // ── 4. Alumnos por grado ─────────────────────────────────────────────
     (function() {
         const labels = dataGrados.map(d => d.grado);
         const vals   = dataGrados.map(d => parseInt(d.total_alumnos));
-        const colors = labels.map((_, i) => CINTAS[i] ?? '#9e9e9e');
-        // Texto oscuro para cintas claras (blanca, amarilla)
-        const textColors = labels.map((lbl) =>
-            ['Blanca','Amarilla','Amarilla Avanzada'].includes(lbl) ? '#333' : '#fff'
-        );
+        const colors = labels.map((_,i) => CINTAS[i] ?? '#9e9e9e');
+        if (!labels.length) return;
 
-        if (!labels.length) {
-            document.getElementById('chartGrados').closest('.chart-card').innerHTML +=
-                '<p style="text-align:center;color:#9e9e9e;padding:16px">Sin historial de grados registrado.</p>';
-            return;
-        }
-
-        new Chart(document.getElementById('chartGrados'), {
+        chartInstances['chartGrados'] = new Chart(document.getElementById('chartGrados'), {
             type: 'bar',
             data: {
                 labels,
-                datasets: [{
-                    label: 'Alumnos',
-                    data: vals,
-                    backgroundColor: colors,
-                    borderRadius: 8,
-                    borderSkipped: false,
-                }]
+                datasets: [{ label:'Alumnos', data:vals, backgroundColor:colors, borderRadius:8, borderSkipped:false }]
             },
             options: {
                 ...baseOpts,
                 indexAxis: 'y',
                 plugins: {
                     ...baseOpts.plugins,
-                    tooltip: {
-                        ...baseOpts.plugins.tooltip,
-                        callbacks: { label: ctx => ` ${ctx.raw} alumno(s)` }
-                    }
+                    tooltip: { ...baseOpts.plugins.tooltip, callbacks:{ label: ctx=>` ${ctx.raw} alumno(s)` } }
                 },
                 scales: {
-                    x: {
-                        beginAtZero: true,
-                        ticks: { stepSize: 1, font: { size: 11 } },
-                        grid: { color: '#f0f0f0' }
-                    },
-                    y: { grid: { display: false }, ticks: { font: { size: 12, weight: '600' } } }
+                    x: { beginAtZero:true, ticks:{stepSize:1,font:{size:11}}, grid:{color:'#f0f0f0'} },
+                    y: { grid:{display:false}, ticks:{font:{size:12,weight:'600'}} }
                 }
             }
         });
@@ -556,13 +542,86 @@
         const target = parseInt(el.dataset.target) || 0;
         if (!target) { el.textContent = '0'; return; }
         let current = 0;
-        const step  = Math.ceil(target / 50);
-        const t     = setInterval(() => {
+        const step = Math.ceil(target / 50);
+        const t = setInterval(() => {
             current = Math.min(current + step, target);
             el.textContent = current + (target >= 100 ? '+' : '');
             if (current >= target) clearInterval(t);
         }, 30);
     });
+
+    // ── Descarga PDF al hacer clic en una gráfica (solo admin/sensei) ────
+    if (puedeDescargar) {
+        document.querySelectorAll('.chart-card.clickable').forEach(card => {
+            card.addEventListener('click', async function () {
+                const chartId    = this.dataset.chartId;
+                const chartTitle = this.dataset.chartTitle;
+                const instance   = chartInstances[chartId];
+
+                if (!instance) {
+                    Swal.fire({ icon:'warning', title:'Sin datos', text:'Esta gráfica no tiene datos para exportar.', confirmButtonColor:'#e53935' });
+                    return;
+                }
+
+                // Esperar a que jsPDF esté disponible
+                if (typeof window.jspdf === 'undefined') {
+                    Swal.fire({ icon:'error', title:'Error', text:'La librería de PDF no está disponible.', confirmButtonColor:'#e53935' });
+                    return;
+                }
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+
+                const pageW = doc.internal.pageSize.getWidth();
+                const pageH = doc.internal.pageSize.getHeight();
+                const fecha = new Date().toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' });
+
+                // ── Encabezado ──
+                doc.setFillColor(229, 57, 53);
+                doc.rect(0, 0, pageW, 22, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(15);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Academia Karate-Do SMT', 14, 10);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Sistema de Gestión de Dojo', 14, 17);
+
+                // Fecha en esquina derecha
+                doc.setFontSize(9);
+                doc.text(fecha, pageW - 14, 10, { align:'right' });
+
+                // ── Título de la gráfica ──
+                doc.setTextColor(30, 30, 50);
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text(chartTitle, pageW / 2, 34, { align:'center' });
+
+                // ── Imagen de la gráfica ──
+                // Forzamos render de alta calidad en un canvas temporal
+                const canvas  = instance.canvas;
+                const imgData = canvas.toDataURL('image/png', 1.0);
+
+                const maxW = pageW - 28;
+                const maxH = pageH - 58;
+                const ratio = canvas.width / canvas.height;
+                let imgW = maxW;
+                let imgH = imgW / ratio;
+                if (imgH > maxH) { imgH = maxH; imgW = imgH * ratio; }
+
+                const imgX = (pageW - imgW) / 2;
+                doc.addImage(imgData, 'PNG', imgX, 40, imgW, imgH);
+
+                // ── Pie de página ──
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text('Generado desde el Panel de Control · Confidencial', pageW / 2, pageH - 6, { align:'center' });
+
+                const fileName = chartTitle.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'') + '.pdf';
+                doc.save(fileName);
+            });
+        });
+    }
     </script>
 </body>
 </html>
