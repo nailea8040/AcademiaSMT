@@ -5,11 +5,72 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class GaleriaController extends Controller
 {
+    // ── Supabase helpers ──────────────────────────────────────────────────────
+
+    private function supabaseUrl(): string
+    {
+        return rtrim((string) config('services.supabase.url'), '/');
+    }
+
+    private function supabaseKey(): string
+    {
+        return (string) config('services.supabase.secret_key');
+    }
+
+    private function supabaseBucket(): string
+    {
+        return 'galeria';
+    }
+
+    /**
+     * Sube un archivo a Supabase Storage y devuelve la ruta relativa (path dentro del bucket).
+     */
+    private function supabaseUpload(\Illuminate\Http\UploadedFile $archivo, string $path): string
+    {
+        $contenido = file_get_contents($archivo->getRealPath());
+        $mime      = $archivo->getMimeType();
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->supabaseKey(),
+            'Content-Type'  => $mime,
+        ])->withBody($contenido, $mime)
+          ->post($this->supabaseUrl() . '/storage/v1/object/' . $this->supabaseBucket() . '/' . $path);
+
+        if ($response->failed()) {
+            throw new \Exception('Supabase upload error: ' . $response->body());
+        }
+
+        return $path;
+    }
+
+    /**
+     * Elimina un archivo de Supabase Storage.
+     */
+    private function supabaseDelete(string $path): void
+    {
+        Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->supabaseKey(),
+            'Content-Type'  => 'application/json',
+        ])->delete($this->supabaseUrl() . '/storage/v1/object/' . $this->supabaseBucket() . '/' . $path);
+    }
+
+    /**
+     * Devuelve la URL pública de un archivo en Supabase Storage.
+     */
+    public static function supabasePublicUrl(string $path): string
+    {
+        $url    = rtrim((string) config('services.supabase.url'), '/');
+        $bucket = 'galeria';
+        return $url . '/storage/v1/object/public/' . $bucket . '/' . $path;
+    }
+
+    // ── Permisos ──────────────────────────────────────────────────────────────
+
     private function esAdmin(): bool
     {
         return Auth::check() && Auth::user()->rol === 'admin';
@@ -20,10 +81,6 @@ class GaleriaController extends Controller
         return Auth::check() && Auth::user()->rol === 'sensei';
     }
 
-    /**
-     * Admin y sensei pueden subir archivos.
-     * Solo admin puede eliminar.
-     */
     private function puedeGestionar(): bool
     {
         return $this->esAdmin() || $this->esSensei();
@@ -73,7 +130,7 @@ class GaleriaController extends Controller
                             'id'        => $a->id_evento,
                             'titulo'    => $a->titulo,
                             'tipo'      => $a->tipo,
-                            'src'       => asset('storage/' . $a->ruta),
+                            'src'       => self::supabasePublicUrl($a->ruta),
                             'destacado' => $a->destacado ?? 0,
                         ];
                     })->values()
@@ -125,7 +182,6 @@ class GaleriaController extends Controller
             $archivos     = $request->file('archivos');
             $modoEvento   = $request->modo === 'evento';
             $nombreEvento = $modoEvento ? trim($request->nombre_evento) : null;
-            // Admin y sensei pueden marcar como destacado
             $destacado    = ($this->puedeGestionar() && $request->boolean('destacado')) ? 1 : 0;
             $subidos      = 0;
 
@@ -133,7 +189,10 @@ class GaleriaController extends Controller
 
             foreach ($archivos as $index => $archivo) {
                 $safe = preg_replace('/[^a-zA-Z0-9._-]/', '_', $archivo->getClientOriginalName());
-                $ruta = $archivo->storeAs('galeria', time() . '_' . $index . '_' . $safe, 'public');
+                $path = time() . '_' . $index . '_' . $safe;
+
+                // Subir a Supabase Storage
+                $ruta = $this->supabaseUpload($archivo, $path);
 
                 DB::table('evento')->insert([
                     'titulo'        => $modoEvento
@@ -169,7 +228,6 @@ class GaleriaController extends Controller
     // ── destroy ───────────────────────────────────────────────────────────────
     public function destroy(int $id)
     {
-        // Solo admin puede eliminar archivos individuales
         if (!$this->esAdmin()) {
             return back()->with('error', 'No tienes permisos para eliminar archivos.');
         }
@@ -177,9 +235,11 @@ class GaleriaController extends Controller
         try {
             $archivo = DB::table('evento')->where('id_evento', $id)->first();
             if (!$archivo) return back()->with('error', 'Archivo no encontrado.');
-            if ($archivo->ruta && Storage::disk('public')->exists($archivo->ruta)) {
-                Storage::disk('public')->delete($archivo->ruta);
+
+            if ($archivo->ruta) {
+                $this->supabaseDelete($archivo->ruta);
             }
+
             DB::table('evento')->where('id_evento', $id)->delete();
             return back()->with('mensaje', 'Archivo eliminado.');
         } catch (\Exception $e) {
@@ -191,7 +251,6 @@ class GaleriaController extends Controller
     // ── destroyEvento ─────────────────────────────────────────────────────────
     public function destroyEvento(Request $request)
     {
-        // Solo admin puede eliminar galerías de eventos completas
         if (!$this->esAdmin()) {
             return back()->with('error', 'No tienes permisos para eliminar eventos.');
         }
@@ -199,14 +258,16 @@ class GaleriaController extends Controller
         try {
             $nombre   = $request->input('nombre_evento');
             $archivos = DB::table('evento')->where('nombre_evento', $nombre)->get();
+
             DB::beginTransaction();
             foreach ($archivos as $a) {
-                if ($a->ruta && Storage::disk('public')->exists($a->ruta)) {
-                    Storage::disk('public')->delete($a->ruta);
+                if ($a->ruta) {
+                    $this->supabaseDelete($a->ruta);
                 }
             }
             $n = DB::table('evento')->where('nombre_evento', $nombre)->delete();
             DB::commit();
+
             return back()->with('mensaje', "Evento eliminado ({$n} archivos).");
         } catch (\Exception $e) {
             DB::rollBack();
@@ -218,7 +279,6 @@ class GaleriaController extends Controller
     // ── toggleDestacado ───────────────────────────────────────────────────────
     public function toggleDestacado(int $id)
     {
-        // Admin y sensei pueden marcar/desmarcar destacados
         if (!$this->puedeGestionar()) {
             return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
         }

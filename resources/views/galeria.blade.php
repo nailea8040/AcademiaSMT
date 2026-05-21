@@ -303,10 +303,10 @@
                         @if($i < 7)
                         <div class="tile {{ $i === 0 ? 'tile-main' : '' }}">
                             @if($mini->tipo === 'imagen')
-                                <img src="{{ asset('storage/' . $mini->ruta) }}" alt="{{ $mini->titulo }}" loading="lazy">
+                                <img src="{{ App\Http\Controllers\GaleriaController::supabasePublicUrl($mini->ruta) }}" alt="{{ $mini->titulo }}" loading="lazy">
                             @else
                                 <video preload="none">
-                                    <source src="{{ asset('storage/' . $mini->ruta) }}" type="video/mp4">
+                                    <source src="{{ App\Http\Controllers\GaleriaController::supabasePublicUrl($mini->ruta) }}" type="video/mp4">
                                 </video>
                                 <div class="video-play"><i class="bi bi-play-circle-fill"></i></div>
                             @endif
@@ -388,7 +388,7 @@
         <div class="ind-grid" id="indGrid">
             @foreach($individuales as $archivo)
             <div class="ind-card" data-type="{{ $archivo->tipo }}"
-                 onclick="openLb('{{ asset('storage/' . $archivo->ruta) }}','{{ $archivo->tipo }}')">
+                 onclick="openLb('{{ App\Http\Controllers\GaleriaController::supabasePublicUrl($archivo->ruta) }}','{{ $archivo->tipo }}')">
                 <div class="ind-badge">
                     @if($archivo->tipo === 'imagen')
                         <i class="bi bi-image-fill"></i> Imagen
@@ -397,17 +397,17 @@
                     @endif
                 </div>
                 @if($archivo->tipo === 'imagen')
-                    <img src="{{ asset('storage/' . $archivo->ruta) }}" alt="{{ $archivo->titulo }}" loading="lazy">
+                    <img src="{{ App\Http\Controllers\GaleriaController::supabasePublicUrl($archivo->ruta) }}" alt="{{ $archivo->titulo }}" loading="lazy">
                 @else
                     <video preload="none">
-                        <source src="{{ asset('storage/' . $archivo->ruta) }}" type="video/mp4">
+                        <source src="{{ App\Http\Controllers\GaleriaController::supabasePublicUrl($archivo->ruta) }}" type="video/mp4">
                     </video>
                 @endif
                 <div class="ind-overlay" onclick="event.stopPropagation()">
                     <div class="ind-title">{{ $archivo->titulo }}</div>
                     <div class="ind-actions">
                         <button class="btn-ind"
-                                onclick="openLb('{{ asset('storage/' . $archivo->ruta) }}','{{ $archivo->tipo }}')">
+                                onclick="openLb('{{ App\Http\Controllers\GaleriaController::supabasePublicUrl($archivo->ruta) }}','{{ $archivo->tipo }}')">
                             <i class="bi bi-zoom-in"></i>
                         </button>
                         {{-- Eliminar archivo: solo admin --}}
