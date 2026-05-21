@@ -176,7 +176,7 @@
                               style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;width:100%;">
                             <div class="search-box" style="flex:1;min-width:180px;">
                                 <i class="bi bi-search search-icon"></i>
-                                <input type="text" class="search-input" name="buscar"
+                                <input type="text" class="search-input" id="buscar" name="buscar"
                                        placeholder="Buscar nombre, correo..."
                                        value="{{ $filtros['buscar'] ?? '' }}">
                             </div>
@@ -200,7 +200,12 @@
                             <button type="submit" class="btn btn-primary" style="white-space:nowrap;">
                                 <i class="bi bi-funnel-fill"></i> Filtrar
                             </button>
-                            @if(!empty(array_filter($filtros ?? [])))
+                            @php
+                                $hayFiltros = ($filtros['buscar'] ?? '') !== ''
+                                           || ($filtros['rol']    ?? '') !== ''
+                                           || ($filtros['estado'] ?? '') !== '';
+                            @endphp
+                            @if($hayFiltros)
                                 <a href="{{ route('usuarios.index') }}" class="btn btn-secondary" style="white-space:nowrap;">
                                     <i class="bi bi-x-lg"></i> Limpiar
                                 </a>
@@ -501,11 +506,11 @@
                 $('#edit_pass').val('');
             });
 
-            $('#searchInput').on('keyup', function () {
-                const searchText = $(this).val().toLowerCase();
-                $('#usersTable tbody tr').each(function () {
-                    $(this).toggle($(this).text().toLowerCase().includes(searchText));
-                });
+            $('#buscar').on('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    $('#filtrosForm').submit();
+                }
             });
         });
     </script>

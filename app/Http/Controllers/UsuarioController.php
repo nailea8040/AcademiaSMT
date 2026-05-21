@@ -74,7 +74,7 @@ class UsuarioController extends Controller
         }
 
         if ($filtros['estado'] !== '') {
-            $query->where('estado', $filtros['estado']);
+            $query->where('estado', (int) $filtros['estado']);
         }
 
         $usuarios = $query->get();
