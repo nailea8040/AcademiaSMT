@@ -252,17 +252,33 @@
                                     <td>{{ date('d/m/Y', strtotime($usuario->fecha_registro)) }}</td>
 
                                     <td class="text-center">
-                                        <form id="toggleForm-{{ $usuario->id_usuario }}"
-                                              action="{{ route('usuarios.toggleActive', $usuario->id_usuario) }}"
-                                              method="POST" style="display:inline;">
-                                            @csrf
-                                            <label class="switch" title="{{ $usuario->estado == 1 ? 'Activo (Clic para desactivar)' : 'Inactivo (Clic para activar)' }}">
+                                        @php
+                                            $esMiPropioUsuario = Auth::id() === $usuario->id_usuario;
+                                        @endphp
+
+                                        @if($esMiPropioUsuario)
+                                            {{-- El usuario autenticado no puede desactivarse a sí mismo --}}
+                                            <label class="switch" title="No puedes cambiar tu propio estado de acceso"
+                                                   style="cursor:not-allowed;opacity:0.5;">
                                                 <input type="checkbox" name="activo"
                                                        {{ $usuario->estado == 1 ? 'checked' : '' }}
-                                                       onchange="confirmarCambioEstado(event, {{ $usuario->id_usuario }}, '{{ $usuario->nombre }} {{ $usuario->apaterno }}', this.checked);">
+                                                       disabled>
                                                 <span class="slider"></span>
                                             </label>
-                                        </form>
+                                        @else
+                                            <form id="toggleForm-{{ $usuario->id_usuario }}"
+                                                  action="{{ route('usuarios.toggleActive', $usuario->id_usuario) }}"
+                                                  method="POST" style="display:inline;">
+                                                @csrf
+                                                <label class="switch" title="{{ $usuario->estado == 1 ? 'Activo (Clic para desactivar)' : 'Inactivo (Clic para activar)' }}">
+                                                    <input type="checkbox" name="activo"
+                                                           {{ $usuario->estado == 1 ? 'checked' : '' }}
+                                                           onchange="confirmarCambioEstado(event, {{ $usuario->id_usuario }}, '{{ $usuario->nombre }} {{ $usuario->apaterno }}', this.checked);">
+                                                    <span class="slider"></span>
+                                                </label>
+                                            </form>
+                                        @endif
+
                                         <span class="badge {{ $usuario->estado == 1 ? 'badge-active' : 'badge-inactive' }} mt-1 d-block">
                                             {{ $usuario->estado == 1 ? 'Activo' : 'Inactivo' }}
                                         </span>

@@ -270,6 +270,13 @@ class UsuarioController extends Controller
                     ->with('mensaje', 'Usuario no encontrado.');
             }
 
+            // Nadie puede desactivarse a sí mismo
+            if (Auth::id() === $id) {
+                return redirect()->route('usuarios.index')
+                    ->with('sessionInsertado', 'false')
+                    ->with('mensaje', 'No puedes cambiar tu propio estado de acceso.');
+            }
+
             // Sensei no puede activar/desactivar administradores
             if ($this->esSensei() && $usuario->rol === 'admin') {
                 return redirect()->route('usuarios.index')
