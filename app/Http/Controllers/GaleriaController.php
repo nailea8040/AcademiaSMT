@@ -125,8 +125,8 @@ class GaleriaController extends Controller
             $archivos     = $request->file('archivos');
             $modoEvento   = $request->modo === 'evento';
             $nombreEvento = $modoEvento ? trim($request->nombre_evento) : null;
-            // Solo admin puede marcar como destacado
-            $destacado    = ($this->esAdmin() && $request->boolean('destacado')) ? 1 : 0;
+            // Admin y sensei pueden marcar como destacado
+            $destacado    = ($this->puedeGestionar() && $request->boolean('destacado')) ? 1 : 0;
             $subidos      = 0;
 
             DB::beginTransaction();
@@ -218,8 +218,8 @@ class GaleriaController extends Controller
     // ── toggleDestacado ───────────────────────────────────────────────────────
     public function toggleDestacado(int $id)
     {
-        // Solo admin puede marcar/desmarcar destacados
-        if (!$this->esAdmin()) {
+        // Admin y sensei pueden marcar/desmarcar destacados
+        if (!$this->puedeGestionar()) {
             return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
         }
 

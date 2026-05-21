@@ -272,6 +272,18 @@
     </div>
     @endif
 
+    {{-- Aviso de enlace simbólico roto (solo admin) --}}
+    @if($esAdmin && !file_exists(public_path('storage')))
+    <div class="alert alert-warning mx-4 mt-3 d-flex gap-2 align-items-center">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <div>
+            <strong>Las imágenes no se verán correctamente.</strong>
+            El enlace simbólico <code>public/storage</code> no existe.
+            Ejecuta en el servidor: <code>php artisan storage:link</code>
+        </div>
+    </div>
+    @endif
+
     <div class="content-wrapper">
 
         {{-- ══ SECCIÓN 1: EVENTOS (galerías agrupadas) ══ --}}
@@ -404,7 +416,9 @@
                                 onclick="delArchivo({{ $archivo->id_evento }},'{{ addslashes($archivo->titulo) }}')">
                             <i class="bi bi-trash3"></i>
                         </button>
-                        {{-- Destacado: solo admin --}}
+                        @endif
+                        {{-- Destacado: admin y sensei --}}
+                        @if($puedeSubir)
                         <button class="btn-ind"
                                 onclick="toggleDestacado(this)"
                                 data-url="{{ route('galeria.destacado', $archivo->id_evento) }}"
@@ -530,8 +544,8 @@
                                   placeholder="Notas sobre este contenido..."></textarea>
                     </div>
 
-                    {{-- Destacado: solo admin ve esta opción --}}
-                    @if($esAdmin)
+                    {{-- Destacado: admin y sensei ven esta opción --}}
+                    @if($puedeSubir)
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" name="destacado" id="upDestacado" value="1">
                         <label class="form-check-label fw-semibold" for="upDestacado">

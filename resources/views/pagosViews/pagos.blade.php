@@ -66,14 +66,103 @@
 
         /* ── Panel gestión conceptos ── */
         .conceptos-panel { margin-top:8px; }
-        .concepto-row { display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:#f7fafc;border:1px solid #e2e8f0;margin-bottom:8px; }
-        .concepto-row .concepto-nombre { flex:1;font-weight:600;color:#2d3748;font-size:14px; }
-        .concepto-row .concepto-monto { color:#e53935;font-weight:700;font-size:14px;min-width:80px;text-align:right; }
-        .concepto-row .concepto-estado { font-size:11px;padding:2px 8px;border-radius:8px; }
-        .concepto-activo   { background:#e8f5e9;color:#2e7d32; }
-        .concepto-inactivo { background:#fce4ec;color:#c62828; }
-        .btn-edit-concepto { background:none;border:1px solid #cbd5e0;border-radius:8px;padding:4px 10px;cursor:pointer;color:#718096;font-size:12px; }
-        .btn-edit-concepto:hover { background:#edf2f7;color:#2d3748; }
+
+        /* Grid de tarjetas */
+        .conceptos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 14px;
+            margin-top: 4px;
+        }
+        .concepto-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: box-shadow 0.2s, transform 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .concepto-card:hover {
+            box-shadow: 0 6px 20px rgba(229,57,53,0.10);
+            transform: translateY(-2px);
+        }
+        .concepto-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #e53935, #ff7043);
+        }
+        .concepto-card.inactivo-card::before {
+            background: #e2e8f0;
+        }
+        .concepto-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .concepto-nombre {
+            font-weight: 700;
+            color: #2d3748;
+            font-size: 14px;
+            line-height: 1.3;
+            flex: 1;
+        }
+        .concepto-estado {
+            font-size: 11px;
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .concepto-activo   { background:#e8f5e9; color:#2e7d32; }
+        .concepto-inactivo { background:#fce4ec; color:#c62828; }
+        .concepto-desc {
+            font-size: 12px;
+            color: #9e9e9e;
+            line-height: 1.4;
+            flex: 1;
+            min-height: 32px;
+        }
+        .concepto-card-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 4px;
+            padding-top: 10px;
+            border-top: 1px solid #f0f0f0;
+        }
+        .concepto-monto {
+            font-size: 20px;
+            font-weight: 800;
+            color: #e53935;
+        }
+        .concepto-monto.sin-monto {
+            font-size: 14px;
+            font-weight: 500;
+            color: #b0bec5;
+        }
+        .btn-edit-concepto {
+            background: none;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            padding: 5px 12px;
+            cursor: pointer;
+            color: #718096;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .btn-edit-concepto:hover { background:#fff0f0; color:#e53935; border-color:#e53935; }
 
         /* ── Tabs (solo admin) ── */
         .tabs-nav { display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid #e2e8f0; }
@@ -372,34 +461,43 @@
                     <i class="bi bi-list-ul"></i> Conceptos Registrados
                 </h3>
                 <div class="conceptos-panel">
-                    @forelse($conceptos_todos as $c)
-                        <div class="concepto-row">
-                            <span class="concepto-nombre">{{ $c->nombre }}</span>
-                            @if($c->descripcion)
-                                <span style="font-size:12px;color:#9e9e9e;flex:1;">{{ $c->descripcion }}</span>
-                            @endif
-                            <span class="concepto-monto">
-                                {{ $c->monto_sugerido ? '$' . number_format($c->monto_sugerido, 2) : '—' }}
-                            </span>
-                            <span class="concepto-estado {{ $c->activo ? 'concepto-activo' : 'concepto-inactivo' }}">
-                                {{ $c->activo ? 'Activo' : 'Inactivo' }}
-                            </span>
-                            <button type="button" class="btn-edit-concepto"
-                                onclick="abrirEditConcepto(
-                                    {{ $c->id_concepto }},
-                                    '{{ addslashes($c->nombre) }}',
-                                    '{{ addslashes($c->descripcion ?? '') }}',
-                                    '{{ $c->monto_sugerido }}',
-                                    {{ $c->activo ? 1 : 0 }}
-                                )">
-                                <i class="bi bi-pencil"></i> Editar
-                            </button>
-                        </div>
-                    @empty
-                        <p style="color:#9e9e9e;text-align:center;padding:20px;">
-                            No hay conceptos registrados aún.
-                        </p>
-                    @endforelse
+                    <div class="conceptos-grid">
+                        @forelse($conceptos_todos as $c)
+                            <div class="concepto-card {{ $c->activo ? '' : 'inactivo-card' }}">
+                                <div class="concepto-card-top">
+                                    <span class="concepto-nombre">{{ $c->nombre }}</span>
+                                    <span class="concepto-estado {{ $c->activo ? 'concepto-activo' : 'concepto-inactivo' }}">
+                                        <i class="bi bi-{{ $c->activo ? 'check-circle-fill' : 'dash-circle-fill' }}"></i>
+                                        {{ $c->activo ? 'Activo' : 'Inactivo' }}
+                                    </span>
+                                </div>
+                                <p class="concepto-desc">
+                                    {{ $c->descripcion ?? 'Sin descripción.' }}
+                                </p>
+                                <div class="concepto-card-bottom">
+                                    @if($c->monto_sugerido)
+                                        <span class="concepto-monto">${{ number_format($c->monto_sugerido, 2) }}</span>
+                                    @else
+                                        <span class="concepto-monto sin-monto">Sin monto</span>
+                                    @endif
+                                    <button type="button" class="btn-edit-concepto"
+                                        onclick="abrirEditConcepto(
+                                            {{ $c->id_concepto }},
+                                            '{{ addslashes($c->nombre) }}',
+                                            '{{ addslashes($c->descripcion ?? '') }}',
+                                            '{{ $c->monto_sugerido }}',
+                                            {{ $c->activo ? 1 : 0 }}
+                                        )">
+                                        <i class="bi bi-pencil"></i> Editar
+                                    </button>
+                                </div>
+                            </div>
+                        @empty
+                            <p style="color:#9e9e9e;text-align:center;padding:20px;grid-column:1/-1;">
+                                No hay conceptos registrados aún.
+                            </p>
+                        @endforelse
+                    </div>
                 </div>
             </div>
         </div>
