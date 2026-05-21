@@ -71,78 +71,91 @@
             <form id="registroTutor" method="POST" action="{{ route('tutor.store') }}" class="form-body">
                 @csrf
 
-                <h3 class="section-title-header">
-                    <i class="bi bi-person-circle"></i> Usuario del Tutor
-                </h3>
-                <div class="form-grid full-width">
-                    <div class="form-group">
-                        <label class="form-label" for="id_Tutor">
-                            Usuario con rol Tutor <span class="required">*</span>
-                        </label>
-                        <div class="form-input-wrapper">
-                            <i class="bi bi-person-badge input-icon"></i>
-                            <select name="id_Tutor" id="id_Tutor" class="form-select" required>
-                                <option value="">Seleccione un usuario</option>
-                                @foreach($usuarios_sin_perfil as $u)
-                                    <option value="{{ $u->id_Tutor }}">{{ $u->nombre_completo }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <small style="color:#757575;margin-top:5px;display:block;">
-                            Solo se muestran usuarios con rol "Tutor" sin perfil asignado
-                        </small>
-                    </div>
-                </div>
-                
-                 <h3 class="section-title-header">
-                    <i class="bi bi-person-badge"></i> Usuario del Alumno
-                </h3>
-                <div class="form-grid">
-                    <div class="form-group full-width">
-                        <label class="form-label" for="id_Tutor">
-                            Usuario con rol Alumno <span class="required">*</span>
-                        </label>
-                        <div class="form-input-wrapper">
-                            <i class="bi bi-person-badge input-icon"></i>
-                            <select name="id_alumno_relacionado" id="id_alumno_relacionado" class="form-select">
-                                <option value="">Seleccione un alumno</option>
-                                @foreach($alumnos as $alumno)
-                                    <option value="{{ $alumno->id_usuario }}"
-                                        {{ old('id_alumno_relacionado') == $alumno->id_usuario ? 'selected' : '' }}>
-                                        {{ $alumno->nombre_completo }}
-                                    </option>
-                                @endforeach
-                            </select>
+                {{-- FILA 1: Tutor + Alumno lado a lado --}}
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:8px;">
+
+                    <div>
+                        <h3 class="section-title-header" style="margin-top:0;">
+                            <i class="bi bi-person-circle"></i> Usuario del Tutor
+                        </h3>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label" for="id_Tutor">
+                                Usuario con rol Tutor <span class="required">*</span>
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-person-badge input-icon"></i>
+                                <select name="id_Tutor" id="id_Tutor" class="form-select" required>
+                                    <option value="">Seleccione un usuario</option>
+                                    @foreach($usuarios_sin_perfil as $u)
+                                        <option value="{{ $u->id_Tutor }}">{{ $u->nombre_completo }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <small style="color:#757575;margin-top:5px;display:block;">
+                                Solo se muestran usuarios con rol "Tutor" sin perfil asignado
+                            </small>
                         </div>
                     </div>
+
+                    <div>
+                        <h3 class="section-title-header" style="margin-top:0;">
+                            <i class="bi bi-person-badge"></i> Usuario del Alumno
+                        </h3>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label" for="id_alumno_relacionado">
+                                Usuario con rol Alumno <span class="required">*</span>
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-person-badge input-icon"></i>
+                                <select name="id_alumno_relacionado" id="id_alumno_relacionado" class="form-select">
+                                    <option value="">Seleccione un alumno</option>
+                                    @foreach($alumnos as $alumno)
+                                        <option value="{{ $alumno->id_usuario }}"
+                                            {{ old('id_alumno_relacionado') == $alumno->id_usuario ? 'selected' : '' }}>
+                                            {{ $alumno->nombre_completo }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
+                {{-- FILA 2: Ocupación (mitad izquierda) --}}
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:8px;">
 
-                <h3 class="section-title-header">
-                    <i class="bi bi-briefcase-fill"></i> Información Laboral
-                </h3>
-                <div class="form-grid full-width">
-                    <div class="form-group">
-                        <label class="form-label" for="id_ocupacion">
-                            Ocupación <span class="required">*</span>
-                        </label>
-                        <div class="form-input-wrapper">
-                            <i class="bi bi-briefcase input-icon"></i>
-                            <select name="id_ocupacion" id="id_ocupacion" class="form-select" required>
-                                <option value="">Seleccione una ocupación</option>
-                                @foreach($ocupaciones as $ocu)
-                                    <option value="{{ $ocu->id_ocupacion }}">{{ $ocu->nombre_ocupacion }}</option>
-                                @endforeach
-                            </select>
+                    <div>
+                        <h3 class="section-title-header" style="margin-top:0;">
+                            <i class="bi bi-briefcase-fill"></i> Información Laboral
+                        </h3>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label" for="id_ocupacion">
+                                Ocupación <span class="required">*</span>
+                            </label>
+                            <div class="form-input-wrapper">
+                                <i class="bi bi-briefcase input-icon"></i>
+                                <select name="id_ocupacion" id="id_ocupacion" class="form-select" required>
+                                    <option value="">Seleccione una ocupación</option>
+                                    @foreach($ocupaciones as $ocu)
+                                        <option value="{{ $ocu->id_ocupacion }}">{{ $ocu->nombre_ocupacion }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
                     </div>
+
+                    <div style="display:flex;flex-direction:column;justify-content:flex-end;">
+                        {{-- espacio reservado para futuros campos o se deja vacío --}}
+                    </div>
+
                 </div>
 
                 <h3 class="section-title-header">
                     <i class="bi bi-heart-fill"></i> Relación con el Estudiante
                 </h3>
-                <div class="form-grid full-width">
-                    <div class="form-group">
+                <div class="form-grid full-width" style="margin-bottom:8px;">
+                    <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label">Parentesco <span class="required">*</span></label>
                         <div class="relation-options" id="relationOptions">
                             <div class="relation-option" data-value="Padre">
