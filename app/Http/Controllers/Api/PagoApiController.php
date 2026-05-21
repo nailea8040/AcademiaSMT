@@ -560,11 +560,13 @@ class PagoApiController extends Controller
     // ──────────────────────────────────────────────────────────────────
     public function procesar(Request $request)
     {
+        // Validación básica de entrada
         $validated = $request->validate([
             'formData' => 'required|array',
             'id_pago'  => 'required|integer',
         ]);
 
+        // Obtener el registro de pago con los datos del alumno
         $pagoRegistro = DB::table('pago as p')
             ->join('usuario as u', 'p.id_usuario', '=', 'u.id_usuario')
             ->where('p.id_pago', $validated['id_pago'])
@@ -578,31 +580,74 @@ class PagoApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
         }
 
-        try {
-            MercadoPagoConfig::setAccessToken(config('services.mercadopago.access_token'));
+        // No reprocesar pagos ya completados
+        if ($pagoRegistro->estado_pago === 'Completado') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este pago ya fue completado anteriormente.',
+            ], 422);
+        }
 
-            $formData    = $validated['formData'];
-            $paymentData = array_merge($formData, [
-                'transaction_amount' => (float) $pagoRegistro->saldo_restante,
-                'description'        => $pagoRegistro->motivo_pago ?? 'Pago Academia',
-                'payer'              => array_merge($formData['payer'] ?? [], [
-                    'email' => $pagoRegistro->correo ?? ($formData['payer']['email'] ?? 'alumno@academia.com'),
-                ]),
-                'external_reference' => (string) $pagoRegistro->id_pago,
-                'metadata'           => ['id_pago' => $pagoRegistro->id_pago],
+        try {
+            // Inicializar MP con el Access Token del servidor
+            $accessToken = (string) config('services.mercadopago.access_token', '');
+if (empty($accessToken)) {
+    Log::error('MP_ACCESS_TOKEN no configurado en .env');
+    return response()->json(['success' => false, 'message' => 'Error de configuración de pagos.'], 500);
+}
+MercadoPagoConfig::setAccessToken($accessToken);
+
+            $formData = $validated['formData'];
+
+            // CORRECCIÓN PRINCIPAL:
+            // El Payment Brick envía en formData['transaction_amount'] el monto de la preferencia.
+            // NO lo sobreescribimos con saldo_restante para evitar discrepancias que MP rechaza.
+            // Solo garantizamos que el email del pagador sea el del alumno registrado.
+            $paymentData = $formData;
+
+            // Aseguramos que el email del payer sea el del alumno (requerido por MP sandbox)
+            if (!empty($pagoRegistro->correo)) {
+                $paymentData['payer'] = array_merge(
+                    $formData['payer'] ?? [],
+                    ['email' => $pagoRegistro->correo]
+                );
+            }
+
+            // Metadatos internos — no afectan el procesamiento de MP
+            $paymentData['external_reference'] = (string) $pagoRegistro->id_pago;
+            $paymentData['metadata']           = ['id_pago' => $pagoRegistro->id_pago];
+
+            // Descripción del pago (aparece en el estado de cuenta)
+            if (!isset($paymentData['description']) || empty($paymentData['description'])) {
+                $paymentData['description'] = $pagoRegistro->motivo_pago ?? 'Pago Academia Karate-Do';
+            }
+
+            Log::info("MP procesar: enviando pago para id_pago #{$pagoRegistro->id_pago}", [
+                'transaction_amount' => $paymentData['transaction_amount'] ?? 'no_set',
+                'payment_method'     => $paymentData['payment_method_id'] ?? ($paymentData['paymentMethodId'] ?? 'brick'),
             ]);
 
             $client  = new PaymentClient();
             $payment = $client->create($paymentData);
 
+            Log::info("MP procesar: respuesta MP para pago #{$pagoRegistro->id_pago}", [
+                'status'        => $payment->status,
+                'status_detail' => $payment->status_detail,
+                'payment_id'    => $payment->id,
+            ]);
+
+            // Mapeo de estado MP → estado interno
             $estadoInterno = match ($payment->status) {
                 'approved'                             => 'Completado',
                 'pending', 'in_process', 'authorized' => 'Pendiente',
                 default                               => 'Fallido',
             };
 
-            $nuevoMontoPagado = ($pagoRegistro->monto_pagado ?? 0) + (float) $pagoRegistro->saldo_restante;
+            // Monto que acaba de pagarse (viene de la respuesta de MP, más confiable)
+            $montoTransaccion = (float) ($payment->transaction_amount ?? $pagoRegistro->saldo_restante);
+            $nuevoMontoPagado = ($pagoRegistro->monto_pagado ?? 0) + $montoTransaccion;
 
+            // Actualizar registro de pago
             DB::table('pago')->where('id_pago', $pagoRegistro->id_pago)->update([
                 'mp_payment_id'   => (string) $payment->id,
                 'mp_status'       => $payment->status,
@@ -613,16 +658,25 @@ class PagoApiController extends Controller
                     : ($pagoRegistro->monto_pagado ?? 0),
             ]);
 
+            // Registrar abono solo si fue aprobado
             if ($estadoInterno === 'Completado') {
-                DB::table('abono')->insert([
-                    'id_pago'     => $pagoRegistro->id_pago,
-                    'id_usuario'  => $pagoRegistro->id_usuario,
-                    'monto_abono' => $pagoRegistro->saldo_restante,
-                    'fecha_abono' => now(),
-                    'tipo_abono'  => 'en_linea',
-                    'mp_status'   => $payment->status,
-                    'referencia'  => "MP-{$payment->id}",
-                ]);
+                // Evitar abonos duplicados (por si el webhook llega antes)
+                $existeAbono = DB::table('abono')
+                    ->where('id_pago', $pagoRegistro->id_pago)
+                    ->where('referencia', "MP-{$payment->id}")
+                    ->exists();
+
+                if (!$existeAbono) {
+                    DB::table('abono')->insert([
+                        'id_pago'     => $pagoRegistro->id_pago,
+                        'id_usuario'  => $pagoRegistro->id_usuario,
+                        'monto_abono' => $montoTransaccion,
+                        'fecha_abono' => now(),
+                        'tipo_abono'  => 'en_linea',
+                        'mp_status'   => $payment->status,
+                        'referencia'  => "MP-{$payment->id}",
+                    ]);
+                }
             }
 
             return response()->json([
@@ -634,13 +688,23 @@ class PagoApiController extends Controller
             ]);
 
         } catch (\MercadoPago\Exceptions\MPApiException $e) {
-            Log::warning('MP procesar API error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => $this->traducirErrorMP($e->getMessage())], 422);
+            // Error de la API de MP (tarjeta rechazada, datos inválidos, etc.)
+            $msgOriginal = $e->getMessage();
+            Log::warning("MP procesar API error para pago #{$pagoRegistro->id_pago}: {$msgOriginal}");
+            return response()->json([
+                'success' => false,
+                'message' => $this->traducirErrorMP($msgOriginal),
+            ], 422);
+
         } catch (\Exception $e) {
-            Log::error('MP procesar error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al procesar el pago. Intenta de nuevo.'], 500);
+            Log::error("MP procesar error para pago #{$pagoRegistro->id_pago}: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al procesar el pago. Intenta de nuevo.',
+            ], 500);
         }
     }
+
 
     // ──────────────────────────────────────────────────────────────────
     //  POST /api/pagos/webhook  (PÚBLICA — sin auth:sanctum)

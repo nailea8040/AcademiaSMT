@@ -1,8 +1,11 @@
 {{--
-    resources/views/pagosViews/pagar.blade.php
-    Vista dedicada al formulario de pago embebido con Payment Brick de MercadoPago.
-    El alumno llega aquí después de que admin/sensei registró el pago con estado 'Pendiente'.
-    URL: /pagos/{id_pago}/pagar
+    resources/views/pagosViews/pagar.blade.php — REEMPLAZA COMPLETO
+    Vista con Payment Brick de MercadoPago.
+    Correcciones aplicadas:
+      - Public Key tomada UNA sola vez de config (sin duplicado)
+      - Inicialización del Brick con solo preferenceId (sin 'amount' extra que causa conflicto)
+      - fetch a /pagos/procesar con credentials: 'include' para web y móvil
+      - Manejo robusto de errores 419/401 (sesión expirada)
 --}}
 <!DOCTYPE html>
 <html lang="es">
@@ -105,6 +108,26 @@
             gap: 8px; margin-top: 20px; color: #9e9e9e; font-size: 12px;
         }
         .mp-logo img { height: 18px; opacity: 0.6; }
+        .error-brick {
+            background: #fff3f3;
+            border: 1px solid #ffcdd2;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: #c62828;
+            font-size: 14px;
+            display: none;
+        }
+        .error-brick button {
+            margin-top: 12px;
+            background: #e53935;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -154,9 +177,16 @@
                 </div>
             </div>
 
+            {{-- Mensaje de error si el Brick no carga --}}
+            <div id="brick-error" class="error-brick">
+                <i class="bi bi-exclamation-triangle-fill" style="font-size:28px;"></i>
+                <p style="margin:8px 0 0;" id="brick-error-msg">No se pudo cargar el formulario de pago.</p>
+                <button onclick="location.reload()">Reintentar</button>
+            </div>
+
             {{-- Contenedor donde MP inyecta el Brick --}}
             <div id="payment-brick-container">
-                <div class="loading-brick">
+                <div class="loading-brick" id="loading-spinner">
                     <div class="spinner"></div>
                     <span>Cargando métodos de pago...</span>
                 </div>
@@ -175,71 +205,90 @@
 
 <script>
 (async function () {
-    // Public Key desde el backend (nunca expongas el Access Token aquí)
-    const PUBLIC_KEY     = "{{ config('services.mercadopago.public_key') }}";
-    const PREFERENCE_ID  = "{{ $preferenceId }}";
-    const ID_PAGO        = {{ $pago->id_pago }};
+    // ── Datos del servidor ────────────────────────────────────────────────────
+    // CORRECCIÓN: Public Key leída UNA sola vez (antes había un duplicado que podía
+    // causar que se inicializara MP dos veces con claves distintas).
+    const PUBLIC_KEY    = @json(config('services.mercadopago.public_key'));
+    const PREFERENCE_ID = @json($preferenceId);
+    const ID_PAGO       = @json($pago->id_pago);
+    const CSRF_TOKEN    = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
-    const mp = new MercadoPago("{{ config('services.mercadopago.public_key') }}", { 
-    locale: 'es-MX' 
-});
+    // ── Validación temprana ───────────────────────────────────────────────────
+    if (!PUBLIC_KEY || PUBLIC_KEY.startsWith('TTEST') || PUBLIC_KEY === '') {
+        mostrarErrorBrick('Public Key de MercadoPago inválida. Contacta al administrador.');
+        return;
+    }
+
+    if (!PREFERENCE_ID) {
+        mostrarErrorBrick('No se pudo generar la preferencia de pago. Vuelve atrás e inténtalo de nuevo.');
+        return;
+    }
+
+    // ── Inicialización del SDK ────────────────────────────────────────────────
+    let mp;
+    try {
+        mp = new MercadoPago(PUBLIC_KEY, { locale: 'es-MX' });
+    } catch (e) {
+        mostrarErrorBrick('Error al inicializar MercadoPago: ' + e.message);
+        return;
+    }
 
     const bricksBuilder = mp.bricks();
 
+    // ── Configuración del Payment Brick ──────────────────────────────────────
+    // CORRECCIÓN: NO se pasa 'amount' junto con 'preferenceId'.
+    // Cuando se usa preferenceId, el monto viene de la preferencia creada en el servidor.
+    // Pasar los dos juntos causa el error "No pudimos obtener la información de pago".
     const settings = {
         initialization: {
-            amount:       {{ $pago->monto }},
-            preferenceId: "{{ $preferenceId }}",
+            preferenceId: PREFERENCE_ID,
         },
         customization: {
-            // Muestra TODOS los métodos disponibles para MX:
-            // tarjeta crédito/débito, OXXO, transferencia SPEI, etc.
             paymentMethods: {
-                creditCard:          'all',
-                debitCard:           'all',
-                ticket:              'all',   // OXXO, Paycash
-                bankTransfer:        'all',   // SPEI
-                atm:                 'all',
-                mercadoPago:         'all',   // Wallet MP
-                maxInstallments:     12,
+                creditCard:      'all',
+                debitCard:       'all',
+                ticket:          'all',   // OXXO, Paycash
+                bankTransfer:    'all',   // SPEI
+                atm:             'all',
+                mercadoPago:     'all',   // Wallet MP
+                maxInstallments: 12,
             },
             visual: {
                 style: {
-                    theme:         'default',
+                    theme: 'default',
                     customVariables: {
-                        baseColor:       '#e53935',
+                        baseColor:              '#e53935',
                         baseColorFirstVariant:  '#c62828',
                         baseColorSecondVariant: '#ffcdd2',
-                        errorColor:      '#c62828',
-                        successColor:    '#4caf50',
-                        fontSizeSmall:   '14px',
-                        borderRadiusSmall: '8px',
-                        borderRadiusMedium: '12px',
-                        borderRadiusLarge: '16px',
+                        errorColor:             '#c62828',
+                        successColor:           '#4caf50',
+                        fontSizeSmall:          '14px',
+                        borderRadiusSmall:      '8px',
+                        borderRadiusMedium:     '12px',
+                        borderRadiusLarge:      '16px',
                     },
                 },
-                hideFormTitle:       false,
-                hidePaymentButton:   false,
+                hideFormTitle:     false,
+                hidePaymentButton: false,
             },
         },
         callbacks: {
             onReady: () => {
-                // Brick listo — ocultar spinner
-                document.querySelector('.loading-brick')?.remove();
+                // Brick listo → ocultar spinner
+                document.getElementById('loading-spinner')?.remove();
             },
             onSubmit: async ({ selectedPaymentMethod, formData }) => {
-                // Enviar al backend para procesar el pago
                 try {
-                    // 1. Cambiamos la URL a la que definiste en web.php
-                    const res = await fetch('/pagos/procesar', { 
+                    const res = await fetch('/pagos/procesar', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            // 2. Usamos el TOKEN CSRF (Obligatorio en web.php)
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                            'X-CSRF-TOKEN': CSRF_TOKEN,
+                            // Accept: application/json hace que Laravel devuelva JSON
+                            // en vez de una redirección HTML ante errores de validación.
+                            'Accept': 'application/json',
                         },
-                        // 3. Ya NO enviamos la cabecera 'Authorization', 
-                        // porque web.php usa la sesión de tu navegador (Cookie).
+                        // credentials: 'include' envía la cookie de sesión en web y móvil
                         credentials: 'include',
                         body: JSON.stringify({
                             formData,
@@ -247,36 +296,56 @@
                         }),
                     });
 
-                    // Si el servidor responde 401 es que la sesión de Laravel expiró
-                    if (res.status === 401 || res.status === 419) {
-                        alert("Tu sesión ha expirado. Por favor, recarga la página e intenta de nuevo.");
-                        return Promise.reject();
+                    // Sesión expirada (419 = CSRF inválido, 401 = no autenticado)
+                    if (res.status === 419 || res.status === 401) {
+                        alert('Tu sesión ha expirado. La página se recargará para que puedas intentarlo de nuevo.');
+                        window.location.reload();
+                        return Promise.reject('session_expired');
                     }
 
                     const data = await res.json();
 
                     if (data.success) {
-                        // Redirigir según el estado del pago
                         const estado = data.status === 'approved' ? 'success'
                                      : data.status === 'pending'  ? 'pending'
                                      : 'failure';
                         window.location.href = `/pagos/resultado?estado=${estado}&id_pago=${ID_PAGO}`;
                     } else {
-                        // Devolver el error al Brick para que lo muestre en el formulario
+                        // Devolver el mensaje de error al Brick para que lo muestre
                         return Promise.reject(data.message ?? 'Error al procesar el pago.');
                     }
+
                 } catch (err) {
+                    if (err === 'session_expired') return Promise.reject(err);
                     console.error('Error procesando pago:', err);
-                    return Promise.reject("Error de conexión con el servidor.");
+                    return Promise.reject(typeof err === 'string' ? err : 'Error de conexión con el servidor.');
                 }
             },
             onError: (error) => {
                 console.error('Brick error:', error);
+                // Solo mostramos el div de error si el Brick no llegó a cargar
+                if (!document.querySelector('#payment-brick-container [data-testid]')) {
+                    mostrarErrorBrick('El formulario de pago encontró un error. Intenta recargar la página.');
+                }
             },
         },
     };
 
-    await bricksBuilder.create('payment', 'payment-brick-container', settings);
+    try {
+        await bricksBuilder.create('payment', 'payment-brick-container', settings);
+    } catch (e) {
+        console.error('Error creando Brick:', e);
+        mostrarErrorBrick('No se pudo cargar el formulario de pago. Verifica tu conexión e intenta de nuevo.');
+    }
+
+    function mostrarErrorBrick(msg) {
+        document.getElementById('loading-spinner')?.remove();
+        const errDiv = document.getElementById('brick-error');
+        if (errDiv) {
+            document.getElementById('brick-error-msg').textContent = msg;
+            errDiv.style.display = 'block';
+        }
+    }
 })();
 </script>
 </body>
