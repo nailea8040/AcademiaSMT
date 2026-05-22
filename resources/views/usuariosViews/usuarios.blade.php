@@ -350,9 +350,8 @@
     <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <form id="editForm" method="POST" action="">
+                <form id="editForm" method="POST">
                     @csrf
-                    @method('PUT')
                     <div class="modal-header">
                         <h5 class="modal-title" id="editUserModalLabel">Editar Usuario</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -414,6 +413,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // ── Alertas de sesión (solo para acciones que NO usan AJAX, ej: eliminar, toggleActive) ──
         @if(session('sessionInsertado'))
             Swal.fire({
                 icon:  '{{ session('sessionInsertado') == 'true' ? 'success' : 'error' }}',
@@ -425,6 +425,7 @@
             if (alertaTemp) alertaTemp.style.display = 'none';
         @endif
 
+        // ── Confirmar eliminación ────────────────────────────────────────────
         function confirmarEliminacion(event) {
             event.preventDefault();
             const form = event.target;
@@ -443,6 +444,7 @@
             return false;
         }
 
+        // ── Confirmar cambio de estado ───────────────────────────────────────
         function confirmarCambioEstado(event, userId, userName, isChecked) {
             event.preventDefault();
             const form   = document.getElementById(`toggleForm-${userId}`);
@@ -469,6 +471,7 @@
             });
         }
 
+        // ── Mostrar/ocultar contraseña (form registro) ───────────────────────
         function togglePassword() {
             const passwordInput = document.getElementById('pass');
             const toggleIcon    = document.getElementById('toggleIcon');
@@ -481,18 +484,18 @@
             }
         }
 
-        // Mostrar/ocultar sección bachiller según rol — ELIMINADO (se gestiona en Alumnos)
-
         $(document).ready(function () {
+
+            // ── Poblar modal al hacer clic en "Editar" ───────────────────────
             $('.edit-user-btn').on('click', function () {
-                const userId   = $(this).data('id');
-                const nombre   = $(this).data('nombre');
-                const apaterno = $(this).data('apaterno');
-                const amaterno = $(this).data('amaterno');
+                const userId    = $(this).data('id');
+                const nombre    = $(this).data('nombre');
+                const apaterno  = $(this).data('apaterno');
+                const amaterno  = $(this).data('amaterno');
                 const fechaNaci = $(this).data('fecha_naci');
-                const telefono = $(this).data('telefono');
-                const correo   = $(this).data('correo');
-                const rol      = $(this).data('rol');
+                const telefono  = $(this).data('telefono');
+                const correo    = $(this).data('correo');
+                const rol       = $(this).data('rol');
 
                 $('#edit_id_usuario').val(userId);
                 $('#edit_nombre').val(nombre);
@@ -502,10 +505,143 @@
                 $('#edit_telefono').val(telefono);
                 $('#edit_correo').val(correo);
                 $('#edit_rol').val(rol);
-                $('#editForm').attr('action', `/usuarios/${userId}`);
+                // Guardar id en el form para construir la URL
+                $('#editForm').data('userId', userId);
                 $('#edit_pass').val('');
+                // Limpiar errores previos
+                $('#editForm .edit-error-msg').remove();
             });
 
+            // ── Envío AJAX del modal editar ──────────────────────────────────
+            $('#editForm').on('submit', function (e) {
+                e.preventDefault();
+
+                const userId  = $(this).data('userId');
+                const url     = `/usuarios/${userId}`;
+                const formData = new FormData(this);
+                // Laravel espera _method=PUT para rutas update
+                formData.set('_method', 'PUT');
+
+                // Deshabilitar botón mientras procesa
+                const btnGuardar = $(this).find('button[type="submit"]');
+                btnGuardar.prop('disabled', true).text('Guardando...');
+
+                fetch(url, {
+                    method: 'POST',       // usamos POST + _method=PUT (Laravel)
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: formData
+                })
+                .then(async res => {
+                    const data = await res.json();
+
+                    if (data.ok) {
+                        // ── Éxito: cerrar modal, actualizar fila, SweetAlert ──
+                        bootstrap.Modal.getInstance(document.getElementById('editUserModal')).hide();
+
+                        const u = data.usuario;
+
+                        // Actualizar la fila en la tabla sin recargar
+                        const btn = $(`.edit-user-btn[data-id="${userId}"]`);
+                        btn.data('nombre',    u.nombre);
+                        btn.data('apaterno',  u.apaterno);
+                        btn.data('amaterno',  u.amaterno);
+                        btn.data('fecha_naci', u.fecha_naci);
+                        btn.data('telefono',  u.telefono);
+                        btn.data('correo',    u.correo);
+                        btn.data('rol',       u.rol);
+
+                        // Actualizar texto visible en la tabla
+                        const fila = btn.closest('tr');
+                        fila.find('.user-name').text(`${u.nombre} ${u.apaterno} ${u.amaterno}`);
+                        fila.find('.user-email').text(u.correo);
+
+                        // Actualizar badge de rol
+                        const badgeClases = {admin:'badge-admin', sensei:'badge-sensei', tutor:'badge-tutor', alumno:'badge-alumno'};
+                        const badgeEl = fila.find('.badge').first();
+                        badgeEl.attr('class', `badge ${badgeClases[u.rol] || 'badge-alumno'}`);
+                        badgeEl.text(u.rol.charAt(0).toUpperCase() + u.rol.slice(1));
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: data.mensaje,
+                            showConfirmButton: false,
+                            timer: 2000
+                        });
+
+                    } else {
+                        // ── Error: SweetAlert, modal sigue abierto ────────────
+                        Swal.fire({
+                            icon:  'error',
+                            title: 'No se pudo guardar',
+                            text:   data.mensaje,
+                        });
+                    }
+                })
+                .catch(() => {
+                    Swal.fire({
+                        icon:  'error',
+                        title: 'Error de red',
+                        text:  'No se pudo conectar con el servidor. Intenta de nuevo.',
+                    });
+                })
+                .finally(() => {
+                    btnGuardar.prop('disabled', false).text('Guardar Cambios');
+                });
+            });
+
+            // ── Envío AJAX del formulario de registro ────────────────────────
+            $('#registroForm').on('submit', function (e) {
+                e.preventDefault();
+
+                const formData = new FormData(this);
+                const btnReg   = $(this).find('button[type="submit"]');
+                btnReg.prop('disabled', true);
+
+                fetch('{{ route('usuarios.store') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: formData
+                })
+                .then(async res => {
+                    const data = await res.json();
+
+                    if (data.ok) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: data.mensaje,
+                            showConfirmButton: false,
+                            timer: 2000
+                        }).then(() => {
+                            // Recargar para mostrar el nuevo usuario en la tabla
+                            window.location.reload();
+                        });
+                    } else {
+                        Swal.fire({
+                            icon:  'error',
+                            title: 'Error al registrar',
+                            text:   data.mensaje,
+                        });
+                    }
+                })
+                .catch(() => {
+                    Swal.fire({
+                        icon:  'error',
+                        title: 'Error de red',
+                        text:  'No se pudo conectar con el servidor.',
+                    });
+                })
+                .finally(() => {
+                    btnReg.prop('disabled', false);
+                });
+            });
+
+            // ── Buscar con Enter ─────────────────────────────────────────────
             $('#buscar').on('keydown', function (e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();

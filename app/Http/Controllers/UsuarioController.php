@@ -107,17 +107,33 @@ class UsuarioController extends Controller
     ]);
 
     if ($validator->fails()) {
+        $primerError = $validator->errors()->first();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok'      => false,
+                'mensaje' => $primerError,
+                'errores' => $validator->errors(),
+            ], 422);
+        }
+
         return redirect()->route('usuarios.index')
             ->with('sessionInsertado', 'false')
-            ->with('mensaje', $validator->errors()->first());
+            ->with('mensaje', $primerError);
     }
 
     $validated = $validator->validated();
 
     if ($this->esSensei() && $validated['rol'] === 'admin') {
+        $msg = 'No tienes permisos para crear usuarios administradores.';
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => false, 'mensaje' => $msg], 403);
+        }
+
         return redirect()->route('usuarios.index')
             ->with('sessionInsertado', 'false')
-            ->with('mensaje', 'No tienes permisos para crear usuarios administradores.');
+            ->with('mensaje', $msg);
     }
 
     try {
@@ -134,15 +150,27 @@ class UsuarioController extends Controller
             'estado'         => 1,
         ]);
 
+        $msg = '¡Usuario registrado con éxito!';
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'mensaje' => $msg]);
+        }
+
         return redirect()->route('usuarios.index')
             ->with('sessionInsertado', 'true')
-            ->with('mensaje', '¡Usuario registrado con éxito!');
+            ->with('mensaje', $msg);
 
     } catch (\Exception $e) {
         Log::error('UsuarioController@store: ' . $e->getMessage());
+        $msg = 'Hubo un error al registrar el usuario.';
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => false, 'mensaje' => $msg], 500);
+        }
+
         return redirect()->route('usuarios.index')
             ->with('sessionInsertado', 'false')
-            ->with('mensaje', 'Hubo un error al registrar el usuario.');
+            ->with('mensaje', $msg);
     }
 }
 
@@ -213,7 +241,19 @@ class UsuarioController extends Controller
     ]);
 
     if ($validator->fails()) {
-        return redirect()->route('usuarios.index', ['id' => $id])
+        $primerError = $validator->errors()->first();
+
+        // ── Respuesta AJAX (modal en usuarios.blade) ──────────────────────
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok'      => false,
+                'mensaje' => $primerError,
+                'errores' => $validator->errors(),
+            ], 422);
+        }
+
+        // ── Respuesta tradicional (editarUsu.blade) ───────────────────────
+        return redirect()->back()
             ->withErrors($validator)
             ->withInput();
     }
@@ -221,9 +261,15 @@ class UsuarioController extends Controller
     $validated = $validator->validated();
 
     if ($this->esSensei() && $validated['rol'] === 'admin') {
+        $msg = 'No tienes permisos para asignar el rol de administrador.';
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => false, 'mensaje' => $msg], 403);
+        }
+
         return redirect()->route('usuarios.index')
             ->with('sessionInsertado', 'false')
-            ->with('mensaje', 'No tienes permisos para asignar el rol de administrador.');
+            ->with('mensaje', $msg);
     }
 
     try {
@@ -249,16 +295,34 @@ class UsuarioController extends Controller
 
         DB::table('usuario')->where('id_usuario', $id)->update($data);
 
+        $msg = '¡Usuario con ID ' . $id . ' actualizado con éxito!';
+
+        // ── Respuesta AJAX ────────────────────────────────────────────────
+        if ($request->expectsJson()) {
+            $usuarioActualizado = DB::table('usuario')->where('id_usuario', $id)->first();
+            return response()->json([
+                'ok'      => true,
+                'mensaje' => $msg,
+                'usuario' => $usuarioActualizado,
+            ]);
+        }
+
         return redirect()->route('usuarios.index')
             ->with('sessionInsertado', 'true')
-            ->with('mensaje', '¡Usuario con ID ' . $id . ' actualizado con éxito!');
+            ->with('mensaje', $msg);
 
     } catch (\Exception $e) {
         Log::error("UsuarioController@update ID $id: " . $e->getMessage());
-        return redirect()->route('usuarios.index', ['id' => $id])
+        $msg = 'Error al actualizar el usuario: ' . $e->getMessage();
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => false, 'mensaje' => $msg], 500);
+        }
+
+        return redirect()->back()
             ->withInput()
             ->with('sessionInsertado', 'false')
-            ->with('mensaje', 'Error al actualizar el usuario: ' . $e->getMessage());
+            ->with('mensaje', $msg);
     }
 }
     // ── destroy ──────────────────────────────────────────────────────────────
