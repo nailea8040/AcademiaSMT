@@ -463,6 +463,7 @@
                 </form>
 
                 {{-- Lista de conceptos existentes --}}
+                <div class="form-body" style="padding-top:0; margin-top:0;">
                 <h3 class="section-title-header" style="margin-top:0;">
                     <i class="bi bi-list-ul"></i> Conceptos Registrados
                 </h3>
@@ -504,6 +505,7 @@
                             </p>
                         @endforelse
                     </div>
+                </div>
                 </div>
             </div>
         </div>
