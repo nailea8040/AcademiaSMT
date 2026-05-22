@@ -161,7 +161,6 @@ class UsuarioController extends Controller
     public function update(Request $request, int $id)
 {
     $this->soloAdminOSensei();
-    dd($request->all());
 
 
     $usuarioActual = DB::table('usuario')->where('id_usuario', $id)->first();
@@ -183,7 +182,7 @@ class UsuarioController extends Controller
         'apaterno'        => 'required|string|max:100',
         'amaterno'        => 'required|string|max:100',
         'fecha_naci'      => 'required|date',
-        'tel'             => 'required|string|max:20',
+        'telefono'             => 'required|string|max:10',
         'correo'          => 'required|email|unique:usuario,correo,' . $id . ',id_usuario',
         'rol'             => 'required|in:admin,sensei,tutor,alumno',
         'pass'            => 'nullable|min:6',
@@ -209,7 +208,7 @@ class UsuarioController extends Controller
             'apaterno'       => $validated['apaterno'],
             'amaterno'       => $validated['amaterno'],
             'fecha_naci'     => $validated['fecha_naci'],
-            'telefono'       => $validated['tel'],   // ← columna real en BD
+            'telefono'       => $validated['telefono'],   // ← columna real en BD
             'correo'         => $validated['correo'],
             'rol'            => $validated['rol'],
             // Si es bachiller guarda los campos, si no los limpia
