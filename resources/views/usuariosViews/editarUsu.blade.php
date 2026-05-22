@@ -79,7 +79,7 @@
 
                     <label for="tel" class="form-label mt-2">Teléfono</label>
                     {{-- ✅ columna real en BD es 'telefono', no 'tel' --}}
-                    <input type="text" id="tel" name="tel" class="form-control" maxlength="20"
+                    <input type="text" id="telefono" name="telefono" class="form-control" maxlength="20"
                            value="{{ old('tel', $usuario->telefono) }}" required>
 
                     {{-- ── Rol ── --}}
@@ -217,5 +217,36 @@
             }
         }
     </script>
+    <script>
+    // Mostrar errores de sesión con SweetAlert
+    @if(session('sessionInsertado') === 'false')
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: '{{ session('mensaje') }}',
+        });
+    @endif
+
+    @if(session('sessionInsertado') === 'true')
+        Swal.fire({
+            icon: 'success',
+            title: '¡Listo!',
+            text: '{{ session('mensaje') }}',
+        });
+    @endif
+
+    // Mostrar errores de validación con SweetAlert
+    @if($errors->any())
+        Swal.fire({
+            icon: 'warning',
+            title: 'Revisa el formulario',
+            html: `<ul style="text-align:left">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>`,
+        });
+    @endif
+</script>
 </body>
 </html>

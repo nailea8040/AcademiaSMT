@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class UsuarioController extends Controller
 {
@@ -162,7 +163,6 @@ class UsuarioController extends Controller
 {
     $this->soloAdminOSensei();
 
-
     $usuarioActual = DB::table('usuario')->where('id_usuario', $id)->first();
 
     if (!$usuarioActual) {
@@ -177,22 +177,35 @@ class UsuarioController extends Controller
             ->with('mensaje', 'No tienes permisos para editar administradores.');
     }
 
-    $validated = $request->validate([
-        'nombre'          => 'required|string|max:100',
-        'apaterno'        => 'required|string|max:100',
-        'amaterno'        => 'required|string|max:100',
-        'fecha_naci'      => 'required|date',
-        'telefono'             => 'required|string|max:10',
-        'correo'          => 'required|email|unique:usuario,correo,' . $id . ',id_usuario',
-        'rol'             => 'required|in:admin,sensei,tutor,alumno',
-        'pass'            => 'nullable|min:6',
-        // Campos bachiller
-        'es_bachiller'    => 'nullable|boolean',
-        'numero_control'  => 'nullable|string|max:20',
-        'grupo'           => 'nullable|string|max:10',
-        'especialidad'    => 'nullable|string|max:100',
-        'turno'           => 'nullable|in:Matutino,Vespertino,Nocturno',
+    // Validar manualmente para poder redirigir con mensaje claro
+    $validator = Validator::make($request->all(), [
+        'nombre'         => 'required|string|max:100',
+        'apaterno'       => 'required|string|max:100',
+        'amaterno'       => 'required|string|max:100',
+        'fecha_naci'     => 'required|date',
+        'telefono'       => 'required|string|max:20',
+        'correo'         => 'required|email|unique:usuario,correo,' . $id . ',id_usuario',
+        'rol'            => 'required|in:admin,sensei,tutor,alumno',
+        'pass'           => 'nullable|min:6',
+        'es_bachiller'   => 'nullable|boolean',
+        'numero_control' => 'nullable|string|max:20',
+        'grupo'          => 'nullable|string|max:10',
+        'especialidad'   => 'nullable|string|max:100',
+        'turno'          => 'nullable|in:Matutino,Vespertino,Nocturno',
+    ], [
+        'correo.unique'   => 'Este correo ya está registrado por otro usuario.',
+        'correo.email'    => 'El correo no tiene un formato válido.',
+        'pass.min'        => 'La contraseña debe tener al menos 6 caracteres.',
+        'telefono.required' => 'El teléfono es obligatorio.',
     ]);
+
+    if ($validator->fails()) {
+        return redirect()->route('editarUsu', ['id' => $id])
+            ->withErrors($validator)
+            ->withInput();
+    }
+
+    $validated = $validator->validated();
 
     if ($this->esSensei() && $validated['rol'] === 'admin') {
         return redirect()->route('usuarios.index')
@@ -208,10 +221,9 @@ class UsuarioController extends Controller
             'apaterno'       => $validated['apaterno'],
             'amaterno'       => $validated['amaterno'],
             'fecha_naci'     => $validated['fecha_naci'],
-            'telefono'       => $validated['telefono'],   // ← columna real en BD
+            'telefono'       => $validated['telefono'],
             'correo'         => $validated['correo'],
             'rol'            => $validated['rol'],
-            // Si es bachiller guarda los campos, si no los limpia
             'numero_control' => $esBachiller ? ($validated['numero_control'] ?? null) : null,
             'grupo'          => $esBachiller ? ($validated['grupo']          ?? null) : null,
             'especialidad'   => $esBachiller ? ($validated['especialidad']   ?? null) : null,
@@ -230,7 +242,7 @@ class UsuarioController extends Controller
 
     } catch (\Exception $e) {
         Log::error("UsuarioController@update ID $id: " . $e->getMessage());
-        return redirect()->route('editarUsu', $id)
+        return redirect()->route('editarUsu', ['id' => $id])
             ->withInput()
             ->with('sessionInsertado', 'false')
             ->with('mensaje', 'Error al actualizar el usuario: ' . $e->getMessage());
