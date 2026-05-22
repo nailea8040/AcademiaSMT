@@ -100,7 +100,7 @@ class TutorController extends Controller
         }
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id)
     {
         $validated = $request->validate([
             'id_ocupacion'          => 'required|exists:ocupacion,id_ocupacion',
