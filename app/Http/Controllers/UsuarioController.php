@@ -86,52 +86,65 @@ class UsuarioController extends Controller
     // ── store ────────────────────────────────────────────────────────────────
 
     public function store(Request $request)
-    {
-        $this->soloAdminOSensei();
+{
+    $this->soloAdminOSensei();
 
-        $validated = $request->validate([
-            'nombre'         => 'required|string|max:100',
-            'apaterno'       => 'required|string|max:100',
-            'amaterno'       => 'required|string|max:100',
-            'fecha_naci'     => 'required|date',
-            'tel'            => 'required|string|max:10',
-            'correo'         => 'required|email|unique:usuario,correo',
-            'pass'           => 'required|min:6',
-            'rol'            => 'required|in:admin,sensei,tutor,alumno',
+    $validator = Validator::make($request->all(), [
+        'nombre'     => 'required|string|max:100',
+        'apaterno'   => 'required|string|max:100',
+        'amaterno'   => 'required|string|max:100',
+        'fecha_naci' => 'required|date',
+        'tel'        => 'required|string|max:10',
+        'correo'     => 'required|email|unique:usuario,correo',
+        'pass'       => 'required|min:6',
+        'rol'        => 'required|in:admin,sensei,tutor,alumno',
+    ], [
+        'correo.unique'   => 'Este correo ya está registrado.',
+        'correo.email'    => 'El correo no tiene un formato válido.',
+        'pass.min'        => 'La contraseña debe tener al menos 6 caracteres.',
+        'pass.required'   => 'La contraseña es obligatoria.',
+        'tel.required'    => 'El teléfono es obligatorio.',
+    ]);
+
+    if ($validator->fails()) {
+        return redirect()->route('usuarios.index')
+            ->with('sessionInsertado', 'false')
+            ->with('mensaje', $validator->errors()->first());
+    }
+
+    $validated = $validator->validated();
+
+    if ($this->esSensei() && $validated['rol'] === 'admin') {
+        return redirect()->route('usuarios.index')
+            ->with('sessionInsertado', 'false')
+            ->with('mensaje', 'No tienes permisos para crear usuarios administradores.');
+    }
+
+    try {
+        DB::table('usuario')->insert([
+            'nombre'         => $validated['nombre'],
+            'apaterno'       => $validated['apaterno'],
+            'amaterno'       => $validated['amaterno'],
+            'fecha_naci'     => $validated['fecha_naci'],
+            'telefono'       => $validated['tel'],
+            'correo'         => $validated['correo'],
+            'pass'           => Hash::make($validated['pass']),
+            'rol'            => $validated['rol'],
+            'fecha_registro' => now()->toDateString(),
+            'estado'         => 1,
         ]);
 
-        // Sensei NO puede crear administradores
-        if ($this->esSensei() && $validated['rol'] === 'admin') {
-            return redirect()->route('usuarios.index')
-                ->with('sessionInsertado', 'false')
-                ->with('mensaje', 'No tienes permisos para crear usuarios administradores.');
-        }
+        return redirect()->route('usuarios.index')
+            ->with('sessionInsertado', 'true')
+            ->with('mensaje', '¡Usuario registrado con éxito!');
 
-        try {
-            DB::table('usuario')->insert([
-                'nombre'         => $validated['nombre'],
-                'apaterno'       => $validated['apaterno'],
-                'amaterno'       => $validated['amaterno'],
-                'fecha_naci'     => $validated['fecha_naci'],
-                'telefono'       => $validated['tel'],
-                'correo'         => $validated['correo'],
-                'pass'           => Hash::make($validated['pass']),
-                'rol'            => $validated['rol'],
-                'fecha_registro' => now()->toDateString(),
-                'estado'         => 1,
-            ]);
-
-            return redirect()->route('usuarios.index')
-                ->with('sessionInsertado', 'true')
-                ->with('mensaje', '¡Usuario registrado con éxito!');
-
-        } catch (\Exception $e) {
-            Log::error('UsuarioController@store: ' . $e->getMessage());
-            return redirect()->route('usuarios.index')
-                ->with('sessionInsertado', 'false')
-                ->with('mensaje', 'Hubo un error al registrar el usuario.');
-        }
+    } catch (\Exception $e) {
+        Log::error('UsuarioController@store: ' . $e->getMessage());
+        return redirect()->route('usuarios.index')
+            ->with('sessionInsertado', 'false')
+            ->with('mensaje', 'Hubo un error al registrar el usuario.');
     }
+}
 
     // ── edit ─────────────────────────────────────────────────────────────────
 
