@@ -104,13 +104,11 @@ class ResetPasswordController extends Controller
                 ->where('estado', 1)
                 ->first();
 
-            // Respuesta genérica — no revelar si el correo existe
-            // ✅ CORREGIDO: redirige a password.request (no al login) para que el
-            //    SweetAlert de olvidosucontrasennia.blade.php pueda mostrarse
+            // ✅ Muestra error explícito si el correo no está registrado
             if (!$usuario) {
                 return redirect()->route('password.request')
-                    ->with('sessionRecuperarContrasennia', 'true')
-                    ->with('mensaje', '¡Listo! Si el correo está registrado, recibirás el enlace de recuperación.');
+                    ->with('sessionRecuperarContrasennia', 'false')
+                    ->with('mensaje', 'El correo ingresado no está registrado o la cuenta no está activa.');
             }
 
             /*
