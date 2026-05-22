@@ -67,11 +67,11 @@
         /* ── Panel gestión conceptos ── */
         .conceptos-panel { margin-top:8px; }
 
-        /* Grid de tarjetas */
+        /* Grid de tarjetas — 4 por fila */
         .conceptos-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 14px;
+            gap: 16px;
             margin-top: 4px;
         }
         @media (max-width: 900px) {
