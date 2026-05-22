@@ -146,6 +146,27 @@
             confirmButtonColor: '#4CAF50'
         });
     @endif
+    @if (session('sessionCambiarContrasennia') == 'true')
+    Swal.fire({
+        icon: 'success',
+        title: '{{ session('mensaje') }}',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 4000,
+        timerProgressBar: true
+    });
+@elseif (session('sessionCambiarContrasennia') == 'false')
+    Swal.fire({
+        icon: 'error',
+        title: '{{ session('mensaje') }}',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 4000,
+        timerProgressBar: true
+    });
+@endif
     </script>
 
 </body>

@@ -24,6 +24,10 @@ use Illuminate\Support\Facades\Log;
  *   1. Usuario solicita reset  → se escriben las 3 columnas en usuario
  *   2. Usuario hace clic en el enlace del correo → se valida token y expiración
  *   3. Usuario cambia contraseña → se limpian las 3 columnas (NULL)
+ *
+ * Claves de sesión flash utilizadas:
+ *   - sessionRecuperarContrasennia → leída en olvidosucontrasennia.blade.php
+ *   - sessionCambiarContrasennia   → leída en la vista del LOGIN (solo éxito final)
  */
 class ResetPasswordController extends Controller
 {
@@ -45,9 +49,11 @@ class ResetPasswordController extends Controller
                 ->first();
 
             if (!$usuario) {
-                return redirect()->route('login')
-                    ->with('sessionCambiarContrasennia', 'false')
-                    ->with('mensaje', 'Enlace incorrecto o ya fue utilizado.');
+                // ✅ CORREGIDO: redirige a password.request con clave sessionRecuperarContrasennia
+                //    para que olvidosucontrasennia.blade.php pueda mostrar el SweetAlert
+                return redirect()->route('password.request')
+                    ->with('sessionRecuperarContrasennia', 'false')
+                    ->with('mensaje', 'Enlace incorrecto o ya fue utilizado. Solicita uno nuevo.');
             }
 
             // Verificar que no haya expirado
@@ -56,12 +62,13 @@ class ResetPasswordController extends Controller
                 DB::table('usuario')
                     ->where('token_recuperacion', $token)
                     ->update([
-                        'token_recuperacion'     => null,
-                        'token_expiracion'       => null,
+                        'token_recuperacion' => null,
+                        'token_expiracion'   => null,
                     ]);
 
-                return redirect()->route('login')
-                    ->with('sessionCambiarContrasennia', 'false')
+                // ✅ CORREGIDO: redirige a password.request con clave sessionRecuperarContrasennia
+                return redirect()->route('password.request')
+                    ->with('sessionRecuperarContrasennia', 'false')
                     ->with('mensaje', 'El enlace ha expirado. Por favor, solicita uno nuevo.');
             }
 
@@ -69,9 +76,11 @@ class ResetPasswordController extends Controller
 
         } catch (\Exception $e) {
             Log::error('ResetPassword@showResetFormWithToken: ' . $e->getMessage());
-            return redirect()->route('login')
-                ->with('sessionCambiarContrasennia', 'false')
-                ->with('mensaje', 'Hubo un error en el servidor.');
+
+            // ✅ CORREGIDO: redirige a password.request con clave sessionRecuperarContrasennia
+            return redirect()->route('password.request')
+                ->with('sessionRecuperarContrasennia', 'false')
+                ->with('mensaje', 'Hubo un error en el servidor. Inténtalo de nuevo.');
         }
     }
 
@@ -96,6 +105,8 @@ class ResetPasswordController extends Controller
                 ->first();
 
             // Respuesta genérica — no revelar si el correo existe
+            // ✅ CORREGIDO: redirige a password.request (no al login) para que el
+            //    SweetAlert de olvidosucontrasennia.blade.php pueda mostrarse
             if (!$usuario) {
                 return redirect()->route('password.request')
                     ->with('sessionRecuperarContrasennia', 'true')
@@ -129,22 +140,19 @@ class ResetPasswordController extends Controller
 
             Log::info("Token de recuperación generado para: {$correo}");
 
-            return redirect()->route('login')
+            // ✅ CORREGIDO: redirige a password.request para que el SweetAlert se muestre
+            return redirect()->route('password.request')
                 ->with('sessionRecuperarContrasennia', 'true')
                 ->with('mensaje', '¡Listo! Revisa tu correo para el enlace de recuperación.');
 
         } catch (\Exception $e) {
-    DB::rollBack();
-    
-    // Registra en el log de todas formas
-    Log::error('ResetPassword@sendResetLinkEmail: ' . $e->getMessage());
+            Log::error('ResetPassword@sendResetLinkEmail: ' . $e->getMessage());
 
-    // CAMBIA ESTA LÍNEA TEMPORALMENTE:
-    // En lugar del mensaje fijo, le pasamos el error real del sistema ($e->getMessage())
-    return redirect()->route('password.request')
-        ->with('sessionRecuperarContrasennia', 'false')
-        ->with('mensaje', 'Error real: ' . $e->getMessage());
-}
+            // ✅ CORREGIDO: redirige a password.request con clave sessionRecuperarContrasennia
+            return redirect()->route('password.request')
+                ->with('sessionRecuperarContrasennia', 'false')
+                ->with('mensaje', 'Hubo un error al enviar el correo. Inténtalo de nuevo.');
+        }
     }
 
     // ── Actualizar contraseña ─────────────────────────────────────────────────
@@ -169,9 +177,11 @@ class ResetPasswordController extends Controller
 
             if (!$usuario) {
                 Log::warning('Token no encontrado: ' . $token);
-                return redirect()->route('login')
-                    ->with('sessionCambiarContrasennia', 'false')
-                    ->with('mensaje', 'El enlace no es válido o ya fue utilizado.');
+
+                // ✅ CORREGIDO: redirige a password.request con clave sessionRecuperarContrasennia
+                return redirect()->route('password.request')
+                    ->with('sessionRecuperarContrasennia', 'false')
+                    ->with('mensaje', 'El enlace no es válido o ya fue utilizado. Solicita uno nuevo.');
             }
 
             // Verificar expiración
@@ -186,8 +196,9 @@ class ResetPasswordController extends Controller
                         'token_expiracion'   => null,
                     ]);
 
-                return redirect()->route('login')
-                    ->with('sessionCambiarContrasennia', 'false')
+                // ✅ CORREGIDO: redirige a password.request con clave sessionRecuperarContrasennia
+                return redirect()->route('password.request')
+                    ->with('sessionRecuperarContrasennia', 'false')
                     ->with('mensaje', 'El enlace ha expirado. Solicita uno nuevo.');
             }
 
@@ -197,9 +208,9 @@ class ResetPasswordController extends Controller
             DB::table('usuario')
                 ->where('id_usuario', $usuario->id_usuario)
                 ->update([
-                    'pass'                   => Hash::make($request->contrasennia),
-                    'token_recuperacion'     => null,
-                    'token_expiracion'       => null,
+                    'pass'               => Hash::make($request->contrasennia),
+                    'token_recuperacion' => null,
+                    'token_expiracion'   => null,
                     // ultima_solicitud_token se mantiene (registro de auditoría)
                 ]);
 
@@ -207,6 +218,9 @@ class ResetPasswordController extends Controller
 
             Log::info('Contraseña actualizada para usuario ID: ' . $usuario->id_usuario);
 
+            // ✅ ÉXITO: este es el único caso que redirige al login.
+            //    Asegúrate de agregar el SweetAlert en tu vista de login que lea
+            //    sessionCambiarContrasennia == 'true' / 'false'
             return redirect()->route('login')
                 ->with('sessionCambiarContrasennia', 'true')
                 ->with('mensaje', '¡Contraseña cambiada exitosamente! Ya puedes iniciar sesión.');
@@ -218,9 +232,11 @@ class ResetPasswordController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('ResetPassword@resetPassword: ' . $e->getMessage());
-            return redirect()->route('login')
-                ->with('sessionCambiarContrasennia', 'false')
-                ->with('mensaje', 'Hubo un error al actualizar la contraseña.');
+
+            // ✅ CORREGIDO: redirige a password.request con clave sessionRecuperarContrasennia
+            return redirect()->route('password.request')
+                ->with('sessionRecuperarContrasennia', 'false')
+                ->with('mensaje', 'Hubo un error al actualizar la contraseña. Inténtalo de nuevo.');
         }
     }
 
