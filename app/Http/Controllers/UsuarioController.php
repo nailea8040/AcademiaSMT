@@ -229,31 +229,87 @@ class UsuarioController extends Controller
     // ── destroy ──────────────────────────────────────────────────────────────
 
     public function destroy(int $id)
-    {
-        // Solo admin puede eliminar
-        if (!$this->esAdmin()) {
-            return redirect()->route('usuarios.index')
-                ->with('sessionInsertado', 'false')
-                ->with('mensaje', 'No tienes permisos para eliminar usuarios.');
-        }
-
-        try {
-            $deleted = DB::table('usuario')->where('id_usuario', $id)->delete();
-
-            return redirect()->route('usuarios.index')
-                ->with('sessionInsertado', $deleted ? 'true' : 'false')
-                ->with('mensaje', $deleted
-                    ? '¡Usuario con ID ' . $id . ' eliminado con éxito!'
-                    : 'No se encontró el usuario con ID ' . $id . ' para eliminar.'
-                );
-
-        } catch (\Exception $e) {
-            Log::error("UsuarioController@destroy ID $id: " . $e->getMessage());
-            return redirect()->route('usuarios.index')
-                ->with('sessionInsertado', 'false')
-                ->with('mensaje', 'Error al eliminar el usuario. Es posible que tenga registros relacionados.');
-        }
+{
+    // Solo admin puede eliminar
+    if (!$this->esAdmin()) {
+        return redirect()->route('usuarios.index')
+            ->with('sessionInsertado', 'false')
+            ->with('mensaje', 'No tienes permisos para eliminar usuarios.');
     }
+
+    try {
+        $usuario = DB::table('usuario')->where('id_usuario', $id)->first();
+
+        if (!$usuario) {
+            return redirect()->route('usuarios.index')
+                ->with('sessionInsertado', 'false')
+                ->with('mensaje', 'No se encontró el usuario con ID ' . $id . ' para eliminar.');
+        }
+
+        // Evitar que el admin se elimine a sí mismo
+        if (Auth::id() === $id) {
+            return redirect()->route('usuarios.index')
+                ->with('sessionInsertado', 'false')
+                ->with('mensaje', 'No puedes eliminarte a ti mismo.');
+        }
+
+        // ── 1. Eliminar registros hijos en orden correcto ──────────────────
+
+        // abono.id_usuario / abono.registrado_por
+        DB::table('abono')->where('id_usuario', $id)->orWhere('registrado_por', $id)->delete();
+
+        // abono depende de pago, así que primero eliminamos abonos huérfanos
+        // de pagos que pertenecen al usuario, luego los pagos
+        $pagoIds = DB::table('pago')->where('id_usuario', $id)->pluck('id_pago');
+        if ($pagoIds->isNotEmpty()) {
+            DB::table('abono')->whereIn('id_pago', $pagoIds)->delete();
+        }
+        DB::table('pago')->where('id_usuario', $id)->delete();
+
+        // asistencia.id_usuario / asistencia.registrado_por
+        DB::table('asistencia')
+            ->where('id_usuario', $id)
+            ->orWhere('registrado_por', $id)
+            ->delete();
+
+        // calendario.id_usuario
+        DB::table('calendario')->where('id_usuario', $id)->delete();
+
+        // evento.id_usuario
+        DB::table('evento')->where('id_usuario', $id)->delete();
+
+        // historial_grados.id_usuario
+        DB::table('historial_grados')->where('id_usuario', $id)->delete();
+
+        // historial_seminarios.id_usuario
+        DB::table('historial_seminarios')->where('id_usuario', $id)->delete();
+
+        // registro_fisico.id_usuario
+        DB::table('registro_fisico')->where('id_usuario', $id)->delete();
+
+        // seminario.id_usuario (seminarios creados por este usuario)
+        DB::table('seminario')->where('id_usuario', $id)->delete();
+
+        // tutor.id_tutor
+        DB::table('tutor')->where('id_tutor', $id)->delete();
+
+        // ubicacion_dojo.guardado_por (tiene ON DELETE CASCADE, pero por limpieza)
+        DB::table('ubicacion_dojo')->where('guardado_por', $id)->delete();
+
+        // ── 2. Eliminar el usuario ─────────────────────────────────────────
+        DB::table('usuario')->where('id_usuario', $id)->delete();
+
+        return redirect()->route('usuarios.index')
+            ->with('sessionInsertado', 'true')
+            ->with('mensaje', '¡Usuario con ID ' . $id . ' eliminado con éxito!');
+
+    } catch (\Exception $e) {
+        Log::error("UsuarioController@destroy ID $id: " . $e->getMessage());
+        return redirect()->route('usuarios.index')
+            ->with('sessionInsertado', 'false')
+            ->with('mensaje', 'Error al eliminar el usuario: ' . $e->getMessage());
+    }
+}
 
     // ── toggleActive ─────────────────────────────────────────────────────────
 
