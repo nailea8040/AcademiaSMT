@@ -322,6 +322,7 @@ class UsuarioController extends Controller
     public function toggleActive(int $id)
     {
         $this->soloAdminOSensei();
+        dd($request->all());
 
         try {
             $usuario = DB::table('usuario')->where('id_usuario', $id)->first();
