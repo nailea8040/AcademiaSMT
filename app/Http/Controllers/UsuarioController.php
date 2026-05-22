@@ -213,7 +213,7 @@ class UsuarioController extends Controller
     ]);
 
     if ($validator->fails()) {
-        return redirect()->route('editarUsu', ['id' => $id])
+        return redirect()->route('usuarios.index', ['id' => $id])
             ->withErrors($validator)
             ->withInput();
     }
@@ -255,7 +255,7 @@ class UsuarioController extends Controller
 
     } catch (\Exception $e) {
         Log::error("UsuarioController@update ID $id: " . $e->getMessage());
-        return redirect()->route('editarUsu', ['id' => $id])
+        return redirect()->route('usuarios.index', ['id' => $id])
             ->withInput()
             ->with('sessionInsertado', 'false')
             ->with('mensaje', 'Error al actualizar el usuario: ' . $e->getMessage());
