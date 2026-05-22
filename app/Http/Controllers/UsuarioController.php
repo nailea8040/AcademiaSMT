@@ -159,73 +159,82 @@ class UsuarioController extends Controller
     // ── update ───────────────────────────────────────────────────────────────
 
     public function update(Request $request, int $id)
-    {
-        $this->soloAdminOSensei();
+{
+    $this->soloAdminOSensei();
 
-        // Obtener el usuario actual para validar restricciones
-        $usuarioActual = DB::table('usuario')->where('id_usuario', $id)->first();
+    $usuarioActual = DB::table('usuario')->where('id_usuario', $id)->first();
 
-        if (!$usuarioActual) {
-            return redirect()->route('usuarios.index')
-                ->with('sessionInsertado', 'false')
-                ->with('mensaje', 'Usuario no encontrado.');
-        }
-
-        // Sensei no puede editar administradores
-        if ($this->esSensei() && $usuarioActual->rol === 'admin') {
-            return redirect()->route('usuarios.index')
-                ->with('sessionInsertado', 'false')
-                ->with('mensaje', 'No tienes permisos para editar administradores.');
-        }
-
-        $validated = $request->validate([
-            'nombre'         => 'required|string|max:100',
-            'apaterno'       => 'required|string|max:100',
-            'amaterno'       => 'required|string|max:100',
-            'fecha_naci'     => 'required|date',
-            'tel'            => 'required|string|max:20',
-            'correo'         => 'required|email|unique:usuario,correo,' . $id . ',id_usuario',
-            'rol'            => 'required|in:admin,sensei,tutor,alumno',
-            'pass'           => 'nullable|min:6',
-        ]);
-
-        // Sensei no puede asignar ni escalar a rol admin
-        if ($this->esSensei() && $validated['rol'] === 'admin') {
-            return redirect()->route('usuarios.index')
-                ->with('sessionInsertado', 'false')
-                ->with('mensaje', 'No tienes permisos para asignar el rol de administrador.');
-        }
-
-        try {
-            $data = [
-                'nombre'         => $validated['nombre'],
-                'apaterno'       => $validated['apaterno'],
-                'amaterno'       => $validated['amaterno'],
-                'fecha_naci'     => $validated['fecha_naci'],
-                'telefono'       => $validated['tel'],
-                'correo'         => $validated['correo'],
-                'rol'            => $validated['rol'],
-            ];
-
-            if (!empty($validated['pass'])) {
-                $data['pass'] = Hash::make($validated['pass']);
-            }
-
-            DB::table('usuario')->where('id_usuario', $id)->update($data);
-
-            return redirect()->route('usuarios.index')
-                ->with('sessionInsertado', 'true')
-                ->with('mensaje', '¡Usuario con ID ' . $id . ' actualizado con éxito!');
-
-        } catch (\Exception $e) {
-            Log::error("UsuarioController@update ID $id: " . $e->getMessage());
-            return redirect()->route('editarUsu', $id)
-                ->withInput()
-                ->with('sessionInsertado', 'false')
-                ->with('mensaje', 'Error al actualizar el usuario: ' . $e->getMessage());
-        }
+    if (!$usuarioActual) {
+        return redirect()->route('usuarios.index')
+            ->with('sessionInsertado', 'false')
+            ->with('mensaje', 'Usuario no encontrado.');
     }
 
+    if ($this->esSensei() && $usuarioActual->rol === 'admin') {
+        return redirect()->route('usuarios.index')
+            ->with('sessionInsertado', 'false')
+            ->with('mensaje', 'No tienes permisos para editar administradores.');
+    }
+
+    $validated = $request->validate([
+        'nombre'          => 'required|string|max:100',
+        'apaterno'        => 'required|string|max:100',
+        'amaterno'        => 'required|string|max:100',
+        'fecha_naci'      => 'required|date',
+        'tel'             => 'required|string|max:20',
+        'correo'          => 'required|email|unique:usuario,correo,' . $id . ',id_usuario',
+        'rol'             => 'required|in:admin,sensei,tutor,alumno',
+        'pass'            => 'nullable|min:6',
+        // Campos bachiller
+        'es_bachiller'    => 'nullable|boolean',
+        'numero_control'  => 'nullable|string|max:20',
+        'grupo'           => 'nullable|string|max:10',
+        'especialidad'    => 'nullable|string|max:100',
+        'turno'           => 'nullable|in:Matutino,Vespertino,Nocturno',
+    ]);
+
+    if ($this->esSensei() && $validated['rol'] === 'admin') {
+        return redirect()->route('usuarios.index')
+            ->with('sessionInsertado', 'false')
+            ->with('mensaje', 'No tienes permisos para asignar el rol de administrador.');
+    }
+
+    try {
+        $esBachiller = !empty($validated['es_bachiller']) && $validated['rol'] === 'alumno';
+
+        $data = [
+            'nombre'         => $validated['nombre'],
+            'apaterno'       => $validated['apaterno'],
+            'amaterno'       => $validated['amaterno'],
+            'fecha_naci'     => $validated['fecha_naci'],
+            'telefono'       => $validated['tel'],   // ← columna real en BD
+            'correo'         => $validated['correo'],
+            'rol'            => $validated['rol'],
+            // Si es bachiller guarda los campos, si no los limpia
+            'numero_control' => $esBachiller ? ($validated['numero_control'] ?? null) : null,
+            'grupo'          => $esBachiller ? ($validated['grupo']          ?? null) : null,
+            'especialidad'   => $esBachiller ? ($validated['especialidad']   ?? null) : null,
+            'turno'          => $esBachiller ? ($validated['turno']          ?? null) : null,
+        ];
+
+        if (!empty($validated['pass'])) {
+            $data['pass'] = Hash::make($validated['pass']);
+        }
+
+        DB::table('usuario')->where('id_usuario', $id)->update($data);
+
+        return redirect()->route('usuarios.index')
+            ->with('sessionInsertado', 'true')
+            ->with('mensaje', '¡Usuario con ID ' . $id . ' actualizado con éxito!');
+
+    } catch (\Exception $e) {
+        Log::error("UsuarioController@update ID $id: " . $e->getMessage());
+        return redirect()->route('editarUsu', $id)
+            ->withInput()
+            ->with('sessionInsertado', 'false')
+            ->with('mensaje', 'Error al actualizar el usuario: ' . $e->getMessage());
+    }
+}
     // ── destroy ──────────────────────────────────────────────────────────────
 
     public function destroy(int $id)
