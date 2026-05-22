@@ -3,26 +3,76 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\GaleriaController;   // para supabasePublicUrl()
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class GaleriaApiController extends Controller
 {
+    // ── Helpers Supabase (copiados de GaleriaController para mantener paridad) ──
+
+    private function supabaseUrl(): string
+    {
+        return rtrim((string) config('services.supabase.url'), '/');
+    }
+
+    private function supabaseKey(): string
+    {
+        return (string) config('services.supabase.secret_key');
+    }
+
+    private function supabaseBucket(): string
+    {
+        return 'galeria';
+    }
+
+    /**
+     * Sube un archivo a Supabase Storage.
+     * FIX: en la versión anterior se usaba Storage::disk('public') local,
+     * lo que causaba que las imágenes subidas desde móvil no fuesen accesibles.
+     */
+    private function supabaseUpload(\Illuminate\Http\UploadedFile $archivo, string $path): string
+    {
+        $contenido = file_get_contents($archivo->getRealPath());
+        $mime      = $archivo->getMimeType();
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->supabaseKey(),
+            'Content-Type'  => $mime,
+        ])->withBody($contenido, $mime)
+          ->post($this->supabaseUrl() . '/storage/v1/object/' . $this->supabaseBucket() . '/' . $path);
+
+        if ($response->failed()) {
+            throw new \Exception('Supabase upload error: ' . $response->body());
+        }
+
+        return $path;
+    }
+
+    /**
+     * Elimina un archivo de Supabase Storage.
+     * FIX: en la versión anterior se usaba Storage::disk('public')->delete(),
+     * que no llegaba a borrar nada en Supabase.
+     */
+    private function supabaseDelete(string $path): void
+    {
+        Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->supabaseKey(),
+            'Content-Type'  => 'application/json',
+        ])->delete($this->supabaseUrl() . '/storage/v1/object/' . $this->supabaseBucket() . '/' . $path);
+    }
+
+    // ── Permisos ──────────────────────────────────────────────────────────────
+
     private function esAdmin(Request $request): bool
     {
         return $request->user()->rol === 'admin';
     }
 
-    private function esSensei(Request $request): bool
-    {
-        return $request->user()->rol === 'sensei';
-    }
-
     /**
      * Admin y sensei pueden subir archivos.
-     * Solo admin puede eliminar.
      * Igual que GaleriaController (web).
      */
     private function puedeGestionar(Request $request): bool
@@ -30,10 +80,12 @@ class GaleriaApiController extends Controller
         return in_array($request->user()->rol, ['admin', 'sensei']);
     }
 
+    // ── index ─────────────────────────────────────────────────────────────────
+
     /**
      * GET /api/galeria
      * Pública — no requiere token
-     * Devuelve eventos agrupados + archivos individuales con URLs públicas
+     * Devuelve eventos agrupados + archivos individuales con URLs públicas de Supabase.
      */
     public function index()
     {
@@ -83,9 +135,11 @@ class GaleriaApiController extends Controller
         }
     }
 
+    // ── store ─────────────────────────────────────────────────────────────────
+
     /**
      * POST /api/galeria
-     * Solo admin — acepta multipart/form-data
+     * Admin o sensei — acepta multipart/form-data
      *
      * Campos:
      *   modo          string  'individual' | 'evento'
@@ -94,10 +148,10 @@ class GaleriaApiController extends Controller
      *   tipo          string  'imagen' | 'video'
      *   descripcion   string  opcional
      *   archivos[]    file    uno o varios archivos
+     *   destacado     bool    opcional (solo admin lo aplica)
      */
     public function store(Request $request)
     {
-        // Web permite admin y sensei subir archivos — igualamos comportamiento
         if (!$this->puedeGestionar($request)) {
             return response()->json([
                 'success' => false,
@@ -113,11 +167,9 @@ class GaleriaApiController extends Controller
             'descripcion'   => 'nullable|string|max:1000',
             'archivos'      => 'required|array|min:1',
             'archivos.*'    => 'required|file|max:51200',
-            // Igual que GaleriaController web — solo admin puede marcar destacado
             'destacado'     => 'nullable|boolean',
         ]);
 
-        // Validación adicional por tipo
         if ($request->tipo === 'imagen') {
             $request->validate(['archivos.*' => 'mimes:jpeg,jpg,png|max:10240']);
         } else {
@@ -129,19 +181,19 @@ class GaleriaApiController extends Controller
             $nombreEvento = $modoEvento ? trim($request->nombre_evento) : null;
             $subidos      = 0;
 
+            // FIX: destacado alineado con GaleriaController web:
+            // admin Y sensei pueden marcar destacado (puedeGestionar, no solo esAdmin)
+            $destacado = ($this->puedeGestionar($request) && $request->boolean('destacado')) ? 1 : 0;
+
             DB::beginTransaction();
 
             foreach ($request->file('archivos') as $i => $archivo) {
                 // Sanitizar nombre del archivo
                 $safe = preg_replace('/[^a-zA-Z0-9._-]/', '_', $archivo->getClientOriginalName());
-                $ruta = $archivo->storeAs(
-                    'galeria',
-                    time() . '_' . $i . '_' . $safe,
-                    'public'
-                );
+                $path = time() . '_' . $i . '_' . $safe;
 
-                // destacado solo lo puede marcar el admin (igual que GaleriaController web)
-                $destacado = ($this->esAdmin($request) && $request->boolean('destacado')) ? 1 : 0;
+                // FIX: subir a Supabase Storage (antes usaba Storage::disk('public') local)
+                $ruta = $this->supabaseUpload($archivo, $path);
 
                 DB::table('evento')->insert([
                     'titulo'        => $modoEvento
@@ -177,6 +229,8 @@ class GaleriaApiController extends Controller
         }
     }
 
+    // ── destroy ───────────────────────────────────────────────────────────────
+
     /**
      * DELETE /api/galeria/{id}
      * Solo admin — elimina un archivo individual por id_evento
@@ -200,9 +254,9 @@ class GaleriaApiController extends Controller
                 ], 404);
             }
 
-            // Eliminar archivo físico del storage
-            if ($archivo->ruta && Storage::disk('public')->exists($archivo->ruta)) {
-                Storage::disk('public')->delete($archivo->ruta);
+            // FIX: eliminar de Supabase (antes usaba Storage::disk('public')->delete())
+            if ($archivo->ruta) {
+                $this->supabaseDelete($archivo->ruta);
             }
 
             DB::table('evento')->where('id_evento', $id)->delete();
@@ -220,6 +274,8 @@ class GaleriaApiController extends Controller
             ], 500);
         }
     }
+
+    // ── destroyEvento ─────────────────────────────────────────────────────────
 
     /**
      * DELETE /api/galeria/evento
@@ -253,9 +309,10 @@ class GaleriaApiController extends Controller
 
             DB::beginTransaction();
 
+            // FIX: eliminar de Supabase (antes usaba Storage::disk('public')->delete())
             foreach ($archivos as $archivo) {
-                if ($archivo->ruta && Storage::disk('public')->exists($archivo->ruta)) {
-                    Storage::disk('public')->delete($archivo->ruta);
+                if ($archivo->ruta) {
+                    $this->supabaseDelete($archivo->ruta);
                 }
             }
 
@@ -283,16 +340,19 @@ class GaleriaApiController extends Controller
     // ── Helper privado ────────────────────────────────────────────────────────
 
     /**
-     * Mapea un registro de BD a un array con URL pública incluida
+     * Mapea un registro de BD a un array con URL pública de Supabase incluida.
+     * FIX: usa GaleriaController::supabasePublicUrl() igual que la web,
+     * en lugar de asset('storage/...') que apuntaba al disco local.
      */
     private function mapArchivo(object $archivo): array
     {
         return [
             'id_evento'   => $archivo->id_evento,
             'titulo'      => $archivo->titulo,
-            'tipo'        => $archivo->tipo,       // 'imagen' o 'video'
+            'tipo'        => $archivo->tipo,        // 'imagen' o 'video'
             'descripcion' => $archivo->descripcion ?? null,
-            'url'         => asset('storage/' . $archivo->ruta),
+            // FIX: URL pública de Supabase, no del storage local
+            'url'         => GaleriaController::supabasePublicUrl($archivo->ruta),
             'created_at'  => $archivo->created_at,
         ];
     }
