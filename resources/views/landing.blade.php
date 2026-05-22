@@ -222,13 +222,13 @@
                      onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 20px 60px rgba(0,0,0,0.3)';">
 
                     @if($item->tipo === 'imagen')
-                        <img src="{{ asset('storage/' . $item->ruta) }}"
+                        <img src="{{ App\Http\Controllers\GaleriaController::supabasePublicUrl($item->ruta) }}"
                              alt="{{ $item->titulo }}"
                              style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease;">
                     @else
                         <div style="width: 100%; height: 100%; position: relative; background: #000;">
                             <video style="width: 100%; height: 100%; object-fit: cover;">
-                                <source src="{{ asset('storage/' . $item->ruta) }}" type="video/mp4">
+                                <source src="{{ App\Http\Controllers\GaleriaController::supabasePublicUrl($item->ruta) }}" type="video/mp4">
                             </video>
                             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.9); width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
                                 <i class="bi bi-play-fill" style="font-size: 2rem; color: var(--karate-dark); margin-left: 5px;"></i>
