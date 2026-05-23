@@ -228,6 +228,9 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                                $SUPERUSUARIO_CORREO = 'nailea8040@gmail.com';
+                            @endphp
                             @foreach($usuarios as $usuario)
                                 <tr>
                                     <td>
@@ -258,12 +261,15 @@
 
                                     <td class="text-center">
                                         @php
-                                            $esMiPropioUsuario = Auth::id() === $usuario->id_usuario;
+                                            $esMiPropioUsuario  = Auth::id() === $usuario->id_usuario;
+                                            $esSuperUsuario     = strtolower(trim($usuario->correo)) === $SUPERUSUARIO_CORREO;
+                                            $authEsSuperUsuario = strtolower(trim(Auth::user()->correo)) === $SUPERUSUARIO_CORREO;
                                         @endphp
 
-                                        @if($esMiPropioUsuario)
-                                            {{-- El usuario autenticado no puede desactivarse a sí mismo --}}
-                                            <label class="switch" title="No puedes cambiar tu propio estado de acceso"
+                                        @if($esMiPropioUsuario || $esSuperUsuario)
+                                            {{-- Propio usuario o superusuario: toggle bloqueado --}}
+                                            <label class="switch"
+                                                   title="{{ $esSuperUsuario ? 'El superusuario no puede ser desactivado' : 'No puedes cambiar tu propio estado de acceso' }}"
                                                    style="cursor:not-allowed;opacity:0.5;">
                                                 <input type="checkbox" name="activo"
                                                        {{ $usuario->estado == 1 ? 'checked' : '' }}
@@ -291,8 +297,9 @@
 
                                     <td class="text-center">
                                         <div class="action-buttons">
-                                            {{-- Botón editar: visible para admin siempre; para sensei solo si no es admin --}}
-                                            @if(Auth::user()->rol === 'admin' || $usuario->rol !== 'admin')
+                                            {{-- Botón editar: superusuario solo lo edita él mismo; admin edita todos los demás --}}
+                                            @if(!$esSuperUsuario || $authEsSuperUsuario)
+                                            @if(Auth::user()->rol === 'admin' || $authEsSuperUsuario || $usuario->rol !== 'admin')
                                             <button type="button" class="action-btn btn-edit edit-user-btn"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#editUserModal"
@@ -308,10 +315,18 @@
                                                 <i class="bi bi-pencil-fill"></i>
                                             </button>
                                             @endif
+                                            @endif
 
-                                            {{-- Botón eliminar: solo admin puede eliminar --}}
+                                            {{-- Botón eliminar: solo admin puede eliminar, nunca al superusuario --}}
                                             @if(Auth::user()->rol === 'admin')
-                                                @if($usuario->rol !== 'admin')
+                                                @if($esSuperUsuario)
+                                                    {{-- Superusuario: botón bloqueado siempre --}}
+                                                    <button type="button" class="action-btn btn-disabled"
+                                                            title="El superusuario no puede ser eliminado" disabled
+                                                            style="cursor:not-allowed;opacity:0.6;background-color:#f8d7da;">
+                                                        <i class="bi bi-shield-lock-fill"></i>
+                                                    </button>
+                                                @elseif($usuario->rol !== 'admin')
                                                     <form action="{{ route('usuarios.destroy', $usuario->id_usuario) }}"
                                                           method="POST" style="display:inline;"
                                                           onsubmit="return confirmarEliminacion(event);">
@@ -398,6 +413,11 @@
                                 <option value="tutor">Tutor</option>
                                 <option value="alumno">Alumno</option>
                             </select>
+                            {{-- Aviso visual cuando se edita al superusuario (el JS lo muestra/oculta) --}}
+                            <small id="edit_rol_lock_msg" class="text-danger d-none">
+                                <i class="bi bi-shield-lock-fill"></i>
+                                El rol del superusuario no puede modificarse.
+                            </small>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -497,6 +517,9 @@
                 const correo    = $(this).data('correo');
                 const rol       = $(this).data('rol');
 
+                const SUPERUSUARIO_CORREO = 'nailea8040@gmail.com';
+                const esSuperUsuario = correo.trim().toLowerCase() === SUPERUSUARIO_CORREO;
+
                 $('#edit_id_usuario').val(userId);
                 $('#edit_nombre').val(nombre);
                 $('#edit_apaterno').val(apaterno);
@@ -505,11 +528,18 @@
                 $('#edit_telefono').val(telefono);
                 $('#edit_correo').val(correo);
                 $('#edit_rol').val(rol);
-                // Guardar id en el form para construir la URL
                 $('#editForm').data('userId', userId);
                 $('#edit_pass').val('');
-                // Limpiar errores previos
                 $('#editForm .edit-error-msg').remove();
+
+                // Bloquear/desbloquear el select de rol según si es superusuario
+                if (esSuperUsuario) {
+                    $('#edit_rol').prop('disabled', true);
+                    $('#edit_rol_lock_msg').removeClass('d-none');
+                } else {
+                    $('#edit_rol').prop('disabled', false);
+                    $('#edit_rol_lock_msg').addClass('d-none');
+                }
             });
 
             // ── Envío AJAX del modal editar ──────────────────────────────────
@@ -521,6 +551,12 @@
                 const formData = new FormData(this);
                 // Laravel espera _method=PUT para rutas update
                 formData.set('_method', 'PUT');
+
+                // Si el select de rol está deshabilitado (superusuario),
+                // el navegador no lo incluye en FormData — lo agregamos manualmente.
+                if ($('#edit_rol').prop('disabled')) {
+                    formData.set('rol', $('#edit_rol').val());
+                }
 
                 // Deshabilitar botón mientras procesa
                 const btnGuardar = $(this).find('button[type="submit"]');

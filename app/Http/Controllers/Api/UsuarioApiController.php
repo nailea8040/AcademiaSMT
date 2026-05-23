@@ -11,9 +11,23 @@ use Illuminate\Validation\Rules\Password;
 
 class UsuarioApiController extends Controller
 {
-    /**
-     * GET /api/usuarios
-     */
+    // ── Superusuario protegido ───────────────────────────────────────────────
+
+    private const SUPERUSUARIO_CORREO = 'nailea8040@gmail.com';
+
+    private function esSuperUsuario($usuario): bool
+    {
+        if (!$usuario) return false;
+        return strtolower(trim($usuario->correo)) === self::SUPERUSUARIO_CORREO;
+    }
+
+    private function authEsSuperUsuario(Request $request): bool
+    {
+        return $this->esSuperUsuario($request->user());
+    }
+
+    // ── GET /api/usuarios ────────────────────────────────────────────────────
+
     public function index(Request $request)
     {
         $this->soloAdminOSensei($request);
@@ -24,7 +38,6 @@ class UsuarioApiController extends Controller
                      'numero_control', 'grupo', 'especialidad', 'turno')
             ->orderBy('nombre');
 
-        // Sensei NO ve administradores — igual que UsuarioController web
         if ($request->user()->rol === 'sensei') {
             $query->where('rol', '!=', 'admin');
         }
@@ -34,9 +47,8 @@ class UsuarioApiController extends Controller
         return response()->json(['success' => true, 'data' => $usuarios]);
     }
 
-    /**
-     * POST /api/usuarios
-     */
+    // ── POST /api/usuarios ───────────────────────────────────────────────────
+
     public function store(Request $request)
     {
         $this->soloAdminOSensei($request);
@@ -49,16 +61,13 @@ class UsuarioApiController extends Controller
             'tel'            => 'required|string|max:10',
             'correo'         => 'required|email|unique:usuario,correo',
             'pass'           => 'required|min:6',
-            // ENUM real en BD: 'admin', 'sensei', 'tutor', 'alumno'
             'rol'            => 'required|in:admin,sensei,tutor,alumno',
-            // fecha_registro se genera en el servidor — igual que UsuarioController web
-            'numero_control'  => 'nullable|string|max:20',
-            'grupo'           => 'nullable|string|max:10',
-            'especialidad'    => 'nullable|string|max:100',
-            'turno'           => 'nullable|in:Matutino,Vespertino,Nocturno',
+            'numero_control' => 'nullable|string|max:20',
+            'grupo'          => 'nullable|string|max:10',
+            'especialidad'   => 'nullable|string|max:100',
+            'turno'          => 'nullable|in:Matutino,Vespertino,Nocturno',
         ]);
 
-        // Sensei no puede crear administradores — igual que UsuarioController web
         if ($request->user()->rol === 'sensei' && $validated['rol'] === 'admin') {
             return response()->json(['success' => false, 'message' => 'No tienes permiso para crear administradores.'], 403);
         }
@@ -73,7 +82,7 @@ class UsuarioApiController extends Controller
                 'correo'         => $validated['correo'],
                 'pass'           => Hash::make($validated['pass']),
                 'rol'            => $validated['rol'],
-                'fecha_registro' => now()->toDateString(), // generada en servidor
+                'fecha_registro' => now()->toDateString(),
                 'estado'         => 1,
             ]);
 
@@ -85,15 +94,14 @@ class UsuarioApiController extends Controller
         }
     }
 
-    /**
-     * GET /api/usuarios/{id}
-     */
+    // ── GET /api/usuarios/{id} ───────────────────────────────────────────────
+
     public function show(Request $request, int|string $id)
     {
         $authUser = $request->user();
 
-        // Admin ve cualquier usuario; un usuario solo se ve a sí mismo
-        if ($authUser->rol !== 'admin' && (int) $authUser->id_usuario !== (int) $id) {
+        // Admin y superusuario ven cualquier perfil; el resto solo el suyo
+        if ($authUser->rol !== 'admin' && !$this->authEsSuperUsuario($request) && (int) $authUser->id_usuario !== (int) $id) {
             return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
         }
 
@@ -110,24 +118,36 @@ class UsuarioApiController extends Controller
         return response()->json(['success' => true, 'data' => $usuario]);
     }
 
-    /**
-     * PUT /api/usuarios/{id}
-     */
+    // ── PUT /api/usuarios/{id} ───────────────────────────────────────────────
+
     public function update(Request $request, int|string $id)
     {
         $authUser = $request->user();
 
-        if ($authUser->rol !== 'admin' && (int) $authUser->id_usuario !== (int) $id) {
+        // Verificar que el target exista antes de cualquier otra validación
+        $usuarioTarget = DB::table('usuario')->where('id_usuario', $id)->first();
+
+        if (!$usuarioTarget) {
+            return response()->json(['success' => false, 'message' => 'Usuario no encontrado.'], 404);
+        }
+
+        // ── Protección superusuario: solo él mismo puede editar su cuenta ────
+        if ($this->esSuperUsuario($usuarioTarget) && !$this->authEsSuperUsuario($request)) {
+            return response()->json(['success' => false, 'message' => 'No tienes permiso para editar al superusuario del sistema.'], 403);
+        }
+
+        // Permiso general: admin edita cualquiera; usuario edita solo su perfil
+        if ($authUser->rol !== 'admin' && !$this->authEsSuperUsuario($request) && (int) $authUser->id_usuario !== (int) $id) {
             return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
         }
 
         $validated = $request->validate([
-            'nombre'     => 'required|string|max:100',
-            'apaterno'   => 'required|string|max:100',
-            'amaterno'   => 'required|string|max:100',
-            'fecha_naci' => 'required|date',
-            'tel'        => 'required|string|max:20',
-            'correo'     => 'required|email|unique:usuario,correo,' . $id . ',id_usuario',
+            'nombre'         => 'required|string|max:100',
+            'apaterno'       => 'required|string|max:100',
+            'amaterno'       => 'required|string|max:100',
+            'fecha_naci'     => 'required|date',
+            'tel'            => 'required|string|max:20',
+            'correo'         => 'required|email|unique:usuario,correo,' . $id . ',id_usuario',
             'rol'            => 'required|in:admin,sensei,tutor,alumno',
             'pass'           => 'nullable|min:6',
             'numero_control' => 'nullable|string|max:20',
@@ -135,6 +155,11 @@ class UsuarioApiController extends Controller
             'especialidad'   => 'nullable|string|max:100',
             'turno'          => 'nullable|in:Matutino,Vespertino,Nocturno',
         ]);
+
+        // ── El rol del superusuario jamás se modifica ────────────────────────
+        if ($this->esSuperUsuario($usuarioTarget)) {
+            $validated['rol'] = $usuarioTarget->rol;
+        }
 
         try {
             $data = [
@@ -161,14 +186,24 @@ class UsuarioApiController extends Controller
         }
     }
 
-    /**
-     * DELETE /api/usuarios/{id}
-     */
+    // ── DELETE /api/usuarios/{id} ────────────────────────────────────────────
+
     public function destroy(Request $request, int|string $id)
     {
         $this->soloAdmin($request);
 
         try {
+            $usuario = DB::table('usuario')->where('id_usuario', $id)->first();
+
+            if (!$usuario) {
+                return response()->json(['success' => false, 'message' => 'Usuario no encontrado.'], 404);
+            }
+
+            // ── Protección superusuario: nadie puede eliminarlo ──────────────
+            if ($this->esSuperUsuario($usuario)) {
+                return response()->json(['success' => false, 'message' => 'El superusuario del sistema no puede ser eliminado.'], 403);
+            }
+
             $deleted = DB::table('usuario')->where('id_usuario', $id)->delete();
 
             if (!$deleted) {
@@ -186,9 +221,8 @@ class UsuarioApiController extends Controller
         }
     }
 
-    /**
-     * PATCH /api/usuarios/{id}/toggle-estado
-     */
+    // ── PATCH /api/usuarios/{id}/toggle-estado ───────────────────────────────
+
     public function toggleEstado(Request $request, int|string $id)
     {
         $this->soloAdminOSensei($request);
@@ -199,7 +233,11 @@ class UsuarioApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Usuario no encontrado.'], 404);
         }
 
-        // Sensei no puede cambiar estado de administradores — igual que UsuarioController web
+        // ── Protección superusuario: nadie puede desactivarlo ────────────────
+        if ($this->esSuperUsuario($usuario)) {
+            return response()->json(['success' => false, 'message' => 'El superusuario del sistema no puede ser desactivado.'], 403);
+        }
+
         if ($request->user()->rol === 'sensei' && $usuario->rol === 'admin') {
             return response()->json(['success' => false, 'message' => 'No tienes permiso para cambiar el estado de un administrador.'], 403);
         }
@@ -214,9 +252,8 @@ class UsuarioApiController extends Controller
         ]);
     }
 
-    /**
-     * PUT /api/perfil
-     */
+    // ── PUT /api/perfil ──────────────────────────────────────────────────────
+
     public function updatePerfil(Request $request)
     {
         $usuario = $request->user();
@@ -255,23 +292,18 @@ class UsuarioApiController extends Controller
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
-    /** Solo admin — para operaciones destructivas (destroy). */
     private function soloAdmin(Request $request)
     {
-        if ($request->user()->rol !== 'admin') {
+        if ($request->user()->rol !== 'admin' && !$this->authEsSuperUsuario($request)) {
             abort(response()->json(['success' => false, 'message' => 'Acceso solo para administradores.'], 403));
         }
     }
 
-    /**
-     * Admin o sensei — igual que UsuarioController web (soloAdminOSensei).
-     * Usado en: index, store, update, toggleEstado.
-     */
     private function soloAdminOSensei(Request $request)
     {
-        if (!in_array($request->user()->rol, ['admin', 'sensei'])) {
+        if (!in_array($request->user()->rol, ['admin', 'sensei']) && !$this->authEsSuperUsuario($request)) {
             abort(response()->json(['success' => false, 'message' => 'Acceso solo para administradores y senseis.'], 403));
         }
     }

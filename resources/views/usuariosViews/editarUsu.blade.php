@@ -83,17 +83,28 @@
                            value="{{ old('tel', $usuario->telefono) }}" required>
 
                     {{-- ── Rol ── --}}
+                    @php
+                        $esSuperUsuario = strtolower(trim($usuario->correo)) === 'nailea8040@gmail.com';
+                    @endphp
                     <label for="rol" class="form-label mt-2">Rol</label>
                     <select id="rol" name="rol" class="form-select" required
-                            onchange="mostrarBachiller()">
+                            onchange="mostrarBachiller()"
+                            {{ $esSuperUsuario ? 'disabled' : '' }}>
                         <option value="">Selecciona tipo de usuario</option>
                         @php $currentRol = old('rol', $usuario->rol); @endphp
-                        {{-- ✅ BD usa 'admin', no 'administrador' --}}
                         <option value="admin"   {{ $currentRol == 'admin'   ? 'selected' : '' }}>Administrador</option>
                         <option value="sensei"  {{ $currentRol == 'sensei'  ? 'selected' : '' }}>Sensei</option>
                         <option value="tutor"   {{ $currentRol == 'tutor'   ? 'selected' : '' }}>Tutor</option>
                         <option value="alumno"  {{ $currentRol == 'alumno'  ? 'selected' : '' }}>Alumno</option>
                     </select>
+                    @if($esSuperUsuario)
+                        {{-- Campo oculto para que el rol se envíe aunque el select esté disabled --}}
+                        <input type="hidden" name="rol" value="{{ $usuario->rol }}">
+                        <small class="text-danger">
+                            <i class="bi bi-shield-lock-fill"></i>
+                            El rol del superusuario no puede modificarse.
+                        </small>
+                    @endif
 
                     <label for="fecha_naci" class="form-label mt-2">Fecha de Nacimiento</label>
                     <input type="date" id="fecha_naci" name="fecha_naci" class="form-control"
