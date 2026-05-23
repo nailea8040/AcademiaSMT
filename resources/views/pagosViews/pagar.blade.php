@@ -214,7 +214,7 @@
     const CSRF_TOKEN    = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
     // ── Validación temprana ───────────────────────────────────────────────────
-    if (!PUBLIC_KEY || PUBLIC_KEY.startsWith('TTEST') || PUBLIC_KEY === '') {
+    if (!PUBLIC_KEY || PUBLIC_KEY === '' || (!PUBLIC_KEY.startsWith('TEST-') && !PUBLIC_KEY.startsWith('APP_USR-'))) {
         mostrarErrorBrick('Public Key de MercadoPago inválida. Contacta al administrador.');
         return;
     }
@@ -242,6 +242,7 @@
     const settings = {
         initialization: {
             preferenceId: PREFERENCE_ID,
+            amount: {{ $montoACobrar }},
         },
         customization: {
             paymentMethods: {
