@@ -152,34 +152,34 @@
 
                 </div>
 
-                {{-- Relación general --}}
+                {{-- Hidden: se rellena desde los botones visuales --}}
+                <input type="hidden" name="relacion_estudiante" id="relacionInput" value="Tutor">
+
+                {{-- Botones visuales de relación --}}
                 <h3 class="section-title-header">
-                    <i class="bi bi-heart-fill"></i> Relación General con los Estudiantes
+                    <i class="bi bi-heart-fill"></i> ¿Cuál es tu relación con los alumnos?
                 </h3>
-                <div class="form-grid full-width" style="margin-bottom:8px;">
-                    <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label">Parentesco general <span class="required">*</span></label>
-                        <div class="relation-options" id="relationOptions">
-                            <div class="relation-option" data-value="Padre">
-                                <i class="bi bi-person-fill"></i><span>Padre</span>
-                            </div>
-                            <div class="relation-option" data-value="Madre">
-                                <i class="bi bi-person-fill"></i><span>Madre</span>
-                            </div>
-                            <div class="relation-option" data-value="Abuelo/a">
-                                <i class="bi bi-person-heart"></i><span>Abuelo/a</span>
-                            </div>
-                            <div class="relation-option" data-value="Tío/a">
-                                <i class="bi bi-people-fill"></i><span>Tío/a</span>
-                            </div>
-                            <div class="relation-option" data-value="Hermano/a">
-                                <i class="bi bi-people"></i><span>Hermano/a</span>
-                            </div>
-                            <div class="relation-option" data-value="Tutor Legal">
-                                <i class="bi bi-shield-check"></i><span>Tutor Legal</span>
-                            </div>
-                        </div>
-                        <input type="hidden" name="relacion_estudiante" id="relacionInput" required>
+                <p style="font-size:12px;color:#757575;margin:-4px 0 12px;">
+                    Selecciona el parentesco y se aplicará a todos los alumnos que agregues.
+                </p>
+                <div class="relation-options" id="relationOptions" style="margin-bottom:20px;">
+                    <div class="relation-option" data-value="Padre">
+                        <i class="bi bi-person-fill"></i><span>Padre</span>
+                    </div>
+                    <div class="relation-option" data-value="Madre">
+                        <i class="bi bi-person-fill"></i><span>Madre</span>
+                    </div>
+                    <div class="relation-option" data-value="Abuelo/a">
+                        <i class="bi bi-person-heart"></i><span>Abuelo/a</span>
+                    </div>
+                    <div class="relation-option" data-value="Tío/a">
+                        <i class="bi bi-people-fill"></i><span>Tío/a</span>
+                    </div>
+                    <div class="relation-option" data-value="Hermano/a">
+                        <i class="bi bi-people"></i><span>Hermano/a</span>
+                    </div>
+                    <div class="relation-option" data-value="Tutor Legal">
+                        <i class="bi bi-shield-check"></i><span>Tutor Legal</span>
                     </div>
                 </div>
 
@@ -190,7 +190,6 @@
                 </h3>
                 <div class="alumnos-builder" id="alumnosBuilder">
                     <div id="alumnosContainer">
-                        {{-- filas dinámicas --}}
                         <p class="no-alumnos-hint" id="noAlumnosHint">
                             <i class="bi bi-info-circle"></i>
                             Aún no has agregado alumnos. Puedes vincularlos después desde esta misma pantalla.
@@ -334,23 +333,24 @@
                     </div>
                 </div>
 
+                {{-- Hidden sincronizado --}}
+                <input type="hidden" name="relacion_estudiante" id="edit_relacion_estudiante" value="Tutor">
+
+                {{-- Botones visuales de relación en edición --}}
                 <div class="form-section">
                     <h3 class="form-section-title">
-                        <i class="bi bi-heart-fill"></i> Relación con el Estudiante
+                        <i class="bi bi-heart-fill"></i> ¿Cuál es tu relación con los alumnos?
                     </h3>
-                    <div class="form-row full-width">
-                        <div class="form-field">
-                            <label class="field-label">Parentesco general <span class="required">*</span></label>
-                            <div class="relation-options" id="editRelationOptions">
-                                <div class="relation-option" data-value="Padre"><i class="bi bi-person-fill"></i><span>Padre</span></div>
-                                <div class="relation-option" data-value="Madre"><i class="bi bi-person-fill"></i><span>Madre</span></div>
-                                <div class="relation-option" data-value="Abuelo/a"><i class="bi bi-person-heart"></i><span>Abuelo/a</span></div>
-                                <div class="relation-option" data-value="Tío/a"><i class="bi bi-people-fill"></i><span>Tío/a</span></div>
-                                <div class="relation-option" data-value="Hermano/a"><i class="bi bi-people"></i><span>Hermano/a</span></div>
-                                <div class="relation-option" data-value="Tutor Legal"><i class="bi bi-shield-check"></i><span>Tutor Legal</span></div>
-                            </div>
-                            <input type="hidden" name="relacion_estudiante" id="edit_relacion_estudiante" required>
-                        </div>
+                    <p style="font-size:12px;color:#9e9e9e;margin:-6px 0 12px;">
+                        Selecciona el parentesco y se aplicará a todos los alumnos vinculados.
+                    </p>
+                    <div class="relation-options" id="editRelationOptions">
+                        <div class="relation-option" data-value="Padre"><i class="bi bi-person-fill"></i><span>Padre</span></div>
+                        <div class="relation-option" data-value="Madre"><i class="bi bi-person-fill"></i><span>Madre</span></div>
+                        <div class="relation-option" data-value="Abuelo/a"><i class="bi bi-person-heart"></i><span>Abuelo/a</span></div>
+                        <div class="relation-option" data-value="Tío/a"><i class="bi bi-people-fill"></i><span>Tío/a</span></div>
+                        <div class="relation-option" data-value="Hermano/a"><i class="bi bi-people"></i><span>Hermano/a</span></div>
+                        <div class="relation-option" data-value="Tutor Legal"><i class="bi bi-shield-check"></i><span>Tutor Legal</span></div>
                     </div>
                 </div>
 
@@ -423,16 +423,19 @@ function agregarFilaAlumno(ctx, idAlumno = null, relacion = null) {
     const hint      = document.getElementById(isEdit ? 'editNoAlumnosHint'   : 'noAlumnosHint');
     if (hint) hint.style.display = 'none';
 
-    const idx = isEdit ? editCounter++ : regCounter++;
-    const prefix = isEdit ? `alumnos[${idx}]` : `alumnos[${idx}]`;
+    const idx    = isEdit ? editCounter++ : regCounter++;
+    const prefix = `alumnos[${idx}]`;
     const rowId  = `${ctx}-row-${idx}`;
+
+    // Si no viene relación explícita, heredar la del botón activo
+    const relacionFila = relacion || getRelacionSeleccionada(ctx);
 
     const div = document.createElement('div');
     div.className = 'alumno-row';
     div.id = rowId;
     div.innerHTML = `
         ${buildAlumnoSelect(`${prefix}[id_alumno]`, idAlumno)}
-        ${buildRelacionSelect(`${prefix}[relacion]`, relacion)}
+        ${buildRelacionSelect(`${prefix}[relacion]`, relacionFila)}
         <button type="button" class="btn-remove-alumno" onclick="eliminarFilaAlumno('${rowId}','${ctx}')">
             <i class="bi bi-trash-fill"></i>
         </button>
@@ -460,21 +463,45 @@ function resetAlumnos() {
     if (hint) hint.style.display = '';
 }
 
-// ── Formulario registro: parentesco ──────────────────────────────────────────
+// ── Obtener relación actualmente seleccionada en los botones ──────────────────
+function getRelacionSeleccionada(ctx) {
+    const isEdit  = ctx === 'edit';
+    const optId   = isEdit ? 'editRelationOptions' : 'relationOptions';
+    const activo  = document.querySelector(`#${optId} .relation-option.selected`);
+    return activo ? activo.dataset.value : 'Tutor';
+}
+
+// ── Propagar la relación elegida a todos los selects de filas existentes ──────
+function propagarRelacion(ctx, valor) {
+    const isEdit    = ctx === 'edit';
+    const container = document.getElementById(isEdit ? 'editAlumnosContainer' : 'alumnosContainer');
+    container.querySelectorAll('select[name*="[relacion]"]').forEach(sel => {
+        sel.value = valor;
+    });
+    // Actualizar hidden
+    const hiddenId = isEdit ? 'edit_relacion_estudiante' : 'relacionInput';
+    document.getElementById(hiddenId).value = valor;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+
+    // Botones de relación — formulario de registro
     document.querySelectorAll('#relationOptions .relation-option').forEach(opt => {
         opt.addEventListener('click', function() {
-            document.querySelectorAll('#relationOptions .relation-option').forEach(o => o.classList.remove('selected'));
+            document.querySelectorAll('#relationOptions .relation-option')
+                .forEach(o => o.classList.remove('selected'));
             this.classList.add('selected');
-            document.getElementById('relacionInput').value = this.dataset.value;
+            propagarRelacion('reg', this.dataset.value);
         });
     });
 
+    // Botones de relación — modal de edición
     document.querySelectorAll('#editRelationOptions .relation-option').forEach(opt => {
         opt.addEventListener('click', function() {
-            document.querySelectorAll('#editRelationOptions .relation-option').forEach(o => o.classList.remove('selected'));
+            document.querySelectorAll('#editRelationOptions .relation-option')
+                .forEach(o => o.classList.remove('selected'));
             this.classList.add('selected');
-            document.getElementById('edit_relacion_estudiante').value = this.dataset.value;
+            propagarRelacion('edit', this.dataset.value);
         });
     });
 
@@ -488,27 +515,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── Modal de edición ──────────────────────────────────────────────────────────
 function openEditModal(id, idOcupacion, relacion, alumnosRelacionados) {
-    document.getElementById('edit_id_Tutor').value      = id;
-    document.getElementById('edit_id_ocupacion').value  = idOcupacion || '';
-    document.getElementById('edit_relacion_estudiante').value = relacion;
+    document.getElementById('edit_id_Tutor').value     = id;
+    document.getElementById('edit_id_ocupacion').value = idOcupacion || '';
+    document.getElementById('edit_relacion_estudiante').value = relacion || 'Tutor';
 
+    // Marcar el botón activo según la relación guardada
     document.querySelectorAll('#editRelationOptions .relation-option').forEach(opt => {
-        opt.classList.toggle('selected', opt.dataset.value === relacion);
+        opt.classList.toggle('selected', opt.dataset.value === (relacion || 'Tutor'));
     });
 
     document.getElementById('editForm').action = '{{ url("/tutor") }}/' + id;
 
-    // Limpiar filas previas de alumnos en el modal
+    // Limpiar filas previas
     const container = document.getElementById('editAlumnosContainer');
     container.querySelectorAll('.alumno-row').forEach(r => r.remove());
     editCounter = 0;
     document.getElementById('editNoAlumnosHint').style.display = '';
 
-    // Cargar alumnos existentes del tutor
+    // Cargar alumnos existentes
     if (Array.isArray(alumnosRelacionados) && alumnosRelacionados.length) {
-        alumnosRelacionados.forEach(a => {
-            agregarFilaAlumno('edit', a.id_alumno, a.relacion);
-        });
+        alumnosRelacionados.forEach(a => agregarFilaAlumno('edit', a.id_alumno, a.relacion));
     }
 
     document.getElementById('editModal').classList.add('active');
