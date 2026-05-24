@@ -39,6 +39,11 @@ return [
         // Public Key: se usa en el frontend (Payment Brick / JS SDK).
         // También se expone en Blade para pasarla al JS — es seguro hacerlo.
         'public_key'   => env('MP_PUBLIC_KEY'),
+
+        // Sandbox: true = modo pruebas (cuenta de prueba Vendedor con APP_USR-)
+        //          false = producción real
+        // En Railway: agrega MP_SANDBOX=true para pruebas, MP_SANDBOX=false para producción.
+        'sandbox'      => env('MP_SANDBOX', false),
     ],
 
 ];

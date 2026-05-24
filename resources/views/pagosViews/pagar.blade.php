@@ -209,6 +209,7 @@
     // CORRECCIÓN: Public Key leída UNA sola vez (antes había un duplicado que podía
     // causar que se inicializara MP dos veces con claves distintas).
     const PUBLIC_KEY    = @json(config('services.mercadopago.public_key'));
+    const IS_SANDBOX    = @json(config('services.mercadopago.sandbox', false));
     const PREFERENCE_ID = @json($preferenceId);
     const ID_PAGO       = @json($pago->id_pago);
     const CSRF_TOKEN    = document.querySelector('meta[name="csrf-token"]')?.content ?? '';

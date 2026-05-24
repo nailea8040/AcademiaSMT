@@ -19,8 +19,12 @@ class MercadoPagoService
 
         MercadoPagoConfig::setAccessToken($token);
 
-        // En producción no se llama setRuntimeEnviroment → MP usa producción por defecto.
-        // En sandbox (token TEST-) no hace falta forzar nada; el token define el entorno.
+        // Si el token es de cuenta de prueba (TEST- o APP_USR- de cuenta test),
+        // forzamos el runtime a sandbox para que el SDK opere correctamente.
+        // La variable MP_SANDBOX=true en Railway activa esto.
+        if (config('services.mercadopago.sandbox', false)) {
+            MercadoPagoConfig::setRuntimeEnviroment(MercadoPagoConfig::LOCAL);
+        }
     }
 
     /**
