@@ -131,6 +131,12 @@ Route::delete('/alumnos/historial-seminarios/{id}',   [AlumnoController::class, 
     // Registrar abono (efectivo → admin/sensei | en_línea → cualquier rol)
     Route::post('/pagos/{id}/abono',           [PagoController::class, 'abono'])->name('pagos.abono');
 
+    // Admin: eliminar pago permanentemente (hard delete)
+    Route::delete('/pagos/{id}',               [PagoController::class, 'destroy'])->name('pagos.destroy');
+
+    // Sensei: suspender pago (soft delete → estado 'Suspendido')
+    Route::patch('/pagos/{id}/suspender',      [PagoController::class, 'suspender'])->name('pagos.suspender');
+
     Route::post('/conceptos-pago',     [PagoController::class, 'storeConcepto'])->name('conceptos.store');
 Route::put('/conceptos-pago/{id}', [PagoController::class, 'updateConcepto'])->name('conceptos.update');
 
