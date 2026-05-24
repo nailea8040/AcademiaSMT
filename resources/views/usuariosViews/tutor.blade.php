@@ -193,7 +193,7 @@
                 </h3>
                 <div class="alumnos-builder" id="alumnosBuilder">
                     <div id="alumnosContainer">
-                        <p class="no-alumnos-hint" id="noAlumnosHint">
+                        <p class="no-alumnos-hint" id="noAlumnosHint" style="display:none;">
                             <i class="bi bi-info-circle"></i>
                             Aún no has agregado alumnos. Puedes vincularlos después desde esta misma pantalla.
                         </p>
@@ -512,8 +512,9 @@ function resetAlumnos() {
     const hint      = document.getElementById('noAlumnosHint');
     container.querySelectorAll('.alumno-row').forEach(r => r.remove());
     regCounter = 0;
-    if (hint) hint.style.display = '';
+    if (hint) hint.style.display = 'none';
     document.getElementById('relacionInput').value = 'Tutor';
+    agregarFilaAlumno('reg');
 }
 
 // ── Búsqueda ──────────────────────────────────────────────────────────────────
@@ -524,6 +525,9 @@ document.addEventListener('DOMContentLoaded', function() {
             $(this).toggle($(this).text().toLowerCase().includes(txt));
         });
     });
+
+    // Mostrar una fila de alumno por defecto al cargar
+    agregarFilaAlumno('reg');
 });
 
 // ── Modal de edición ──────────────────────────────────────────────────────────
