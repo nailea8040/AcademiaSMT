@@ -19,19 +19,13 @@
 
         /* ── Constructor de alumnos (formulario) ─── */
         .alumnos-builder { border:1.5px dashed #e0e0e0; border-radius:10px; padding:14px; margin-top:8px; }
-        .alumno-row {
-            display:grid;
-            grid-template-columns:1fr 1fr 52px;
-            gap:24px;
-            align-items:center;
-            margin-bottom:8px;
-        }
+        .alumno-row { align-items:center; margin-bottom:8px; }
         .alumno-row:last-child { margin-bottom:0; }
         .btn-remove-alumno {
-            background:#ffebee; border:none; border-radius:12px;
-            color:#c62828; width:100%; height:52px;
+            background:#ffebee; border:none; border-radius:8px;
+            color:#c62828; width:36px; height:36px;
             cursor:pointer; display:flex; align-items:center; justify-content:center;
-            font-size:18px; flex-shrink:0;
+            font-size:16px; flex-shrink:0;
         }
         .btn-remove-alumno:hover { background:#ffcdd2; }
         .btn-add-alumno {
@@ -43,42 +37,29 @@
         .btn-add-alumno:hover { background:#c8e6c9; }
         .no-alumnos-hint { color:#9e9e9e; font-size:12px; margin:6px 0; }
 
-        /* Select de alumno en filas dinámicas — estilos autónomos sin depender del global */
-        .alumno-select {
-            width:100%; height:52px;
-            padding:0 16px !important;
-            border:2px solid #e8e8e8 !important;
-            border-radius:12px !important;
-            font-size:15px; font-family:inherit;
-            background:#f8f9fa !important;
-            appearance:auto !important;
-            -webkit-appearance:auto !important;
-            color:#1a1a1a;
-            box-sizing:border-box;
-        }
-        .alumno-select:focus {
-            outline:none;
-            border-color:var(--color-primary) !important;
-            background:white !important;
-            box-shadow:0 0 0 4px var(--color-primary-light-bg) !important;
-        }
-
         /* ── Dropdown custom de parentesco ────────────────────── */
         .rel-dropdown { position:relative; cursor:pointer; user-select:none; }
         .rel-trigger {
             display:flex; align-items:center; gap:4px;
-            min-height:52px; padding:14px 16px;
-            border:2px solid #e8e8e8; border-radius:12px;
+            width:100%;
+            padding: 14px 16px;
+            border: 2px solid #e8e8e8; border-radius:12px;
             background:#f8f9fa; font-size:15px; color:#1a1a1a;
-            transition:border-color .2s;
+            font-family:inherit;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
         }
         .rel-dropdown.open .rel-trigger,
-        .rel-trigger:hover { border-color:var(--color-primary); }
-        .rel-chevron { margin-left:auto; font-size:12px; color:#9e9e9e; transition:transform .2s; }
+        .rel-trigger:hover {
+            border-color: var(--color-primary);
+            background: white;
+            box-shadow: 0 0 0 4px var(--color-primary-light-bg);
+        }
+        .rel-chevron { margin-left:auto; font-size:13px; color:#9e9e9e; transition:transform .2s; flex-shrink:0; }
         .rel-dropdown.open .rel-chevron { transform:rotate(180deg); }
         .rel-panel {
             position:absolute; top:calc(100% + 4px); left:0; right:0;
-            background:#fff; border:1.5px solid #e0e0e0; border-radius:10px;
+            background:#fff; border:2px solid #e8e8e8; border-radius:12px;
             box-shadow:0 8px 24px rgba(0,0,0,.13);
             z-index:999;
             display:grid; grid-template-columns:1fr 1fr;
@@ -88,14 +69,28 @@
         .rel-dropdown.open .rel-panel { opacity:1; pointer-events:all; transform:translateY(0); }
         .rel-opt {
             display:flex; align-items:center; gap:8px;
-            padding:10px 12px; font-size:13px; color:#333;
+            padding:11px 14px; font-size:14px; color:#333;
             cursor:pointer; transition:background .15s;
-            border-bottom:1px solid #f5f5f5;
+            border-bottom:1px solid #f0f0f0;
         }
-        .rel-opt:nth-child(odd)  { border-right:1px solid #f5f5f5; }
+        .rel-opt:nth-child(odd)  { border-right:1px solid #f0f0f0; }
+        .rel-opt:last-child, .rel-opt:nth-last-child(2):nth-child(odd) { border-bottom:none; }
         .rel-opt:hover { background:#fafafa; }
         .rel-opt-active { background:#fff8f8 !important; font-weight:700; }
-        .rel-opt-active span { color:#c62828; }
+        .rel-opt-active span { color: var(--color-primary, #c62828); }
+
+        /* ── Botón eliminar igualado al alto de form-select ────── */
+        .btn-remove-alumno {
+            background:#ffebee; border: 2px solid #e8e8e8; border-radius:12px;
+            color:#c62828;
+            width: 100%; height: 100%;
+            min-width: 52px;
+            padding: 14px 0;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            font-size:16px; flex-shrink:0; box-sizing:border-box;
+            transition: all 0.3s ease;
+        }
+        .btn-remove-alumno:hover { background:#ffcdd2; border-color:#c62828; }
     </style>
 </head>
 
@@ -439,12 +434,7 @@ function buildRelDropdown(name, selectedVal, rowId) {
     RELACIONES_CONFIG.forEach(r => {
         const actClass = r.value === selectedVal ? ' rel-opt-active' : '';
         html += `
-            <div class="rel-opt${actClass}"
-                data-rowid="${rowId}"
-                data-value="${r.value}"
-                data-icon="${r.icon}"
-                data-color="${r.color}"
-                onclick="elegirRelacionEl(this, event)">
+            <div class="rel-opt${actClass}" onclick="elegirRelacion('${rowId}','${r.value}','${r.icon}','${r.color}', event)">
                 <i class="bi ${r.icon}" style="color:${r.color};font-size:16px;"></i>
                 <span>${r.value}</span>
             </div>`;
@@ -461,15 +451,6 @@ function toggleRelDropdown(rowId, e) {
     if (!isOpen) drop.classList.add('open');
 }
 
-function elegirRelacionEl(el, e) {
-    e.stopPropagation();
-    const rowId = el.dataset.rowid;
-    const valor = el.dataset.value;
-    const icon  = el.dataset.icon;
-    const color = el.dataset.color;
-    elegirRelacion(rowId, valor, icon, color, e);
-}
-
 function elegirRelacion(rowId, valor, icon, color, e) {
     e.stopPropagation();
     // Actualizar hidden
@@ -480,7 +461,7 @@ function elegirRelacion(rowId, valor, icon, color, e) {
     // Marcar activo
     const drop = document.getElementById(`reldrop-${rowId}`);
     drop.querySelectorAll('.rel-opt').forEach(o => o.classList.remove('rel-opt-active'));
-    drop.querySelector(`.rel-opt[data-value="${valor}"]`).classList.add('rel-opt-active');
+    drop.querySelector(`.rel-opt[onclick*="'${valor}'"]`).classList.add('rel-opt-active');
     drop.classList.remove('open');
     // Sincronizar hidden global con la primera fila
     sincronizarHiddenRelacion(rowId);
@@ -499,8 +480,8 @@ function sincronizarHiddenRelacion(rowId) {
 
 // ── Construir select de alumno ────────────────────────────────────────────────
 function buildAlumnoSelect(name, selectedId) {
-    let html = `<select name="${name}" class="alumno-select" required>
-        <option value="">— Alumno a cargo —</option>`;
+    let html = `<select name="${name}" class="form-select" style="padding-left:16px;" required>
+        <option value="">— Alumno —</option>`;
     ALUMNOS_DISPONIBLES.forEach(a => {
         const sel = a.id_usuario == selectedId ? 'selected' : '';
         html += `<option value="${a.id_usuario}" ${sel}>${a.nombre_completo}</option>`;
@@ -522,6 +503,8 @@ function agregarFilaAlumno(ctx, idAlumno = null, relacion = null) {
     const div = document.createElement('div');
     div.className = 'alumno-row';
     div.id = rowId;
+    // Layout: 65% alumno | 35% parentesco | 36px eliminar
+    div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:start;margin-bottom:12px;';
     div.innerHTML = `
         ${buildAlumnoSelect(`alumnos[${idx}][id_alumno]`, idAlumno)}
         ${buildRelDropdown(`alumnos[${idx}][relacion]`, relacion, rowId)}
