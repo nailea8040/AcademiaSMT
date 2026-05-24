@@ -37,6 +37,9 @@
         .btn-add-alumno:hover { background:#c8e6c9; }
         .no-alumnos-hint { color:#9e9e9e; font-size:12px; margin:6px 0; }
 
+        /* Select de alumno en filas dinámicas — sin ícono, sin padding extra */
+        .alumno-select { padding-left:16px !important; }
+
         /* ── Dropdown custom de parentesco ────────────────────── */
         .rel-dropdown { position:relative; cursor:pointer; user-select:none; }
         .rel-trigger {
@@ -459,7 +462,7 @@ function sincronizarHiddenRelacion(rowId) {
 
 // ── Construir select de alumno ────────────────────────────────────────────────
 function buildAlumnoSelect(name, selectedId) {
-    let html = `<select name="${name}" class="form-select" style="width:100%;height:auto;padding:14px 16px 14px 45px;border:2px solid #e8e8e8;border-radius:12px;font-size:15px;background:#f8f9fa;" required>
+    let html = `<select name="${name}" class="form-select alumno-select" style="width:100%;padding:14px 16px !important;border:2px solid #e8e8e8;border-radius:12px;font-size:15px;background:#f8f9fa;" required>
         <option value="">— Alumno a cargo —</option>`;
     ALUMNOS_DISPONIBLES.forEach(a => {
         const sel = a.id_usuario == selectedId ? 'selected' : '';
