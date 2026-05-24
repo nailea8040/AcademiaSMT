@@ -597,6 +597,11 @@ if (empty($accessToken)) {
 }
 MercadoPagoConfig::setAccessToken($accessToken);
 
+            // Activar modo sandbox si MP_SANDBOX=true (cuenta de prueba Vendedor)
+            if (config('services.mercadopago.sandbox', false)) {
+                MercadoPagoConfig::setRuntimeEnviroment(MercadoPagoConfig::LOCAL);
+            }
+
             $formData = $validated['formData'];
 
             // CORRECCIÓN PRINCIPAL:
@@ -605,13 +610,9 @@ MercadoPagoConfig::setAccessToken($accessToken);
             // Solo garantizamos que el email del pagador sea el del alumno registrado.
             $paymentData = $formData;
 
-            // Aseguramos que el email del payer sea el del alumno (requerido por MP sandbox)
-            if (!empty($pagoRegistro->correo)) {
-                $paymentData['payer'] = array_merge(
-                    $formData['payer'] ?? [],
-                    ['email' => $pagoRegistro->correo]
-                );
-            }
+            // NO sobreescribir el email del payer: el Brick ya lo captura del usuario.
+            // Si se reemplaza con el email del alumno registrado en BD, MP puede rechazar
+            // el pago en sandbox porque espera el email de la cuenta Comprador de prueba.
 
             // Metadatos internos — no afectan el procesamiento de MP
             $paymentData['external_reference'] = (string) $pagoRegistro->id_pago;
