@@ -439,7 +439,12 @@ function buildRelDropdown(name, selectedVal, rowId) {
     RELACIONES_CONFIG.forEach(r => {
         const actClass = r.value === selectedVal ? ' rel-opt-active' : '';
         html += `
-            <div class="rel-opt${actClass}" onclick="elegirRelacion('${rowId}','${r.value}','${r.icon}','${r.color}', event)">
+            <div class="rel-opt${actClass}"
+                data-rowid="${rowId}"
+                data-value="${r.value}"
+                data-icon="${r.icon}"
+                data-color="${r.color}"
+                onclick="elegirRelacionEl(this, event)">
                 <i class="bi ${r.icon}" style="color:${r.color};font-size:16px;"></i>
                 <span>${r.value}</span>
             </div>`;
@@ -456,6 +461,15 @@ function toggleRelDropdown(rowId, e) {
     if (!isOpen) drop.classList.add('open');
 }
 
+function elegirRelacionEl(el, e) {
+    e.stopPropagation();
+    const rowId = el.dataset.rowid;
+    const valor = el.dataset.value;
+    const icon  = el.dataset.icon;
+    const color = el.dataset.color;
+    elegirRelacion(rowId, valor, icon, color, e);
+}
+
 function elegirRelacion(rowId, valor, icon, color, e) {
     e.stopPropagation();
     // Actualizar hidden
@@ -466,7 +480,7 @@ function elegirRelacion(rowId, valor, icon, color, e) {
     // Marcar activo
     const drop = document.getElementById(`reldrop-${rowId}`);
     drop.querySelectorAll('.rel-opt').forEach(o => o.classList.remove('rel-opt-active'));
-    drop.querySelector(`.rel-opt[onclick*="'${valor}'"]`).classList.add('rel-opt-active');
+    drop.querySelector(`.rel-opt[data-value="${valor}"]`).classList.add('rel-opt-active');
     drop.classList.remove('open');
     // Sincronizar hidden global con la primera fila
     sincronizarHiddenRelacion(rowId);
