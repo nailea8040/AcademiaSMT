@@ -438,12 +438,13 @@ function buildRelDropdown(name, selectedVal, rowId) {
 
     RELACIONES_CONFIG.forEach(r => {
         const actClass = r.value === selectedVal ? ' rel-opt-active' : '';
+        const safeColor = r.color.replace('#', 'HASH');
         html += `
             <div class="rel-opt${actClass}"
                 data-rowid="${rowId}"
                 data-value="${r.value}"
                 data-icon="${r.icon}"
-                data-color="${r.color}"
+                data-color="${safeColor}"
                 onclick="elegirRelacionEl(this, event)">
                 <i class="bi ${r.icon}" style="color:${r.color};font-size:16px;"></i>
                 <span>${r.value}</span>
@@ -466,7 +467,7 @@ function elegirRelacionEl(el, e) {
     const rowId = el.dataset.rowid;
     const valor = el.dataset.value;
     const icon  = el.dataset.icon;
-    const color = el.dataset.color;
+    const color = el.dataset.color.replace('HASH', '#');
     elegirRelacion(rowId, valor, icon, color, e);
 }
 
@@ -511,32 +512,25 @@ function buildAlumnoSelect(name, selectedId) {
 
 // ── Agregar fila ──────────────────────────────────────────────────────────────
 function agregarFilaAlumno(ctx, idAlumno = null, relacion = null) {
-    console.log('agregarFilaAlumno llamado', ctx);
     const isEdit    = ctx === 'edit';
     const container = document.getElementById(isEdit ? 'editAlumnosContainer' : 'alumnosContainer');
-    console.log('container:', container);
     const hint      = document.getElementById(isEdit ? 'editNoAlumnosHint'    : 'noAlumnosHint');
     if (hint) hint.style.display = 'none';
 
     const idx   = isEdit ? editCounter++ : regCounter++;
     const rowId = `${ctx}-row-${idx}`;
-    console.log('rowId:', rowId);
 
     const div = document.createElement('div');
     div.className = 'alumno-row';
     div.id = rowId;
-    const htmlContent = `
+    div.innerHTML = `
         ${buildAlumnoSelect(`alumnos[${idx}][id_alumno]`, idAlumno)}
         ${buildRelDropdown(`alumnos[${idx}][relacion]`, relacion, rowId)}
         <button type="button" class="btn-remove-alumno" onclick="eliminarFilaAlumno('${rowId}','${ctx}')">
             <i class="bi bi-trash-fill"></i>
         </button>
     `;
-    console.log('HTML generado:', htmlContent);
-    div.innerHTML = htmlContent;
-    console.log('div childNodes tras innerHTML:', div.childNodes.length);
     container.appendChild(div);
-    console.log('fila agregada, total filas:', container.querySelectorAll('.alumno-row').length);
     `;
     container.appendChild(div);
 }
