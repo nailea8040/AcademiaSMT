@@ -143,7 +143,17 @@ class TutorController extends Controller
         try {
             DB::beginTransaction();
 
-            $updated = DB::table('tutor')
+            // Verificar que el tutor existe ANTES de intentar actualizar
+            $tutorExiste = DB::table('tutor')->where('id_Tutor', $id)->exists();
+            if (!$tutorExiste) {
+                DB::rollBack();
+                return redirect()->route('tutor.index')
+                    ->with('error', 'No se encontró el tutor.');
+            }
+
+            // update() devuelve filas afectadas — puede ser 0 si los datos no cambiaron,
+            // lo cual es válido (el tutor existe pero los valores son idénticos).
+            DB::table('tutor')
                 ->where('id_Tutor', $id)
                 ->update([
                     'id_ocupacion'        => $validated['id_ocupacion'],
@@ -168,10 +178,8 @@ class TutorController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('tutor.index')->with(
-                $updated ? 'success' : 'error',
-                $updated ? '¡Tutor actualizado con éxito!' : 'No se encontró el tutor.'
-            );
+            return redirect()->route('tutor.index')
+                ->with('success', '¡Tutor actualizado con éxito!');
 
         } catch (\Exception $e) {
             DB::rollBack();
