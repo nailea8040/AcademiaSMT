@@ -22,10 +22,10 @@
         .alumno-row { align-items:center; margin-bottom:8px; }
         .alumno-row:last-child { margin-bottom:0; }
         .btn-remove-alumno {
-            background:#ffebee; border:none; border-radius:8px;
-            color:#c62828; width:36px; height:36px;
+            background:#ffebee; border:none; border-radius:12px;
+            color:#c62828; width:100%; height:52px;
             cursor:pointer; display:flex; align-items:center; justify-content:center;
-            font-size:16px; flex-shrink:0;
+            font-size:18px; flex-shrink:0;
         }
         .btn-remove-alumno:hover { background:#ffcdd2; }
         .btn-add-alumno {
@@ -41,13 +41,13 @@
         .rel-dropdown { position:relative; cursor:pointer; user-select:none; }
         .rel-trigger {
             display:flex; align-items:center; gap:4px;
-            height:40px; padding:0 10px;
-            border:1.5px solid #ddd; border-radius:8px;
-            background:#fff; font-size:13px; color:#1a1a1a;
+            min-height:52px; padding:14px 16px;
+            border:2px solid #e8e8e8; border-radius:12px;
+            background:#f8f9fa; font-size:15px; color:#1a1a1a;
             transition:border-color .2s;
         }
         .rel-dropdown.open .rel-trigger,
-        .rel-trigger:hover { border-color:#c62828; }
+        .rel-trigger:hover { border-color:var(--color-primary); }
         .rel-chevron { margin-left:auto; font-size:12px; color:#9e9e9e; transition:transform .2s; }
         .rel-dropdown.open .rel-chevron { transform:rotate(180deg); }
         .rel-panel {
@@ -459,8 +459,8 @@ function sincronizarHiddenRelacion(rowId) {
 
 // ── Construir select de alumno ────────────────────────────────────────────────
 function buildAlumnoSelect(name, selectedId) {
-    let html = `<select name="${name}" class="form-select" style="width:100%;height:40px;padding:0 10px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;" required>
-        <option value="">— Alumno —</option>`;
+    let html = `<select name="${name}" class="form-select" style="width:100%;height:auto;padding:14px 16px 14px 45px;border:2px solid #e8e8e8;border-radius:12px;font-size:15px;background:#f8f9fa;" required>
+        <option value="">— Alumno a cargo —</option>`;
     ALUMNOS_DISPONIBLES.forEach(a => {
         const sel = a.id_usuario == selectedId ? 'selected' : '';
         html += `<option value="${a.id_usuario}" ${sel}>${a.nombre_completo}</option>`;
@@ -482,8 +482,8 @@ function agregarFilaAlumno(ctx, idAlumno = null, relacion = null) {
     const div = document.createElement('div');
     div.className = 'alumno-row';
     div.id = rowId;
-    // Layout: 65% alumno | 35% parentesco | 36px eliminar
-    div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 36px;gap:8px;align-items:center;margin-bottom:8px;';
+    // Layout: alumno | parentesco | eliminar — mismas proporciones que Usuario/Ocupación arriba
+    div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 52px;gap:24px;align-items:center;margin-bottom:8px;';
     div.innerHTML = `
         ${buildAlumnoSelect(`alumnos[${idx}][id_alumno]`, idAlumno)}
         ${buildRelDropdown(`alumnos[${idx}][relacion]`, relacion, rowId)}
