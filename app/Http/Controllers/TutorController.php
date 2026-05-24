@@ -27,18 +27,19 @@ class TutorController extends Controller
                 )
                 ->get();
 
-            // Para cada tutor, cargar sus alumnos relacionados desde tutor_alumno
+            // Para cada tutor, cargar sus alumnos relacionados desde tutor_alumno.
+            // get() ya devuelve una Illuminate\Support\Collection, por lo que
+            // ->count() y ->toJson() funcionan correctamente en el blade.
             foreach ($tutores_registrados as $tutor) {
                 $tutor->alumnos_relacionados = DB::table('tutor_alumno as ta')
                     ->join('usuario as a', 'ta.id_alumno', '=', 'a.id_usuario')
                     ->where('ta.id_tutor', $tutor->id_Tutor)
                     ->select(
-                        'ta.id',
                         'ta.id_alumno',
                         'ta.relacion',
                         DB::raw("CONCAT(a.nombre,' ',a.apaterno,' ',a.amaterno) AS nombre_alumno")
                     )
-                    ->get();
+                    ->get(); // Illuminate\Support\Collection ← tiene count() y toJson()
             }
 
             $usuarios_sin_perfil = DB::table('usuario as u')

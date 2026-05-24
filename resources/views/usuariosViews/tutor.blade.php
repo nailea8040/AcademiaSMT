@@ -252,7 +252,7 @@
                             <td><span class="badge badge-occupation">{{ $t->ocupacion ?? '—' }}</span></td>
                             <td><span class="badge badge-relation">{{ $t->relacion_estudiante }}</span></td>
                             <td>
-                                @if($t->alumnos_relacionados->count())
+                                @if(count($t->alumnos_relacionados) > 0)
                                     <div class="alumnos-list">
                                         @foreach($t->alumnos_relacionados as $ar)
                                             <span class="alumno-chip">
@@ -273,7 +273,7 @@
                                             {{ $t->id_Tutor }},
                                             {{ $t->id_ocupacion ?? 'null' }},
                                             '{{ addslashes($t->relacion_estudiante) }}',
-                                            {{ $t->alumnos_relacionados->toJson() }}
+                                            {{ json_encode($t->alumnos_relacionados) }}
                                         )"
                                         title="Editar">
                                         <i class="bi bi-pencil-fill"></i>
