@@ -697,20 +697,30 @@ MercadoPagoConfig::setAccessToken($accessToken);
             ]);
 
         } catch (\MercadoPago\Exceptions\MPApiException $e) {
-            // Error de la API de MP (tarjeta rechazada, datos inválidos, etc.)
             $msgOriginal = $e->getMessage();
-            Log::warning("MP procesar API error para pago #{$pagoRegistro->id_pago}: {$msgOriginal}");
+            // Log detallado para diagnóstico
+            Log::warning("MP procesar MPApiException para pago #{$pagoRegistro->id_pago}", [
+                'message'      => $msgOriginal,
+                'status_code'  => $e->getApiResponse()?->getStatusCode(),
+                'content'      => $e->getApiResponse()?->getContent(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => $this->traducirErrorMP($msgOriginal),
+                'debug'   => $msgOriginal, // temporal para diagnóstico
             ], 422);
 
         } catch (\Exception $e) {
-            Log::error("MP procesar error para pago #{$pagoRegistro->id_pago}: " . $e->getMessage());
+            Log::error("MP procesar Exception para pago #{$pagoRegistro->id_pago}", [
+                'message' => $e->getMessage(),
+                'class'   => get_class($e),
+                'trace'   => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Error al procesar el pago. Intenta de nuevo.',
-            ], 500);
+                'debug'   => $e->getMessage(), // temporal para diagnóstico
+            ], 422);
         }
     }
 
