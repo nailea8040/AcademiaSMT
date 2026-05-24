@@ -561,9 +561,17 @@ class PagoApiController extends Controller
     public function procesar(Request $request)
     {
         // Validación básica de entrada
+        // id_pago puede venir como string ("19") o integer (19) desde el Brick
         $validated = $request->validate([
             'formData' => 'required|array',
-            'id_pago'  => 'required|integer',
+            'id_pago'  => 'required|numeric',
+        ]);
+
+        // Log para diagnóstico — muestra qué llega exactamente del Brick
+        Log::info('MP procesar: request recibido', [
+            'id_pago'       => $request->input('id_pago'),
+            'formData_keys' => array_keys($request->input('formData', [])),
+            'content_type'  => $request->header('Content-Type'),
         ]);
 
         // Obtener el registro de pago con los datos del alumno
