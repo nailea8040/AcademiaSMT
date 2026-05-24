@@ -19,10 +19,7 @@
 
         /* ── Constructor de alumnos (formulario) ─── */
         .alumnos-builder { border:1.5px dashed #e0e0e0; border-radius:10px; padding:14px; margin-top:8px; }
-        .alumno-row {
-            display:grid; grid-template-columns:1fr 180px 36px; gap:8px;
-            align-items:center; margin-bottom:8px;
-        }
+        .alumno-row { align-items:center; margin-bottom:8px; }
         .alumno-row:last-child { margin-bottom:0; }
         .btn-remove-alumno {
             background:#ffebee; border:none; border-radius:8px;
@@ -39,6 +36,40 @@
         }
         .btn-add-alumno:hover { background:#c8e6c9; }
         .no-alumnos-hint { color:#9e9e9e; font-size:12px; margin:6px 0; }
+
+        /* ── Dropdown custom de parentesco ────────────────────── */
+        .rel-dropdown { position:relative; cursor:pointer; user-select:none; }
+        .rel-trigger {
+            display:flex; align-items:center; gap:4px;
+            height:40px; padding:0 10px;
+            border:1.5px solid #ddd; border-radius:8px;
+            background:#fff; font-size:13px; color:#1a1a1a;
+            transition:border-color .2s;
+        }
+        .rel-dropdown.open .rel-trigger,
+        .rel-trigger:hover { border-color:#c62828; }
+        .rel-chevron { margin-left:auto; font-size:12px; color:#9e9e9e; transition:transform .2s; }
+        .rel-dropdown.open .rel-chevron { transform:rotate(180deg); }
+        .rel-panel {
+            position:absolute; top:calc(100% + 4px); left:0; right:0;
+            background:#fff; border:1.5px solid #e0e0e0; border-radius:10px;
+            box-shadow:0 8px 24px rgba(0,0,0,.13);
+            z-index:999;
+            display:grid; grid-template-columns:1fr 1fr;
+            opacity:0; pointer-events:none;
+            transform:translateY(-6px); transition:opacity .18s, transform .18s;
+        }
+        .rel-dropdown.open .rel-panel { opacity:1; pointer-events:all; transform:translateY(0); }
+        .rel-opt {
+            display:flex; align-items:center; gap:8px;
+            padding:10px 12px; font-size:13px; color:#333;
+            cursor:pointer; transition:background .15s;
+            border-bottom:1px solid #f5f5f5;
+        }
+        .rel-opt:nth-child(odd)  { border-right:1px solid #f5f5f5; }
+        .rel-opt:hover { background:#fafafa; }
+        .rel-opt-active { background:#fff8f8 !important; font-weight:700; }
+        .rel-opt-active span { color:#c62828; }
     </style>
 </head>
 
@@ -152,39 +183,11 @@
 
                 </div>
 
-                {{-- Hidden: se rellena desde los botones visuales --}}
+                {{-- Hidden relacion_estudiante: se sincroniza desde el dropdown de cada fila --}}
                 <input type="hidden" name="relacion_estudiante" id="relacionInput" value="Tutor">
 
-                {{-- Botones visuales de relación --}}
-                <h3 class="section-title-header">
-                    <i class="bi bi-heart-fill"></i> ¿Cuál es tu relación con los alumnos?
-                </h3>
-                <p style="font-size:12px;color:#757575;margin:-4px 0 12px;">
-                    Selecciona el parentesco y se aplicará a todos los alumnos que agregues.
-                </p>
-                <div class="relation-options" id="relationOptions" style="margin-bottom:20px;">
-                    <div class="relation-option" data-value="Padre">
-                        <i class="bi bi-person-fill"></i><span>Padre</span>
-                    </div>
-                    <div class="relation-option" data-value="Madre">
-                        <i class="bi bi-person-fill"></i><span>Madre</span>
-                    </div>
-                    <div class="relation-option" data-value="Abuelo/a">
-                        <i class="bi bi-person-heart"></i><span>Abuelo/a</span>
-                    </div>
-                    <div class="relation-option" data-value="Tío/a">
-                        <i class="bi bi-people-fill"></i><span>Tío/a</span>
-                    </div>
-                    <div class="relation-option" data-value="Hermano/a">
-                        <i class="bi bi-people"></i><span>Hermano/a</span>
-                    </div>
-                    <div class="relation-option" data-value="Tutor Legal">
-                        <i class="bi bi-shield-check"></i><span>Tutor Legal</span>
-                    </div>
-                </div>
-
-                {{-- Constructor de alumnos --}}
-                <h3 class="section-title-header">
+                {{-- Alumnos a Cargo (inmediatamente debajo de Usuario/Ocupación) --}}
+                <h3 class="section-title-header" style="margin-top:20px;">
                     <i class="bi bi-people-fill"></i> Alumnos a Cargo
                     <small style="font-weight:400;color:#9e9e9e;font-size:12px;margin-left:6px;">(opcional)</small>
                 </h3>
@@ -333,26 +336,8 @@
                     </div>
                 </div>
 
-                {{-- Hidden sincronizado --}}
+                {{-- Hidden sincronizado con el dropdown de cada fila --}}
                 <input type="hidden" name="relacion_estudiante" id="edit_relacion_estudiante" value="Tutor">
-
-                {{-- Botones visuales de relación en edición --}}
-                <div class="form-section">
-                    <h3 class="form-section-title">
-                        <i class="bi bi-heart-fill"></i> ¿Cuál es tu relación con los alumnos?
-                    </h3>
-                    <p style="font-size:12px;color:#9e9e9e;margin:-6px 0 12px;">
-                        Selecciona el parentesco y se aplicará a todos los alumnos vinculados.
-                    </p>
-                    <div class="relation-options" id="editRelationOptions">
-                        <div class="relation-option" data-value="Padre"><i class="bi bi-person-fill"></i><span>Padre</span></div>
-                        <div class="relation-option" data-value="Madre"><i class="bi bi-person-fill"></i><span>Madre</span></div>
-                        <div class="relation-option" data-value="Abuelo/a"><i class="bi bi-person-heart"></i><span>Abuelo/a</span></div>
-                        <div class="relation-option" data-value="Tío/a"><i class="bi bi-people-fill"></i><span>Tío/a</span></div>
-                        <div class="relation-option" data-value="Hermano/a"><i class="bi bi-people"></i><span>Hermano/a</span></div>
-                        <div class="relation-option" data-value="Tutor Legal"><i class="bi bi-shield-check"></i><span>Tutor Legal</span></div>
-                    </div>
-                </div>
 
                 {{-- Constructor de alumnos en edición --}}
                 <div class="form-section">
@@ -388,11 +373,93 @@
 {{-- Datos de alumnos para JS --}}
 <script>
 const ALUMNOS_DISPONIBLES = @json($alumnos);
-const RELACIONES_OPCIONES = ['Padre','Madre','Abuelo/a','Tío/a','Hermano/a','Tutor Legal'];
 
-// ── Helpers para construir <select> ──────────────────────────────────────────
+const RELACIONES_CONFIG = [
+    { value: 'Padre',       icon: 'bi-person-fill',   color: '#1565c0' },
+    { value: 'Madre',       icon: 'bi-person-fill',   color: '#ad1457' },
+    { value: 'Abuelo/a',   icon: 'bi-person-heart',  color: '#4527a0' },
+    { value: 'Tío/a',      icon: 'bi-people-fill',   color: '#00695c' },
+    { value: 'Hermano/a',  icon: 'bi-people',         color: '#e65100' },
+    { value: 'Tutor Legal', icon: 'bi-shield-check',  color: '#37474f' },
+];
+
+let regCounter  = 0;
+let editCounter = 0;
+
+// ── Cerrar todos los dropdowns abiertos ───────────────────────────────────────
+function cerrarDropdowns(excepto = null) {
+    document.querySelectorAll('.rel-dropdown.open').forEach(d => {
+        if (d !== excepto) d.classList.remove('open');
+    });
+}
+document.addEventListener('click', () => cerrarDropdowns());
+
+// ── Construir el trigger + dropdown visual de parentesco ──────────────────────
+function buildRelDropdown(name, selectedVal, rowId) {
+    const actual = RELACIONES_CONFIG.find(r => r.value === selectedVal) || null;
+    const triggerTxt = actual
+        ? `<i class="bi ${actual.icon}" style="color:${actual.color};margin-right:6px;font-size:14px;"></i>${actual.value}`
+        : `<span style="color:#9ca3af;">— Parentesco —</span>`;
+
+    // Input hidden que guarda el valor real
+    let html = `<input type="hidden" name="${name}" value="${selectedVal || ''}" id="hrel-${rowId}">`;
+
+    // Trigger (parece un select)
+    html += `
+    <div class="rel-dropdown" id="reldrop-${rowId}" onclick="toggleRelDropdown('${rowId}', event)">
+        <div class="rel-trigger" id="reltrig-${rowId}">${triggerTxt}<i class="bi bi-chevron-down rel-chevron"></i></div>
+        <div class="rel-panel">`;
+
+    RELACIONES_CONFIG.forEach(r => {
+        const actClass = r.value === selectedVal ? ' rel-opt-active' : '';
+        html += `
+            <div class="rel-opt${actClass}" onclick="elegirRelacion('${rowId}','${r.value}','${r.icon}','${r.color}', event)">
+                <i class="bi ${r.icon}" style="color:${r.color};font-size:16px;"></i>
+                <span>${r.value}</span>
+            </div>`;
+    });
+    html += `</div></div>`;
+    return html;
+}
+
+function toggleRelDropdown(rowId, e) {
+    e.stopPropagation();
+    const drop = document.getElementById(`reldrop-${rowId}`);
+    const isOpen = drop.classList.contains('open');
+    cerrarDropdowns();
+    if (!isOpen) drop.classList.add('open');
+}
+
+function elegirRelacion(rowId, valor, icon, color, e) {
+    e.stopPropagation();
+    // Actualizar hidden
+    document.getElementById(`hrel-${rowId}`).value = valor;
+    // Actualizar trigger visual
+    document.getElementById(`reltrig-${rowId}`).innerHTML =
+        `<i class="bi ${icon}" style="color:${color};margin-right:6px;font-size:14px;"></i>${valor}<i class="bi bi-chevron-down rel-chevron"></i>`;
+    // Marcar activo
+    const drop = document.getElementById(`reldrop-${rowId}`);
+    drop.querySelectorAll('.rel-opt').forEach(o => o.classList.remove('rel-opt-active'));
+    drop.querySelector(`.rel-opt[onclick*="'${valor}'"]`).classList.add('rel-opt-active');
+    drop.classList.remove('open');
+    // Sincronizar hidden global con la primera fila
+    sincronizarHiddenRelacion(rowId);
+}
+
+// Sincroniza el hidden relacion_estudiante con el valor de la primera fila del ctx
+function sincronizarHiddenRelacion(rowId) {
+    const isEdit   = rowId.startsWith('edit-');
+    const hiddenId = isEdit ? 'edit_relacion_estudiante' : 'relacionInput';
+    const ctxId    = isEdit ? 'editAlumnosContainer'     : 'alumnosContainer';
+    const primerHidden = document.querySelector(`#${ctxId} input[type="hidden"][id^="hrel-"]`);
+    if (primerHidden) {
+        document.getElementById(hiddenId).value = primerHidden.value || 'Tutor';
+    }
+}
+
+// ── Construir select de alumno ────────────────────────────────────────────────
 function buildAlumnoSelect(name, selectedId) {
-    let html = `<select name="${name}" class="form-select" style="width:100%;padding:7px 10px;border:1.5px solid #ddd;border-radius:8px;" required>
+    let html = `<select name="${name}" class="form-select" style="width:100%;height:40px;padding:0 10px;border:1.5px solid #ddd;border-radius:8px;font-size:13px;" required>
         <option value="">— Alumno —</option>`;
     ALUMNOS_DISPONIBLES.forEach(a => {
         const sel = a.id_usuario == selectedId ? 'selected' : '';
@@ -402,40 +469,24 @@ function buildAlumnoSelect(name, selectedId) {
     return html;
 }
 
-function buildRelacionSelect(name, selectedVal) {
-    let html = `<select name="${name}" class="form-select" style="width:100%;padding:7px 10px;border:1.5px solid #ddd;border-radius:8px;" required>
-        <option value="">— Parentesco —</option>`;
-    RELACIONES_OPCIONES.forEach(r => {
-        const sel = r === selectedVal ? 'selected' : '';
-        html += `<option value="${r}" ${sel}>${r}</option>`;
-    });
-    html += '</select>';
-    return html;
-}
-
-// ── Agregar fila de alumno ────────────────────────────────────────────────────
-let regCounter = 0;
-let editCounter = 0;
-
+// ── Agregar fila ──────────────────────────────────────────────────────────────
 function agregarFilaAlumno(ctx, idAlumno = null, relacion = null) {
-    const isEdit = ctx === 'edit';
+    const isEdit    = ctx === 'edit';
     const container = document.getElementById(isEdit ? 'editAlumnosContainer' : 'alumnosContainer');
-    const hint      = document.getElementById(isEdit ? 'editNoAlumnosHint'   : 'noAlumnosHint');
+    const hint      = document.getElementById(isEdit ? 'editNoAlumnosHint'    : 'noAlumnosHint');
     if (hint) hint.style.display = 'none';
 
-    const idx    = isEdit ? editCounter++ : regCounter++;
-    const prefix = `alumnos[${idx}]`;
-    const rowId  = `${ctx}-row-${idx}`;
-
-    // Si no viene relación explícita, heredar la del botón activo
-    const relacionFila = relacion || getRelacionSeleccionada(ctx);
+    const idx   = isEdit ? editCounter++ : regCounter++;
+    const rowId = `${ctx}-row-${idx}`;
 
     const div = document.createElement('div');
     div.className = 'alumno-row';
     div.id = rowId;
+    // Layout: 65% alumno | 35% parentesco | 36px eliminar
+    div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 36px;gap:8px;align-items:center;margin-bottom:8px;';
     div.innerHTML = `
-        ${buildAlumnoSelect(`${prefix}[id_alumno]`, idAlumno)}
-        ${buildRelacionSelect(`${prefix}[relacion]`, relacionFila)}
+        ${buildAlumnoSelect(`alumnos[${idx}][id_alumno]`, idAlumno)}
+        ${buildRelDropdown(`alumnos[${idx}][relacion]`, relacion, rowId)}
         <button type="button" class="btn-remove-alumno" onclick="eliminarFilaAlumno('${rowId}','${ctx}')">
             <i class="bi bi-trash-fill"></i>
         </button>
@@ -446,13 +497,14 @@ function agregarFilaAlumno(ctx, idAlumno = null, relacion = null) {
 function eliminarFilaAlumno(rowId, ctx) {
     const row = document.getElementById(rowId);
     if (row) row.remove();
-
     const isEdit    = ctx === 'edit';
     const container = document.getElementById(isEdit ? 'editAlumnosContainer' : 'alumnosContainer');
-    const hint      = document.getElementById(isEdit ? 'editNoAlumnosHint'   : 'noAlumnosHint');
-    if (hint && container.querySelectorAll('.alumno-row').length === 0) {
-        hint.style.display = '';
-    }
+    const hint      = document.getElementById(isEdit ? 'editNoAlumnosHint'    : 'noAlumnosHint');
+    if (hint && container.querySelectorAll('.alumno-row').length === 0) hint.style.display = '';
+    // Resincronizar tras eliminar
+    const hiddenId = isEdit ? 'edit_relacion_estudiante' : 'relacionInput';
+    const primerHidden = document.querySelector(`#${container.id} input[type="hidden"][id^="hrel-"]`);
+    document.getElementById(hiddenId).value = primerHidden ? primerHidden.value || 'Tutor' : 'Tutor';
 }
 
 function resetAlumnos() {
@@ -461,50 +513,11 @@ function resetAlumnos() {
     container.querySelectorAll('.alumno-row').forEach(r => r.remove());
     regCounter = 0;
     if (hint) hint.style.display = '';
+    document.getElementById('relacionInput').value = 'Tutor';
 }
 
-// ── Obtener relación actualmente seleccionada en los botones ──────────────────
-function getRelacionSeleccionada(ctx) {
-    const isEdit  = ctx === 'edit';
-    const optId   = isEdit ? 'editRelationOptions' : 'relationOptions';
-    const activo  = document.querySelector(`#${optId} .relation-option.selected`);
-    return activo ? activo.dataset.value : 'Tutor';
-}
-
-// ── Propagar la relación elegida a todos los selects de filas existentes ──────
-function propagarRelacion(ctx, valor) {
-    const isEdit    = ctx === 'edit';
-    const container = document.getElementById(isEdit ? 'editAlumnosContainer' : 'alumnosContainer');
-    container.querySelectorAll('select[name*="[relacion]"]').forEach(sel => {
-        sel.value = valor;
-    });
-    // Actualizar hidden
-    const hiddenId = isEdit ? 'edit_relacion_estudiante' : 'relacionInput';
-    document.getElementById(hiddenId).value = valor;
-}
-
+// ── Búsqueda ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
-
-    // Botones de relación — formulario de registro
-    document.querySelectorAll('#relationOptions .relation-option').forEach(opt => {
-        opt.addEventListener('click', function() {
-            document.querySelectorAll('#relationOptions .relation-option')
-                .forEach(o => o.classList.remove('selected'));
-            this.classList.add('selected');
-            propagarRelacion('reg', this.dataset.value);
-        });
-    });
-
-    // Botones de relación — modal de edición
-    document.querySelectorAll('#editRelationOptions .relation-option').forEach(opt => {
-        opt.addEventListener('click', function() {
-            document.querySelectorAll('#editRelationOptions .relation-option')
-                .forEach(o => o.classList.remove('selected'));
-            this.classList.add('selected');
-            propagarRelacion('edit', this.dataset.value);
-        });
-    });
-
     $('#searchInput').on('keyup', function() {
         const txt = $(this).val().toLowerCase();
         $('#tutoresTable tr').each(function() {
@@ -518,35 +531,25 @@ function openEditModal(id, idOcupacion, relacion, alumnosRelacionados) {
     document.getElementById('edit_id_Tutor').value     = id;
     document.getElementById('edit_id_ocupacion').value = idOcupacion || '';
     document.getElementById('edit_relacion_estudiante').value = relacion || 'Tutor';
-
-    // Marcar el botón activo según la relación guardada
-    document.querySelectorAll('#editRelationOptions .relation-option').forEach(opt => {
-        opt.classList.toggle('selected', opt.dataset.value === (relacion || 'Tutor'));
-    });
-
     document.getElementById('editForm').action = '{{ url("/tutor") }}/' + id;
 
-    // Limpiar filas previas
     const container = document.getElementById('editAlumnosContainer');
     container.querySelectorAll('.alumno-row').forEach(r => r.remove());
     editCounter = 0;
     document.getElementById('editNoAlumnosHint').style.display = '';
 
-    // Cargar alumnos existentes
     if (Array.isArray(alumnosRelacionados) && alumnosRelacionados.length) {
         alumnosRelacionados.forEach(a => agregarFilaAlumno('edit', a.id_alumno, a.relacion));
+        // Resincronizar hidden con el primer alumno cargado
+        const primerHidden = container.querySelector('input[type="hidden"][id^="hrel-"]');
+        if (primerHidden) document.getElementById('edit_relacion_estudiante').value = primerHidden.value || 'Tutor';
     }
 
     document.getElementById('editModal').classList.add('active');
 }
 
-function closeEditModal() {
-    document.getElementById('editModal').classList.remove('active');
-}
-
-document.getElementById('editModal').addEventListener('click', function(e) {
-    if (e.target === this) closeEditModal();
-});
+function closeEditModal() { document.getElementById('editModal').classList.remove('active'); }
+document.getElementById('editModal').addEventListener('click', function(e) { if (e.target === this) closeEditModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditModal(); });
 </script>
 </body>
