@@ -239,7 +239,6 @@ class PagoController extends Controller
         if ($tieneAbonos === 0) {
             DB::table('abono')->insert([
                 'id_pago'        => $id,
-                'id_usuario'     => $pago->id_usuario,
                 'monto_abono'    => $montoTotal,
                 'fecha_abono'    => now(),
                 'tipo_abono'     => $pago->mp_payment_id ? 'en_linea' : 'efectivo',
@@ -255,7 +254,6 @@ class PagoController extends Controller
             if ($diferencia > 0) {
                 DB::table('abono')->insert([
                     'id_pago'        => $id,
-                    'id_usuario'     => $pago->id_usuario,
                     'monto_abono'    => $diferencia,
                     'fecha_abono'    => now(),
                     'tipo_abono'     => $pago->mp_payment_id ? 'en_linea' : 'efectivo',
@@ -322,7 +320,6 @@ class PagoController extends Controller
 
             DB::table('abono')->insert([
                 'id_pago'        => $id,
-                'id_usuario'     => $pago->id_usuario,
                 'monto_abono'    => $validated['monto_abono'],
                 'fecha_abono'    => now(),
                 'tipo_abono'     => 'efectivo',
@@ -429,7 +426,7 @@ class PagoController extends Controller
                 ->with('sessionInsertado', 'false');
         }
 
-        return view('pagosViews.pagar', compact('pago', 'preferenceId', 'montoACobrar'));
+        return view('pagosViews.pagar', compact('pago', 'preferenceId', 'montoACobrar', 'preferencia'));
     }
 
     // ──────────────────────────────────────────────────────────────────
