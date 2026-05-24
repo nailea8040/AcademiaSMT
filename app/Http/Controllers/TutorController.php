@@ -11,25 +11,35 @@ class TutorController extends Controller
     public function index()
     {
         try {
+            // Tutores registrados con sus datos base
             $tutores_registrados = DB::table('tutor as t')
                 ->join('usuario as u', 't.id_Tutor', '=', 'u.id_usuario')
                 ->leftJoin('ocupacion as o', 't.id_ocupacion', '=', 'o.id_ocupacion')
-                // JOIN opcional con el alumno relacionado
-                ->leftJoin('usuario as a', 't.id_alumno_relacionado', '=', 'a.id_usuario')
                 ->select(
                     't.id_Tutor',
                     't.relacion_estudiante',
-                    't.id_alumno_relacionado',
                     'o.id_ocupacion',
                     'o.nombre_ocupacion AS ocupacion',
                     DB::raw("CONCAT(u.nombre,' ',u.apaterno,' ',u.amaterno) AS nombre_completo"),
                     'u.correo',
                     'u.telefono',
-                    'u.estado',
-                    // Nombre del alumno relacionado (null si no tiene)
-                    DB::raw("CONCAT(a.nombre,' ',a.apaterno) AS nombre_alumno_relacionado")
+                    'u.estado'
                 )
                 ->get();
+
+            // Para cada tutor, cargar sus alumnos relacionados desde tutor_alumno
+            foreach ($tutores_registrados as $tutor) {
+                $tutor->alumnos_relacionados = DB::table('tutor_alumno as ta')
+                    ->join('usuario as a', 'ta.id_alumno', '=', 'a.id_usuario')
+                    ->where('ta.id_tutor', $tutor->id_Tutor)
+                    ->select(
+                        'ta.id',
+                        'ta.id_alumno',
+                        'ta.relacion',
+                        DB::raw("CONCAT(a.nombre,' ',a.apaterno,' ',a.amaterno) AS nombre_alumno")
+                    )
+                    ->get();
+            }
 
             $usuarios_sin_perfil = DB::table('usuario as u')
                 ->leftJoin('tutor as t', 'u.id_usuario', '=', 't.id_Tutor')
@@ -46,7 +56,6 @@ class TutorController extends Controller
                 ->orderBy('nombre_ocupacion', 'asc')
                 ->get();
 
-            // Alumnos activos para el selector de alumno relacionado
             $alumnos = DB::table('usuario')
                 ->where('rol', 'alumno')
                 ->where('estado', 1)
@@ -75,25 +84,45 @@ class TutorController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'id_Tutor'              => 'required|exists:usuario,id_usuario|unique:tutor,id_Tutor',
-            'id_ocupacion'          => 'required|exists:ocupacion,id_ocupacion',
-            'relacion_estudiante'   => 'required|string|max:50',
-            // Alumno relacionado opcional
-            'id_alumno_relacionado' => 'nullable|exists:usuario,id_usuario',
+            'id_Tutor'            => 'required|exists:usuario,id_usuario|unique:tutor,id_Tutor',
+            'id_ocupacion'        => 'required|exists:ocupacion,id_ocupacion',
+            'relacion_estudiante' => 'required|string|max:50',
+            // Múltiples alumnos: array de {id_alumno, relacion}
+            'alumnos'             => 'nullable|array',
+            'alumnos.*.id_alumno' => 'required|exists:usuario,id_usuario',
+            'alumnos.*.relacion'  => 'required|string|max:50',
         ]);
 
         try {
+            DB::beginTransaction();
+
             DB::table('tutor')->insert([
-                'id_Tutor'              => $validated['id_Tutor'],
-                'id_ocupacion'          => $validated['id_ocupacion'],
-                'relacion_estudiante'   => $validated['relacion_estudiante'],
-                'id_alumno_relacionado' => $validated['id_alumno_relacionado'] ?? null,
+                'id_Tutor'            => $validated['id_Tutor'],
+                'id_ocupacion'        => $validated['id_ocupacion'],
+                'relacion_estudiante' => $validated['relacion_estudiante'],
             ]);
 
+            // Insertar relaciones tutor-alumno
+            if (!empty($validated['alumnos'])) {
+                $rows = [];
+                foreach ($validated['alumnos'] as $a) {
+                    $rows[] = [
+                        'id_tutor'   => $validated['id_Tutor'],
+                        'id_alumno'  => $a['id_alumno'],
+                        'relacion'   => $a['relacion'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+                DB::table('tutor_alumno')->insert($rows);
+            }
+
+            DB::commit();
             return redirect()->route('tutor.index')
                 ->with('success', '¡Tutor registrado con éxito!');
 
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('TutorController@store: ' . $e->getMessage());
             return redirect()->back()->withInput()
                 ->withErrors(['db_error' => 'Error al registrar: ' . $e->getMessage()]);
@@ -103,29 +132,69 @@ class TutorController extends Controller
     public function update(Request $request, int $id)
     {
         $validated = $request->validate([
-            'id_ocupacion'          => 'required|exists:ocupacion,id_ocupacion',
-            'relacion_estudiante'   => 'required|string|max:50',
-            'id_alumno_relacionado' => 'nullable|exists:usuario,id_usuario',
+            'id_ocupacion'        => 'required|exists:ocupacion,id_ocupacion',
+            'relacion_estudiante' => 'required|string|max:50',
+            'alumnos'             => 'nullable|array',
+            'alumnos.*.id_alumno' => 'required|exists:usuario,id_usuario',
+            'alumnos.*.relacion'  => 'required|string|max:50',
         ]);
 
         try {
+            DB::beginTransaction();
+
             $updated = DB::table('tutor')
                 ->where('id_Tutor', $id)
                 ->update([
-                    'id_ocupacion'          => $validated['id_ocupacion'],
-                    'relacion_estudiante'   => $validated['relacion_estudiante'],
-                    'id_alumno_relacionado' => $validated['id_alumno_relacionado'] ?? null,
+                    'id_ocupacion'        => $validated['id_ocupacion'],
+                    'relacion_estudiante' => $validated['relacion_estudiante'],
                 ]);
 
+            // Reemplazar todas las relaciones tutor-alumno
+            DB::table('tutor_alumno')->where('id_tutor', $id)->delete();
+
+            if (!empty($validated['alumnos'])) {
+                $rows = [];
+                foreach ($validated['alumnos'] as $a) {
+                    $rows[] = [
+                        'id_tutor'   => $id,
+                        'id_alumno'  => $a['id_alumno'],
+                        'relacion'   => $a['relacion'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+                DB::table('tutor_alumno')->insert($rows);
+            }
+
+            DB::commit();
             return redirect()->route('tutor.index')->with(
                 $updated ? 'success' : 'error',
                 $updated ? '¡Tutor actualizado con éxito!' : 'No se encontró el tutor.'
             );
 
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('TutorController@update: ' . $e->getMessage());
             return redirect()->back()->withInput()
                 ->withErrors(['db_error' => 'Error al actualizar: ' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * API: devuelve los alumnos relacionados de un tutor (para el modal de edición vía AJAX).
+     */
+    public function alumnosRelacionados(int $id)
+    {
+        $alumnos = DB::table('tutor_alumno as ta')
+            ->join('usuario as a', 'ta.id_alumno', '=', 'a.id_usuario')
+            ->where('ta.id_tutor', $id)
+            ->select(
+                'ta.id_alumno',
+                'ta.relacion',
+                DB::raw("CONCAT(a.nombre,' ',a.apaterno,' ',a.amaterno) AS nombre_alumno")
+            )
+            ->get();
+
+        return response()->json($alumnos);
     }
 }

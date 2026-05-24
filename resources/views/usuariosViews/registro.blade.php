@@ -224,6 +224,30 @@
         .btn-success { background: #2e7d32; color: #fff; }
         .btn-success:hover { background: #1b5e20; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(46,125,50,.3); }
 
+        /* ── Builder alumnos relacionados ─────────────────────── */
+        .alumno-rel-row {
+            display: grid;
+            grid-template-columns: 1fr 180px 36px;
+            gap: 8px; align-items: center; margin-bottom: 8px;
+        }
+        .alumno-rel-row select {
+            width: 100%; padding: 8px 10px;
+            border: 1.5px solid #ddd; border-radius: 8px;
+            font-size: 13px; background: #fff; color: #1a1a1a;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 10px center;
+        }
+        .alumno-rel-row select:focus { outline: none; border-color: #c62828; box-shadow: 0 0 0 3px rgba(198,40,40,.1); }
+        .btn-remove-rel {
+            background: #ffebee; border: none; border-radius: 8px;
+            color: #c62828; width: 36px; height: 36px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 15px; flex-shrink: 0;
+        }
+        .btn-remove-rel:hover { background: #ffcdd2; }
+        @media (max-width: 520px) { .alumno-rel-row { grid-template-columns: 1fr 36px; } .alumno-rel-row .rel-sel { grid-column: 1; } }
+
         /* ── Footer ──────────────────────────────────────────── */
         .reg-footer {
             text-align: center; padding: 14px 36px 26px;
@@ -452,11 +476,32 @@
 
                 </div>
 
-                {{-- Botón para agregar alumno --}}
-                <div class="alumno-section">
+                {{-- ── BUILDER: Alumnos existentes a cargo ── --}}
+                <div style="margin-top:20px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <i class="bi bi-people-fill" style="color:#c62828;font-size:16px;"></i>
+                        <span style="font-size:13px;font-weight:700;color:#1a1a1a;text-transform:uppercase;letter-spacing:.5px;">
+                            Alumnos a cargo
+                        </span>
+                        <span style="font-size:11px;color:#9e9e9e;font-weight:400;">(opcional — puedes vincularlos después)</span>
+                    </div>
+
+                    <div id="alumnosRelContainer" style="margin-bottom:8px;"></div>
+                    <p id="alumnosRelHint" style="font-size:12px;color:#9e9e9e;font-style:italic;margin:0 0 10px;">
+                        <i class="bi bi-info-circle"></i> Sin alumnos existentes asignados aún.
+                    </p>
+
+                    <button type="button" onclick="agregarFilaAlumnoReg()"
+                        style="display:inline-flex;align-items:center;gap:6px;background:#e8f5e9;color:#2e7d32;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:600;">
+                        <i class="bi bi-plus-circle-fill"></i> Agregar alumno existente
+                    </button>
+                </div>
+
+                {{-- Botón para registrar un alumno NUEVO --}}
+                <div class="alumno-section" style="margin-top:18px;">
                     <button type="button" class="alumno-toggle" onclick="toggleAlumno()">
                         <i class="bi bi-person-plus-fill" id="alumnoIco"></i>
-                        <span id="alumnoTxt">¿Deseas registrar a un alumno a tu cargo ahora?</span>
+                        <span id="alumnoTxt">¿Deseas registrar a un alumno nuevo a tu cargo ahora?</span>
                     </button>
 
                     <div class="alumno-fields" id="alumnoFields">
@@ -1132,6 +1177,53 @@ function toggleBachiller(checked) {
             const el = document.getElementById(name) || document.querySelector('[name="'+name+'"]');
             if (el) el.value = '';
         });
+    }
+}
+
+/* ── Builder: alumnos existentes relacionados al tutor ──────────────── */
+const ALUMNOS_REG = @json($alumnos ?? collect());
+const RELACIONES_REG = ['Padre','Madre','Abuelo/a','Tío/a','Hermano/a','Tutor Legal'];
+let regRelCounter = 0;
+
+function agregarFilaAlumnoReg() {
+    const container = document.getElementById('alumnosRelContainer');
+    const hint      = document.getElementById('alumnosRelHint');
+    if (hint) hint.style.display = 'none';
+
+    const idx = regRelCounter++;
+    const row = document.createElement('div');
+    row.className = 'alumno-rel-row';
+    row.id = `relrow-${idx}`;
+
+    // Select alumno
+    let alumnoSel = `<select name="alumnos[${idx}][id_alumno]" required>
+        <option value="">— Alumno —</option>`;
+    ALUMNOS_REG.forEach(a => {
+        alumnoSel += `<option value="${a.id_usuario}">${a.nombre_completo}</option>`;
+    });
+    alumnoSel += '</select>';
+
+    // Select relación
+    let relSel = `<select name="alumnos[${idx}][relacion]" class="rel-sel" required>
+        <option value="">— Parentesco —</option>`;
+    RELACIONES_REG.forEach(r => { relSel += `<option value="${r}">${r}</option>`; });
+    relSel += '</select>';
+
+    row.innerHTML = `${alumnoSel}${relSel}
+        <button type="button" class="btn-remove-rel" onclick="eliminarFilaAlumnoReg('relrow-${idx}')">
+            <i class="bi bi-trash-fill"></i>
+        </button>`;
+
+    container.appendChild(row);
+}
+
+function eliminarFilaAlumnoReg(rowId) {
+    const row = document.getElementById(rowId);
+    if (row) row.remove();
+    const container = document.getElementById('alumnosRelContainer');
+    const hint      = document.getElementById('alumnosRelHint');
+    if (hint && container.querySelectorAll('.alumno-rel-row').length === 0) {
+        hint.style.display = '';
     }
 }
 

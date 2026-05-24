@@ -11,7 +11,7 @@ class TutorApiController extends Controller
 {
     /**
      * GET /api/tutores
-     * Lista todos los tutores con su información de usuario y ocupación
+     * Lista todos los tutores con su información base + alumnos relacionados.
      */
     public function index()
     {
@@ -31,118 +31,171 @@ class TutorApiController extends Controller
                 )
                 ->get();
 
-            return response()->json([
-                'success' => true,
-                'data'    => $tutores,
-            ]);
+            // Adjuntar alumnos relacionados desde tabla intermedia
+            foreach ($tutores as $tutor) {
+                $tutor->alumnos_relacionados = DB::table('tutor_alumno as ta')
+                    ->join('usuario as a', 'ta.id_alumno', '=', 'a.id_usuario')
+                    ->where('ta.id_tutor', $tutor->id_Tutor)
+                    ->select(
+                        'ta.id_alumno',
+                        'ta.relacion',
+                        DB::raw("CONCAT(a.nombre,' ',a.apaterno,' ',a.amaterno) AS nombre_alumno")
+                    )
+                    ->get();
+            }
+
+            return response()->json(['success' => true, 'data' => $tutores]);
 
         } catch (\Exception $e) {
             Log::error('TutorApi@index: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al obtener los tutores.',
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Error al obtener los tutores.'], 500);
         }
     }
 
     /**
      * POST /api/tutores
-     * Registra el perfil de tutor para un usuario que ya tiene rol='tutor'
+     * Registra el perfil de tutor + sus alumnos relacionados (N alumnos).
      *
-     * NOTA: El usuario debe existir previamente en tabla usuario con rol='tutor'.
-     * Este endpoint solo crea el registro en la tabla tutor (datos adicionales).
+     * Body esperado:
+     *   id_Tutor, id_ocupacion, relacion_estudiante
+     *   alumnos[0][id_alumno], alumnos[0][relacion], alumnos[1][...], ...  (opcional)
      */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'id_Tutor'              => 'required|exists:usuario,id_usuario|unique:tutor,id_Tutor',
-            'id_ocupacion'          => 'required|exists:ocupacion,id_ocupacion',
-            'relacion_estudiante'   => 'required|string|max:50',
-            // id_alumno_relacionado agregado — igual que TutorController web
-            'id_alumno_relacionado' => 'nullable|exists:usuario,id_usuario',
+            'id_Tutor'            => 'required|exists:usuario,id_usuario|unique:tutor,id_Tutor',
+            'id_ocupacion'        => 'required|exists:ocupacion,id_ocupacion',
+            'relacion_estudiante' => 'required|string|max:50',
+            'alumnos'             => 'nullable|array',
+            'alumnos.*.id_alumno' => 'required|exists:usuario,id_usuario',
+            'alumnos.*.relacion'  => 'required|string|max:50',
         ]);
 
-        // Verificar que el usuario tenga rol='tutor'
-        $usuario = DB::table('usuario')
-            ->where('id_usuario', $validated['id_Tutor'])
-            ->first();
-
+        $usuario = DB::table('usuario')->where('id_usuario', $validated['id_Tutor'])->first();
         if (!$usuario || $usuario->rol !== 'tutor') {
-            return response()->json([
-                'success' => false,
-                'message' => 'El usuario debe tener rol de tutor.',
-            ], 422);
+            return response()->json(['success' => false, 'message' => 'El usuario debe tener rol de tutor.'], 422);
         }
 
         try {
+            DB::beginTransaction();
+
             DB::table('tutor')->insert([
-                'id_Tutor'              => $validated['id_Tutor'],
-                'id_ocupacion'          => $validated['id_ocupacion'],
-                'relacion_estudiante'   => $validated['relacion_estudiante'],
-                'id_alumno_relacionado' => $validated['id_alumno_relacionado'] ?? null,
+                'id_Tutor'            => $validated['id_Tutor'],
+                'id_ocupacion'        => $validated['id_ocupacion'],
+                'relacion_estudiante' => $validated['relacion_estudiante'],
             ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Tutor registrado con éxito.',
-            ], 201);
+            if (!empty($validated['alumnos'])) {
+                $rows = [];
+                foreach ($validated['alumnos'] as $a) {
+                    $rows[] = [
+                        'id_tutor'   => $validated['id_Tutor'],
+                        'id_alumno'  => $a['id_alumno'],
+                        'relacion'   => $a['relacion'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+                DB::table('tutor_alumno')->insert($rows);
+            }
+
+            DB::commit();
+            return response()->json(['success' => true, 'message' => 'Tutor registrado con éxito.'], 201);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('TutorApi@store: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al registrar el tutor.',
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Error al registrar el tutor.'], 500);
         }
     }
 
     /**
      * PUT /api/tutores/{id}
-     * Actualiza la ocupación y relación de un tutor
-     * {id} = id_Tutor (FK → usuario.id_usuario)
+     * Actualiza ocupación, relación general y reemplaza la lista de alumnos.
+     *
+     * Body esperado:
+     *   id_ocupacion, relacion_estudiante
+     *   alumnos[0][id_alumno], alumnos[0][relacion], ...  (opcional — enviar [] para borrar todos)
      */
     public function update(Request $request, int|string $id)
     {
         $validated = $request->validate([
-            'id_ocupacion'          => 'required|exists:ocupacion,id_ocupacion',
-            'relacion_estudiante'   => 'required|string|max:50',
-            // id_alumno_relacionado agregado — igual que TutorController web
-            'id_alumno_relacionado' => 'nullable|exists:usuario,id_usuario',
+            'id_ocupacion'        => 'required|exists:ocupacion,id_ocupacion',
+            'relacion_estudiante' => 'required|string|max:50',
+            'alumnos'             => 'nullable|array',
+            'alumnos.*.id_alumno' => 'required|exists:usuario,id_usuario',
+            'alumnos.*.relacion'  => 'required|string|max:50',
         ]);
 
         try {
+            DB::beginTransaction();
+
             $updated = DB::table('tutor')
                 ->where('id_Tutor', $id)
                 ->update([
-                    'id_ocupacion'          => $validated['id_ocupacion'],
-                    'relacion_estudiante'   => $validated['relacion_estudiante'],
-                    'id_alumno_relacionado' => $validated['id_alumno_relacionado'] ?? null,
+                    'id_ocupacion'        => $validated['id_ocupacion'],
+                    'relacion_estudiante' => $validated['relacion_estudiante'],
                 ]);
 
             if (!$updated) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Tutor no encontrado.',
-                ], 404);
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Tutor no encontrado.'], 404);
             }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Tutor actualizado con éxito.',
-            ]);
+            // Reemplazar relaciones alumno
+            DB::table('tutor_alumno')->where('id_tutor', $id)->delete();
+
+            if (!empty($validated['alumnos'])) {
+                $rows = [];
+                foreach ($validated['alumnos'] as $a) {
+                    $rows[] = [
+                        'id_tutor'   => $id,
+                        'id_alumno'  => $a['id_alumno'],
+                        'relacion'   => $a['relacion'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+                DB::table('tutor_alumno')->insert($rows);
+            }
+
+            DB::commit();
+            return response()->json(['success' => true, 'message' => 'Tutor actualizado con éxito.']);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('TutorApi@update: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al actualizar el tutor.',
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Error al actualizar el tutor.'], 500);
+        }
+    }
+
+    /**
+     * GET /api/tutores/{id}/alumnos
+     * Devuelve los alumnos relacionados de un tutor específico.
+     */
+    public function alumnosRelacionados(int $id)
+    {
+        try {
+            $alumnos = DB::table('tutor_alumno as ta')
+                ->join('usuario as a', 'ta.id_alumno', '=', 'a.id_usuario')
+                ->where('ta.id_tutor', $id)
+                ->select(
+                    'ta.id_alumno',
+                    'ta.relacion',
+                    DB::raw("CONCAT(a.nombre,' ',a.apaterno,' ',a.amaterno) AS nombre_alumno")
+                )
+                ->get();
+
+            return response()->json(['success' => true, 'data' => $alumnos]);
+
+        } catch (\Exception $e) {
+            Log::error('TutorApi@alumnosRelacionados: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error al obtener los alumnos.'], 500);
         }
     }
 
     /**
      * GET /api/ocupaciones
-     * Catálogo de ocupaciones (para llenar el select en la app al registrar tutor)
      */
     public function ocupaciones()
     {
@@ -151,17 +204,11 @@ class TutorApiController extends Controller
                 ->orderBy('nombre_ocupacion', 'asc')
                 ->get();
 
-            return response()->json([
-                'success' => true,
-                'data'    => $ocupaciones,
-            ]);
+            return response()->json(['success' => true, 'data' => $ocupaciones]);
 
         } catch (\Exception $e) {
             Log::error('TutorApi@ocupaciones: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al obtener las ocupaciones.',
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Error al obtener las ocupaciones.'], 500);
         }
     }
 }
