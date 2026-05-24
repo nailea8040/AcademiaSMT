@@ -60,6 +60,17 @@
         .btn-abono:hover { background:#ffe0b2; }
         .acciones-cell { display:flex;flex-wrap:wrap;gap:6px;align-items:center; }
 
+        /* ── Botón Eliminar (admin) ── */
+        .btn-eliminar { display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#fce4ec;color:#c62828;border:1px solid #ef9a9a;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer; }
+        .btn-eliminar:hover { background:#ffcdd2; }
+
+        /* ── Botón Suspender (sensei) ── */
+        .btn-suspender { display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#fff8e1;color:#f57f17;border:1px solid #ffe082;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer; }
+        .btn-suspender:hover { background:#fff3cd; }
+
+        /* ── Badge Suspendido ── */
+        .badge-suspendido { background:#fff8e1;color:#f57f17;border:1px solid #ffe082; }
+
         /* ── Concepto hint ── */
         .concepto-hint { font-size:12px;color:#718096;margin-top:4px;min-height:18px; }
         .concepto-hint strong { color:#e53935; }
@@ -765,6 +776,10 @@
                                         <span class="badge badge-success">Completado</span>
                                     @elseif($estado == 'Pendiente')
                                         <span class="badge badge-warning">Pendiente</span>
+                                    @elseif($estado == 'Suspendido')
+                                        <span class="badge badge-suspendido">
+                                            <i class="bi bi-pause-circle-fill"></i> Suspendido
+                                        </span>
                                     @else
                                         <span class="badge badge-danger">{{ $estado ?? 'N/A' }}</span>
                                     @endif
@@ -773,8 +788,8 @@
                                 <td>
                                     <div class="acciones-cell">
 
-                                        {{-- Pagar con MP: cualquier rol si hay saldo --}}
-                                        @if($pago->estado_pago !== 'Completado' && $saldo > 0)
+                                        {{-- Pagar con MP: cualquier rol si hay saldo y no está suspendido --}}
+                                        @if($pago->estado_pago !== 'Completado' && $pago->estado_pago !== 'Suspendido' && $saldo > 0)
                                             <a href="{{ route('pagos.pagar', $pago->id_pago) }}"
                                                class="btn btn-primary"
                                                style="padding:5px 12px;font-size:12px;display:inline-flex;align-items:center;gap:5px;">
@@ -782,8 +797,8 @@
                                             </a>
                                         @endif
 
-                                        {{-- Abono: cualquier rol si hay saldo --}}
-                                        @if($pago->estado_pago !== 'Completado' && $saldo > 0)
+                                        {{-- Abono: cualquier rol si hay saldo y no está suspendido --}}
+                                        @if($pago->estado_pago !== 'Completado' && $pago->estado_pago !== 'Suspendido' && $saldo > 0)
                                             <button type="button" class="btn-abono"
                                                 onclick="abrirModalAbono(
                                                     {{ $pago->id_pago }},
@@ -822,6 +837,22 @@
                                             <span style="color:#4caf50;font-size:12px;display:flex;align-items:center;gap:4px;">
                                                 <i class="bi bi-check-circle-fill"></i> Pagado
                                             </span>
+                                        @endif
+
+                                        {{-- Suspender: solo sensei, pagos no Completados --}}
+                                        @if($user->rol === 'sensei' && $pago->estado_pago !== 'Completado' && $pago->estado_pago !== 'Suspendido')
+                                            <button type="button" class="btn-suspender"
+                                                onclick="confirmarSuspender({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
+                                                <i class="bi bi-pause-circle"></i> Suspender
+                                            </button>
+                                        @endif
+
+                                        {{-- Eliminar: solo admin, pagos no Completados --}}
+                                        @if($user->rol === 'admin' && $pago->estado_pago !== 'Completado')
+                                            <button type="button" class="btn-eliminar"
+                                                onclick="confirmarEliminar({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
+                                                <i class="bi bi-trash3"></i> Eliminar
+                                            </button>
                                         @endif
                                     </div>
                                 </td>
@@ -987,6 +1018,22 @@
         </form>
     </div>
 </div>
+
+{{-- ══════════════════════════════════════════════════════════════════════
+     FORM OCULTO — ELIMINAR PAGO (admin, hard delete)
+══════════════════════════════════════════════════════════════════════ --}}
+<form id="formEliminarPago" method="POST" action="" style="display:none;">
+    @csrf
+    @method('DELETE')
+</form>
+
+{{-- ══════════════════════════════════════════════════════════════════════
+     FORM OCULTO — SUSPENDER PAGO (sensei, soft delete)
+══════════════════════════════════════════════════════════════════════ --}}
+<form id="formSuspenderPago" method="POST" action="" style="display:none;">
+    @csrf
+    @method('PATCH')
+</form>
 
 <script>
     // ── Variables globales ─────────────────────────────────────────────
@@ -1238,6 +1285,51 @@
             if (modal && e.target === modal) modal.classList.remove('active');
         });
     });
+
+    // ── Confirmar Eliminar (admin) ────────────────────────────────────
+    function confirmarEliminar(idPago, concepto) {
+        Swal.fire({
+            title: '¿Eliminar pago?',
+            html: `Estás por <strong>eliminar permanentemente</strong> el pago de:<br>
+                   <span style="color:#e53935;font-weight:600;">"${concepto}"</span><br><br>
+                   <small style="color:#9e9e9e;">Esta acción no se puede deshacer y también eliminará todos sus abonos.</small>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#c62828',
+            cancelButtonColor: '#9e9e9e',
+            confirmButtonText: '<i class="bi bi-trash3"></i> Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const form = document.getElementById('formEliminarPago');
+                form.action = '/pagos/' + idPago;
+                form.submit();
+            }
+        });
+    }
+
+    // ── Confirmar Suspender (sensei) ──────────────────────────────────
+    function confirmarSuspender(idPago, concepto) {
+        Swal.fire({
+            title: '¿Suspender pago?',
+            html: `El pago de <strong>"${concepto}"</strong> será marcado como <span style="color:#f57f17;font-weight:600;">Suspendido</span>.<br><br>
+                   <small style="color:#9e9e9e;">El alumno no podrá realizar abonos mientras esté suspendido. Solo un administrador puede reactivarlo.</small>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#f57f17',
+            cancelButtonColor: '#9e9e9e',
+            confirmButtonText: '<i class="bi bi-pause-circle"></i> Sí, suspender',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const form = document.getElementById('formSuspenderPago');
+                form.action = '/pagos/' + idPago + '/suspender';
+                form.submit();
+            }
+        });
+    }
 </script>
 </body>
 </html>

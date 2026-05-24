@@ -526,6 +526,94 @@ class PagoController extends Controller
     }
 
     // ──────────────────────────────────────────────────────────────────
+    //  DELETE /pagos/{id}  — eliminar pago (solo admin, hard delete)
+    //  Restricción: no se puede eliminar un pago ya Completado.
+    // ──────────────────────────────────────────────────────────────────
+    public function destroy(int $id)
+    {
+        $user = Auth::user();
+
+        // Solo admin puede eliminar
+        if ($user->rol !== 'admin') {
+            abort(403, 'No tienes permiso para eliminar pagos.');
+        }
+
+        $pago = DB::table('pago')->where('id_pago', $id)->first();
+        if (!$pago) abort(404);
+
+        // Pagos Completados son intocables
+        if ($pago->estado_pago === 'Completado') {
+            return redirect()->route('pagos.index')
+                ->with('sessionInsertado', 'false')
+                ->with('mensaje', 'No se puede eliminar un pago ya completado.');
+        }
+
+        try {
+            // Eliminar abonos relacionados primero (integridad referencial)
+            DB::table('abono')->where('id_pago', $id)->delete();
+            DB::table('pago')->where('id_pago', $id)->delete();
+
+            return redirect()->route('pagos.index')
+                ->with('sessionInsertado', 'true')
+                ->with('mensaje', 'Pago eliminado correctamente.');
+
+        } catch (\Exception $e) {
+            Log::error('PagoController@destroy: ' . $e->getMessage());
+            return redirect()->route('pagos.index')
+                ->with('sessionInsertado', 'false')
+                ->with('mensaje', 'Error al eliminar el pago.');
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  PATCH /pagos/{id}/suspender  — suspender pago (solo sensei, soft)
+    //  Cambia estado_pago a 'Suspendido'.
+    //  Restricción: no se puede suspender un pago ya Completado.
+    // ──────────────────────────────────────────────────────────────────
+    public function suspender(int $id)
+    {
+        $user = Auth::user();
+
+        // Solo sensei puede suspender
+        if ($user->rol !== 'sensei') {
+            abort(403, 'No tienes permiso para suspender pagos.');
+        }
+
+        $pago = DB::table('pago')->where('id_pago', $id)->first();
+        if (!$pago) abort(404);
+
+        // Pagos Completados son intocables
+        if ($pago->estado_pago === 'Completado') {
+            return redirect()->route('pagos.index')
+                ->with('sessionInsertado', 'false')
+                ->with('mensaje', 'No se puede suspender un pago ya completado.');
+        }
+
+        // Si ya estaba suspendido, no hacer nada
+        if ($pago->estado_pago === 'Suspendido') {
+            return redirect()->route('pagos.index')
+                ->with('sessionInsertado', 'true')
+                ->with('mensaje', 'El pago ya se encontraba suspendido.');
+        }
+
+        try {
+            DB::table('pago')->where('id_pago', $id)->update([
+                'estado_pago' => 'Suspendido',
+            ]);
+
+            return redirect()->route('pagos.index')
+                ->with('sessionInsertado', 'true')
+                ->with('mensaje', 'Pago suspendido correctamente.');
+
+        } catch (\Exception $e) {
+            Log::error('PagoController@suspender: ' . $e->getMessage());
+            return redirect()->route('pagos.index')
+                ->with('sessionInsertado', 'false')
+                ->with('mensaje', 'Error al suspender el pago.');
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────
     //  PUT /conceptos-pago/{id}  — editar concepto existente (admin/sensei)
     // ──────────────────────────────────────────────────────────────────
     public function updateConcepto(Request $request, int $id)

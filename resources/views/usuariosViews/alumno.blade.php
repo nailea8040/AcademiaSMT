@@ -852,7 +852,7 @@
                     <div>
                         <label for="nuevo_nombre_grado">Nombre del grado</label>
                         <input type="text" id="nuevo_nombre_grado"
-                               placeholder="Ej: Cinturón Rojo" maxlength="100">
+                               placeholder="Ej: Cinta Negra 3er Dan" maxlength="100">
                     </div>
                     <div>
                         <label for="nuevo_orden_grado">Orden</label>
