@@ -21,7 +21,7 @@ class MercadoPagoService
     public function __construct()
     {
         MercadoPagoConfig::setAccessToken(
-            config('services.mercadopago.access_token')
+            (string) config('services.mercadopago.access_token', '')
         );
     }
 
@@ -51,7 +51,7 @@ class MercadoPagoService
         if ($origenMovil) {
             // Deep link → la app intercepta el esquema y navega internamente.
             // Formato: SCHEME://pagos/resultado?status=STATUS&id_pago=ID
-            $scheme = config('app.mobile_scheme', env('APP_MOBILE_SCHEME', 'academiakarate'));
+            $scheme = config('app.mobile_scheme', env('APP_MOBILE_SCHEME', 'miapp'));
 
             $backUrls = [
                 'success' => "{$scheme}://pagos/resultado?status=success&id_pago={$idPago}",
@@ -62,7 +62,7 @@ class MercadoPagoService
             $autoReturn = null;
         } else {
             // Rutas web de Laravel
-            $base = rtrim(config('app.url'), '/');
+            $base = rtrim((string) config('app.url', ''), '/');
 
             $backUrls = [
                 'success' => "{$base}/pagos/resultado?status=success&id_pago={$idPago}",
