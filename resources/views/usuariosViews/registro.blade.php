@@ -322,7 +322,9 @@
                     <label>Fecha de Nacimiento <span class="req">*</span></label>
                     <div class="input-wrap">
                         <span class="ico-cell"><i class="bi bi-calendar-date"></i></span>
-                        <input type="date" name="fecha_naci" required value="{{ old('fecha_naci') }}">
+                        <input type="date" name="fecha_naci" id="fecha_naci_main" required value="{{ old('fecha_naci') }}"
+                               min="{{ date('Y-m-d', strtotime('-100 years')) }}"
+                               max="{{ date('Y-m-d', strtotime('-4 years')) }}">
                     </div>
                     @error('fecha_naci')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                 </div>
@@ -331,8 +333,10 @@
                     <label>Teléfono <span class="req">*</span></label>
                     <div class="input-wrap">
                         <span class="ico-cell"><i class="bi bi-telephone"></i></span>
-                        <input type="text" name="tel" placeholder="10 dígitos" required
+                        <input type="tel" name="tel" id="tel_main" placeholder="10 dígitos" required
                                minlength="10" maxlength="10" pattern="[0-9]{10}"
+                               inputmode="numeric"
+                               oninput="this.value=this.value.replace(/[^0-9]/g,'')"
                                value="{{ old('tel') }}">
                     </div>
                     @error('tel')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
@@ -596,7 +600,8 @@
                                 <label>Fecha de inscripción <span class="req">*</span></label>
                                 <div class="input-wrap">
                                     <span class="ico-cell"><i class="bi bi-calendar-event"></i></span>
-                                    <input type="date" name="alumno_fecha_inscrip" value="{{ old('alumno_fecha_inscrip', date('Y-m-d')) }}">
+                                    <input type="date" name="alumno_fecha_inscrip" value="{{ old('alumno_fecha_inscrip', date('Y-m-d')) }}"
+                                           min="2010-01-01" max="{{ date('Y-m-d') }}">
                                 </div>
                                 @error('alumno_fecha_inscrip')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                             </div>
@@ -605,8 +610,9 @@
                                 <label>Peso <span style="font-weight:400;color:#888;font-size:10px;">(kg, opcional)</span></label>
                                 <div class="input-wrap">
                                     <span class="ico-cell"><i class="bi bi-speedometer2"></i></span>
-                                    <input type="number" name="alumno_peso" placeholder="Ej: 40.0"
-                                           step="0.1" min="0" max="300" value="{{ old('alumno_peso') }}">
+                                    <input type="number" name="alumno_peso" id="alumno_peso_t" placeholder="Ej: 40.0"
+                                           step="0.1" min="20" max="200" value="{{ old('alumno_peso') }}"
+                                           oninput="verificarIMC('alumno_peso_t','alumno_estatura_t','imc_hint_tutor')">
                                 </div>
                                 @error('alumno_peso')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                             </div>
@@ -615,10 +621,12 @@
                                 <label>Estatura <span style="font-weight:400;color:#888;font-size:10px;">(metros, opcional)</span></label>
                                 <div class="input-wrap">
                                     <span class="ico-cell"><i class="bi bi-arrows-vertical"></i></span>
-                                    <input type="number" name="alumno_estatura" placeholder="Ej: 1.40"
-                                           step="0.01" min="0" max="3" value="{{ old('alumno_estatura') }}">
+                                    <input type="number" name="alumno_estatura" id="alumno_estatura_t" placeholder="Ej: 1.40"
+                                           step="0.01" min="1.00" max="2.50" value="{{ old('alumno_estatura') }}"
+                                           oninput="verificarIMC('alumno_peso_t','alumno_estatura_t','imc_hint_tutor')">
                                 </div>
                                 @error('alumno_estatura')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                                <span id="imc_hint_tutor" style="font-size:11.5px;color:#888;display:none;margin-top:2px;"></span>
                             </div>
 
                             <div class="form-group full">
@@ -692,7 +700,8 @@
                         <label>Fecha de inscripción <span class="req">*</span></label>
                         <div class="input-wrap">
                             <span class="ico-cell"><i class="bi bi-calendar-event"></i></span>
-                            <input type="date" name="Fecha_inscrip" value="{{ old('Fecha_inscrip', date('Y-m-d')) }}">
+                            <input type="date" name="Fecha_inscrip" value="{{ old('Fecha_inscrip', date('Y-m-d')) }}"
+                                   min="2010-01-01" max="{{ date('Y-m-d') }}">
                         </div>
                         @error('Fecha_inscrip')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                     </div>
@@ -701,8 +710,9 @@
                         <label>Peso <span style="font-weight:400;color:#888;font-size:10px;">(kg, opcional)</span></label>
                         <div class="input-wrap">
                             <span class="ico-cell"><i class="bi bi-speedometer2"></i></span>
-                            <input type="number" name="peso" placeholder="Ej: 55.5"
-                                   step="0.1" min="0" max="300" value="{{ old('peso') }}">
+                            <input type="number" name="peso" id="peso_alumno" placeholder="Ej: 55.5"
+                                   step="0.1" min="20" max="200" value="{{ old('peso') }}"
+                                   oninput="verificarIMC('peso_alumno','estatura_alumno','imc_hint_alumno')">
                         </div>
                         @error('peso')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                     </div>
@@ -711,10 +721,12 @@
                         <label>Estatura <span style="font-weight:400;color:#888;font-size:10px;">(metros, opcional)</span></label>
                         <div class="input-wrap">
                             <span class="ico-cell"><i class="bi bi-arrows-vertical"></i></span>
-                            <input type="number" name="estatura" placeholder="Ej: 1.65"
-                                   step="0.01" min="0" max="3" value="{{ old('estatura') }}">
+                            <input type="number" name="estatura" id="estatura_alumno" placeholder="Ej: 1.65"
+                                   step="0.01" min="1.00" max="2.50" value="{{ old('estatura') }}"
+                                   oninput="verificarIMC('peso_alumno','estatura_alumno','imc_hint_alumno')">
                         </div>
                         @error('estatura')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
+                        <span id="imc_hint_alumno" style="font-size:11.5px;color:#888;display:none;margin-top:2px;"></span>
                     </div>
 
                     <div class="form-group full">
@@ -758,11 +770,11 @@
                             <label>Grupo</label>
                             <div class="input-wrap">
                                 <span class="ico-cell"><i class="bi bi-people-fill"></i></span>
-                                <input type="text" name="grupo"
-                                       id="grupo"
-                                       placeholder="Ej: 3A, 2B"
-                                       maxlength="10"
-                                       value="{{ old('grupo') }}">
+                                <select name="grupo" id="grupo">
+                                    <option value="">— Selecciona —</option>
+                                    <option value="A" {{ old('grupo')=='A' ?'selected':'' }}>A</option>
+                                    <option value="B" {{ old('grupo')=='B' ?'selected':'' }}>B</option>
+                                </select>
                             </div>
                             @error('grupo')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                         </div>
@@ -771,11 +783,15 @@
                             <label>Especialidad</label>
                             <div class="input-wrap">
                                 <span class="ico-cell"><i class="bi bi-mortarboard-fill"></i></span>
-                                <input type="text" name="especialidad"
-                                       id="especialidad"
-                                       placeholder="Ej: Informática, Contabilidad"
-                                       maxlength="100"
-                                       value="{{ old('especialidad') }}">
+                                <select name="especialidad" id="especialidad">
+                                    <option value="">— Selecciona —</option>
+                                    <option value="Programación"              {{ old('especialidad')=='Programación'              ?'selected':'' }}>Programación</option>
+                                    <option value="Logística"                 {{ old('especialidad')=='Logística'                 ?'selected':'' }}>Logística</option>
+                                    <option value="Contabilidad"              {{ old('especialidad')=='Contabilidad'              ?'selected':'' }}>Contabilidad</option>
+                                    <option value="Mecánica"                  {{ old('especialidad')=='Mecánica'                  ?'selected':'' }}>Mecánica</option>
+                                    <option value="Soporte y mantenimiento"   {{ old('especialidad')=='Soporte y mantenimiento'   ?'selected':'' }}>Soporte y mantenimiento</option>
+                                    <option value="Laboratorio Clínico"       {{ old('especialidad')=='Laboratorio Clínico'       ?'selected':'' }}>Laboratorio Clínico</option>
+                                </select>
                             </div>
                             @error('especialidad')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                         </div>
@@ -823,7 +839,9 @@
                                 <label>Fecha de Nacimiento <span class="req">*</span></label>
                                 <div class="input-wrap">
                                     <span class="ico-cell"><i class="bi bi-calendar-date"></i></span>
-                                    <input type="date" name="tutor_fecha_naci" value="{{ old('tutor_fecha_naci') }}">
+                                    <input type="date" name="tutor_fecha_naci" value="{{ old('tutor_fecha_naci') }}"
+                                           min="{{ date('Y-m-d', strtotime('-100 years')) }}"
+                                           max="{{ date('Y-m-d', strtotime('-18 years')) }}">
                                 </div>
                                 @error('tutor_fecha_naci')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
                             </div>
@@ -859,8 +877,10 @@
                                 <label>Teléfono del tutor <span class="req">*</span></label>
                                 <div class="input-wrap">
                                     <span class="ico-cell"><i class="bi bi-telephone"></i></span>
-                                    <input type="text" name="tutor_tel" placeholder="10 dígitos"
+                                    <input type="tel" name="tutor_tel" placeholder="10 dígitos"
                                            minlength="10" maxlength="10" pattern="[0-9]{10}"
+                                           inputmode="numeric"
+                                           oninput="this.value=this.value.replace(/[^0-9]/g,'')"
                                            value="{{ old('tutor_tel') }}">
                                 </div>
                                 @error('tutor_tel')<span class="field-error"><i class="bi bi-exclamation-circle"></i>{{ $message }}</span>@enderror
@@ -1134,8 +1154,37 @@ function toggleTutor() {
     }
 }
 
-/* ── Toggle password ─────────────────────────────────── */
-function togglePass(inputId, iconId) {
+/* ── Validación IMC (advertencia visual, no bloquea) ──────── */
+function verificarIMC(pesoId, estaturaId, hintId) {
+    const pesoEl     = document.getElementById(pesoId);
+    const estaturaEl = document.getElementById(estaturaId);
+    const hint       = document.getElementById(hintId);
+    if (!pesoEl || !estaturaEl || !hint) return;
+
+    const peso     = parseFloat(pesoEl.value);
+    const estatura = parseFloat(estaturaEl.value);
+
+    if (!peso || !estatura || estatura <= 0) {
+        hint.style.display = 'none';
+        return;
+    }
+
+    const imc = peso / (estatura * estatura);
+    hint.style.display = 'block';
+
+    if (imc < 12 || imc > 60) {
+        hint.textContent = '⚠ Los valores de peso y estatura parecen inconsistentes (IMC=' + imc.toFixed(1) + '). Verifica los datos.';
+        hint.style.color = '#c62828';
+    } else if (imc < 16 || imc > 40) {
+        hint.textContent = 'ℹ IMC=' + imc.toFixed(1) + '. Confirma que los datos son correctos.';
+        hint.style.color = '#e65100';
+    } else {
+        hint.textContent = '✓ IMC=' + imc.toFixed(1) + ' — valores razonables.';
+        hint.style.color = '#2e7d32';
+    }
+}
+
+
     const inp = document.getElementById(inputId);
     const ico = document.getElementById(iconId);
     inp.type = inp.type === 'password' ? 'text' : 'password';

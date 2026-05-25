@@ -115,11 +115,17 @@ class PagoController extends Controller
         $rules = [
             'id_concepto'    => 'required|exists:concepto_pago,id_concepto',
             'id_tipo_pago'   => 'required|exists:tipo_pago,id_tipo_pago',
-            'monto'          => 'required|numeric|min:1',
             'fechaPago'      => 'required|date',
             'motivoPago'     => 'nullable|string|max:100',
             'pagar_en_linea' => 'nullable|boolean',
         ];
+
+        // Admin/sensei: el monto viene del concepto (hidden), alumno/tutor lo envían explícitamente
+        if (in_array($user->rol, ['alumno', 'tutor'])) {
+            $rules['monto'] = 'required|numeric|min:1';
+        } else {
+            $rules['monto'] = 'nullable|numeric|min:1';
+        }
 
         // Reglas exclusivas de admin/sensei
         if ($esAdminSensei) {
@@ -151,6 +157,16 @@ class PagoController extends Controller
         $motivo   = $validated['motivoPago'] ?? null;
         if (!$motivo && $concepto) {
             $motivo = $concepto->nombre;
+        }
+
+        // Admin/sensei: si el hidden monto llegó vacío, usar monto_sugerido del concepto
+        if ($esAdminSensei && empty($validated['monto'])) {
+            if (!$concepto || !$concepto->monto_sugerido) {
+                return redirect()->back()->withInput()
+                    ->with('sessionInsertado', 'false')
+                    ->with('mensaje', 'Este concepto no tiene monto definido. Edita el concepto y añade un monto primero.');
+            }
+            $validated['monto'] = $concepto->monto_sugerido;
         }
 
         try {

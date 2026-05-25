@@ -187,9 +187,11 @@
                 <a href="{{ route('alumnos.index') }}" class="btn-hero-primary">
                     <i class="bi bi-person-badge-fill"></i> Gestión de Alumnos
                 </a>
+                @if(in_array(Auth::user()->rol ?? '', ['admin','sensei']))
                 <a href="{{ route('pagos.index') }}" class="btn-hero-secondary">
                     <i class="bi bi-cash-coin"></i> Módulo de Pagos
                 </a>
+                @endif
             </div>
         </div>
     </section>

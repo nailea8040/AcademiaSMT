@@ -334,17 +334,20 @@
                             @error('id_tipo_pago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                         </div>
 
-                        {{-- Monto --}}
+                        {{-- Monto — tomado del concepto, no editable por el admin --}}
                         <div class="form-group">
-                            <label class="form-label" for="monto_admin">
-                                Monto Total <span class="required">*</span>
+                            <label class="form-label">
+                                Monto Total
+                                <span style="font-size:11px;color:#718096;font-weight:400;">(definido por el concepto)</span>
                             </label>
-                            <div class="form-input-wrapper">
+                            <div class="form-input-wrapper" style="background:#f7f7f7;pointer-events:none;opacity:.85;">
                                 <i class="bi bi-currency-dollar input-icon"></i>
-                                <input type="number" step="0.01" name="monto" id="monto_admin"
-                                       class="form-input" placeholder="0.00"
-                                       value="{{ old('monto') }}" required>
+                                <span id="monto_display_admin" style="flex:1;padding:10px 12px;font-size:14px;color:#2d3748;font-weight:600;">
+                                    —
+                                </span>
                             </div>
+                            <input type="hidden" name="monto" id="monto_admin" value="{{ old('monto') }}">
+                            <div class="concepto-hint" id="montoHintAdmin" style="color:#e53935;font-weight:600;"></div>
                             @error('monto')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                         </div>
 
@@ -1080,21 +1083,29 @@
             });
         });
 
-        // ── Concepto admin → autocompletar monto ──────────────────────
+        // ── Concepto admin → autocompletar monto (predefinido por concepto) ─
         const selectAdmin = document.getElementById('id_concepto_admin');
         if (selectAdmin) {
             selectAdmin.addEventListener('change', function () {
-                const opt   = this.options[this.selectedIndex];
-                const monto = opt.dataset.monto;
-                const hint  = document.getElementById('conceptoHintAdmin');
-                const campo = document.getElementById('monto_admin');
-                if (monto) {
-                    campo.value = monto;
-                    hint.innerHTML = `Monto sugerido autocompletado: <strong>$${parseFloat(monto).toFixed(2)}</strong>. Puedes modificarlo.`;
+                const opt     = this.options[this.selectedIndex];
+                const monto   = opt.dataset.monto;
+                const hint    = document.getElementById('conceptoHintAdmin');
+                const display = document.getElementById('monto_display_admin');
+                const hidden  = document.getElementById('monto_admin');
+
+                if (monto && parseFloat(monto) > 0) {
+                    hidden.value   = monto;
+                    display.textContent = '$' + parseFloat(monto).toFixed(2);
+                    hint.innerHTML = `Monto del concepto: <strong>$${parseFloat(monto).toFixed(2)}</strong>`;
                 } else {
-                    hint.innerHTML = opt.value ? 'Sin monto sugerido. Ingresa el monto manualmente.' : '';
+                    hidden.value   = '';
+                    display.textContent = '—';
+                    hint.innerHTML = opt.value ? 'Este concepto no tiene monto definido.' : '';
                 }
             });
+
+            // Pre-fill on page load if there was an old() value
+            if (selectAdmin.value) selectAdmin.dispatchEvent(new Event('change'));
         }
 
         // ── Concepto alumno → autocompletar monto ─────────────────────

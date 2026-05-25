@@ -42,21 +42,21 @@ class RegistroController extends Controller
             'nombre'     => 'required|string|max:100',
             'apaterno'   => 'required|string|max:100',
             'amaterno'   => 'required|string|max:100',
-            'fecha_naci' => 'required|date',
+            'fecha_naci' => 'required|date|before:' . now()->subYears(4)->toDateString() . '|after:' . now()->subYears(100)->toDateString(),
             'tel'        => 'required|digits:10',
             'correo'     => 'required|email|unique:usuario,correo',
             'pass'       => 'required|min:8',
             'rol'        => 'required|in:sensei,tutor,alumno',
             'es_bachiller'   => 'nullable|boolean',
             'numero_control' => 'nullable|string|max:20',
-            'grupo'          => 'nullable|string|max:10',
-            'especialidad'   => 'nullable|string|max:100',
+            'grupo'          => 'nullable|in:A,B',
+            'especialidad'   => 'nullable|in:Programación,Logística,Contabilidad,Mecánica,Soporte y mantenimiento,Laboratorio Clínico',
             'turno'          => 'nullable|in:Matutino,Vespertino',
         ];
 
         if ($rol === 'alumno') {
-            $rules['peso']     = 'nullable|numeric|min:0|max:300';
-            $rules['estatura'] = 'nullable|numeric|min:0|max:3';
+            $rules['peso']     = 'nullable|numeric|min:20|max:200';
+            $rules['estatura'] = 'nullable|numeric|min:1.00|max:2.50';
         }
 
         // ── Reglas tutor ─────────────────────────────────────────────────────
@@ -76,17 +76,17 @@ class RegistroController extends Controller
                 $rules['alumno_correo']           = 'required|email|unique:usuario,correo';
                 $rules['alumno_pass']             = 'required|min:8';
                 $rules['alumno_grado']            = 'required|integer|exists:grado,id_grado';
-                $rules['alumno_fecha_inscrip']    = 'required|date';
+                $rules['alumno_fecha_inscrip']    = 'required|date|after_or_equal:2010-01-01|before_or_equal:today';
                 $rules['alumno_documento_medico'] = 'required|file|mimes:pdf|max:5120';
-                $rules['alumno_peso']             = 'nullable|numeric|min:0|max:300';
-                $rules['alumno_estatura']         = 'nullable|numeric|min:0|max:3';
+                $rules['alumno_peso']             = 'nullable|numeric|min:20|max:200';
+                $rules['alumno_estatura']         = 'nullable|numeric|min:1.00|max:2.50';
             }
         }
 
         // ── Reglas alumno ─────────────────────────────────────────────────────
         if ($rol === 'alumno') {
             $rules['grado']            = 'required|integer|exists:grado,id_grado';
-            $rules['Fecha_inscrip']    = 'required|date';
+            $rules['Fecha_inscrip']    = 'required|date|after_or_equal:2010-01-01|before_or_equal:today';
             $rules['documento_medico'] = 'required|file|mimes:pdf|max:5120';
 
             $esMayor = $request->filled('fecha_naci')
@@ -97,7 +97,7 @@ class RegistroController extends Controller
                 $rules['tutor_nombre']     = 'required|string|max:100';
                 $rules['tutor_apaterno']   = 'required|string|max:100';
                 $rules['tutor_amaterno']   = 'required|string|max:100';
-                $rules['tutor_fecha_naci'] = 'required|date|before:today';
+                $rules['tutor_fecha_naci'] = 'required|date|before:' . now()->subYears(18)->toDateString() . '|after:' . now()->subYears(100)->toDateString();
                 $rules['tutor_correo']     = 'required|email|unique:usuario,correo';
                 $rules['tutor_tel']        = 'required|digits:10';
                 $rules['tutor_ocupacion']  = 'required|integer|exists:ocupacion,id_ocupacion';
