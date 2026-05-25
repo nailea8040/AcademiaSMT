@@ -757,7 +757,11 @@
                                 </td>
 
                                 <td>
-                                    @if($saldo <= 0)
+                                    @if($pago->estado_pago === 'Completado')
+                                        <span class="saldo-badge saldo-completado">
+                                            <i class="bi bi-check-circle-fill"></i> Saldado
+                                        </span>
+                                    @elseif($saldo <= 0)
                                         <span class="saldo-badge saldo-completado">
                                             <i class="bi bi-check-circle-fill"></i> Saldado
                                         </span>
@@ -812,16 +816,16 @@
                                             </button>
                                         @endif
 
-                                        {{-- Completar: solo admin/sensei --}}
-                                        @if(in_array($user->rol, ['admin', 'sensei']) && $pago->estado_pago === 'Pendiente')
-                                            <form method="POST"
+                                        {{-- Completar: admin/sensei en pagos Pendientes o Suspendidos --}}
+                                        @if(in_array($user->rol, ['admin', 'sensei']) && in_array($pago->estado_pago, ['Pendiente', 'Suspendido']))
+                                            <button type="button" class="btn-completar"
+                                                onclick="confirmarCompletar({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
+                                                <i class="bi bi-check-circle-fill"></i> Completar
+                                            </button>
+                                            <form id="formCompletar-{{ $pago->id_pago }}" method="POST"
                                                   action="{{ route('pagos.completar', $pago->id_pago) }}"
-                                                  style="display:inline;"
-                                                  onsubmit="return confirm('¿Confirmas que verificaste este pago y deseas marcarlo como Completado?')">
+                                                  style="display:none;">
                                                 @csrf
-                                                <button type="submit" class="btn-completar">
-                                                    <i class="bi bi-check-circle-fill"></i> Completar
-                                                </button>
                                             </form>
                                         @endif
 
@@ -1285,6 +1289,27 @@
             if (modal && e.target === modal) modal.classList.remove('active');
         });
     });
+
+    // ── Confirmar Completar (admin/sensei) ───────────────────────────
+    function confirmarCompletar(idPago, concepto) {
+        Swal.fire({
+            title: '¿Marcar como completado?',
+            html: `Confirma que <strong>verificaste el pago</strong> de:<br>
+                   <span style="color:#2e7d32;font-weight:600;">"${concepto}"</span><br><br>
+                   <small style="color:#9e9e9e;">El saldo quedará en $0 y no se podrán registrar más abonos.</small>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#2e7d32',
+            cancelButtonColor: '#9e9e9e',
+            confirmButtonText: '<i class="bi bi-check-circle-fill"></i> Sí, completar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById('formCompletar-' + idPago).submit();
+            }
+        });
+    }
 
     // ── Confirmar Eliminar (admin) ────────────────────────────────────
     function confirmarEliminar(idPago, concepto) {

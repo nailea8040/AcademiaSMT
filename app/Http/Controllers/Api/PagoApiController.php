@@ -649,22 +649,31 @@ MercadoPagoConfig::setAccessToken($accessToken);
             $estadoInterno = match ($payment->status) {
                 'approved'                             => 'Completado',
                 'pending', 'in_process', 'authorized' => 'Pendiente',
-                default                               => 'Fallido',
+                default                               => 'Fallido',  // rejected, cancelled, etc.
             };
 
-            // Monto que acaba de pagarse (viene de la respuesta de MP, más confiable)
+            // Solo actualizar monto_pagado si MP aprobó el pago
             $montoTransaccion = (float) ($payment->transaction_amount ?? $pagoRegistro->saldo_restante);
-            $nuevoMontoPagado = ($pagoRegistro->monto_pagado ?? 0) + $montoTransaccion;
+            $montoPagadoActual = (float) ($pagoRegistro->monto_pagado ?? 0);
+            $nuevoMontoPagado  = $estadoInterno === 'Completado'
+                ? $montoPagadoActual + $montoTransaccion
+                : $montoPagadoActual; // rechazado/pendiente → no tocar el saldo
+
+            // Si fue rechazado, el estado del pago vuelve a Pendiente (no queda en 'Fallido'
+            // de forma permanente, para que el alumno pueda reintentar)
+            $estadoPago = match ($estadoInterno) {
+                'Completado' => 'Completado',
+                'Fallido'    => 'Pendiente',  // rechazado = puede reintentar
+                default      => 'Pendiente',
+            };
 
             // Actualizar registro de pago
             DB::table('pago')->where('id_pago', $pagoRegistro->id_pago)->update([
                 'mp_payment_id'   => (string) $payment->id,
                 'mp_status'       => $payment->status,
-                'estado_pago'     => $estadoInterno,
+                'estado_pago'     => $estadoPago,
                 'referencia_pago' => "MP-{$payment->id}",
-                'monto_pagado'    => $estadoInterno === 'Completado'
-                    ? $nuevoMontoPagado
-                    : ($pagoRegistro->monto_pagado ?? 0),
+                'monto_pagado'    => $nuevoMontoPagado,
             ]);
 
             // Registrar abono solo si fue aprobado
@@ -762,18 +771,29 @@ MercadoPagoConfig::setAccessToken($accessToken);
             $pagoRegistro = DB::table('pago')->where('id_pago', (int) $externalRef)->first();
 
             if ($pagoRegistro) {
-                $nuevoMontoPagado = ($pagoRegistro->monto_pagado ?? 0) + $monto;
-                $montoTotal       = $pagoRegistro->monto_total ?? $pagoRegistro->monto;
-                $estadoFinal      = $nuevoMontoPagado >= $montoTotal ? 'Completado' : $estadoInterno;
+                $montoPagadoActual = (float) ($pagoRegistro->monto_pagado ?? 0);
+                $montoTotal        = (float) ($pagoRegistro->monto_total ?? $pagoRegistro->monto);
+
+                // Solo sumar al saldo si fue aprobado
+                $nuevoMontoPagado = $estadoInterno === 'Completado'
+                    ? min($montoPagadoActual + $monto, $montoTotal) // no superar el total
+                    : $montoPagadoActual;
+
+                // Estado final: si el monto ya cubre el total → Completado
+                // Si fue rechazado → volver a Pendiente para permitir reintento
+                $estadoFinal = match (true) {
+                    $estadoInterno === 'Completado' && $nuevoMontoPagado >= $montoTotal => 'Completado',
+                    $estadoInterno === 'Completado'                                    => 'Pendiente',
+                    $estadoInterno === 'Fallido'                                       => 'Pendiente',
+                    default                                                            => 'Pendiente',
+                };
 
                 DB::table('pago')->where('id_pago', (int) $externalRef)->update([
                     'mp_payment_id'   => (string) $paymentId,
                     'mp_status'       => $mpStatus,
                     'estado_pago'     => $estadoFinal,
                     'referencia_pago' => "MP-{$paymentId}",
-                    'monto_pagado'    => $estadoInterno === 'Completado'
-                        ? $nuevoMontoPagado
-                        : $pagoRegistro->monto_pagado,
+                    'monto_pagado'    => $nuevoMontoPagado,
                 ]);
 
                 if ($estadoInterno === 'Completado') {
