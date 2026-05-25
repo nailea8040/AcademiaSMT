@@ -649,7 +649,7 @@ MercadoPagoConfig::setAccessToken($accessToken);
             $estadoInterno = match ($payment->status) {
                 'approved'                             => 'Completado',
                 'pending', 'in_process', 'authorized' => 'Pendiente',
-                default                               => 'Fallido',  // rejected, cancelled, etc.
+                default                               => 'Rechazado',  // rejected, cancelled, etc.
             };
 
             // Solo actualizar monto_pagado si MP aprobó el pago
@@ -659,11 +659,11 @@ MercadoPagoConfig::setAccessToken($accessToken);
                 ? $montoPagadoActual + $montoTransaccion
                 : $montoPagadoActual; // rechazado/pendiente → no tocar el saldo
 
-            // Si fue rechazado, el estado del pago vuelve a Pendiente (no queda en 'Fallido'
-            // de forma permanente, para que el alumno pueda reintentar)
+            // Rechazado → estado queda en 'Rechazado' para mostrarlo en la tabla
+            // El alumno puede volver a intentar (botón Pagar sigue visible en Rechazado)
             $estadoPago = match ($estadoInterno) {
                 'Completado' => 'Completado',
-                'Fallido'    => 'Pendiente',  // rechazado = puede reintentar
+                'Rechazado'  => 'Rechazado',
                 default      => 'Pendiente',
             };
 
@@ -765,7 +765,7 @@ MercadoPagoConfig::setAccessToken($accessToken);
             $estadoInterno = match ($mpStatus) {
                 'approved'                             => 'Completado',
                 'pending', 'in_process', 'authorized' => 'Pendiente',
-                default                               => 'Fallido',
+                default                               => 'Rechazado',
             };
 
             $pagoRegistro = DB::table('pago')->where('id_pago', (int) $externalRef)->first();
@@ -784,7 +784,7 @@ MercadoPagoConfig::setAccessToken($accessToken);
                 $estadoFinal = match (true) {
                     $estadoInterno === 'Completado' && $nuevoMontoPagado >= $montoTotal => 'Completado',
                     $estadoInterno === 'Completado'                                    => 'Pendiente',
-                    $estadoInterno === 'Fallido'                                       => 'Pendiente',
+                    $estadoInterno === 'Rechazado'                                     => 'Rechazado',
                     default                                                            => 'Pendiente',
                 };
 

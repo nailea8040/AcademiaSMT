@@ -71,6 +71,9 @@
         /* ── Badge Suspendido ── */
         .badge-suspendido { background:#fff8e1;color:#f57f17;border:1px solid #ffe082; }
 
+        /* ── Badge Rechazado ── */
+        .badge-rechazado { background:#fce4ec;color:#c62828;border:1px solid #ef9a9a; }
+
         /* ── Concepto hint ── */
         .concepto-hint { font-size:12px;color:#718096;margin-top:4px;min-height:18px; }
         .concepto-hint strong { color:#e53935; }
@@ -720,7 +723,10 @@
                                 $montoTotal  = $pago->monto_total  ?? $pago->monto;
                                 $montoPagado = $pago->monto_pagado ?? 0;
                                 $saldo       = $montoTotal - $montoPagado;
-                                $porcentaje  = $montoTotal > 0 ? min(100, ($montoPagado / $montoTotal) * 100) : 0;
+                                // Si el pago está Completado forzamos 100% visualmente
+                                $porcentaje  = $pago->estado_pago === 'Completado'
+                                    ? 100
+                                    : ($montoTotal > 0 ? min(100, ($montoPagado / $montoTotal) * 100) : 0);
                                 $concepto    = $pago->nombre_concepto ?? $pago->motivo_pago ?? '—';
                             @endphp
                             <tr>
@@ -748,7 +754,7 @@
 
                                 <td>
                                     <span style="font-weight:600;color:#4caf50;">
-                                        ${{ number_format($montoPagado, 2) }}
+                                        ${{ number_format($pago->estado_pago === 'Completado' ? $montoTotal : $montoPagado, 2) }}
                                     </span>
                                     <div class="progress-bar-wrap">
                                         <div class="progress-bar-fill" style="width:{{ $porcentaje }}%"></div>
@@ -784,6 +790,10 @@
                                         <span class="badge badge-suspendido">
                                             <i class="bi bi-pause-circle-fill"></i> Suspendido
                                         </span>
+                                    @elseif($estado == 'Rechazado')
+                                        <span class="badge badge-rechazado">
+                                            <i class="bi bi-x-circle-fill"></i> Rechazado
+                                        </span>
                                     @else
                                         <span class="badge badge-danger">{{ $estado ?? 'N/A' }}</span>
                                     @endif
@@ -793,7 +803,7 @@
                                     <div class="acciones-cell">
 
                                         {{-- Pagar con MP: cualquier rol si hay saldo y no está suspendido --}}
-                                        @if($pago->estado_pago !== 'Completado' && $pago->estado_pago !== 'Suspendido' && $saldo > 0)
+                                        @if(!in_array($pago->estado_pago, ['Completado', 'Suspendido']) && $saldo > 0)
                                             <a href="{{ route('pagos.pagar', $pago->id_pago) }}"
                                                class="btn btn-primary"
                                                style="padding:5px 12px;font-size:12px;display:inline-flex;align-items:center;gap:5px;">
@@ -802,7 +812,7 @@
                                         @endif
 
                                         {{-- Abono: cualquier rol si hay saldo y no está suspendido --}}
-                                        @if($pago->estado_pago !== 'Completado' && $pago->estado_pago !== 'Suspendido' && $saldo > 0)
+                                        @if(!in_array($pago->estado_pago, ['Completado', 'Suspendido']) && $saldo > 0)
                                             <button type="button" class="btn-abono"
                                                 onclick="abrirModalAbono(
                                                     {{ $pago->id_pago }},
@@ -816,8 +826,8 @@
                                             </button>
                                         @endif
 
-                                        {{-- Completar: admin/sensei en pagos Pendientes o Suspendidos --}}
-                                        @if(in_array($user->rol, ['admin', 'sensei']) && in_array($pago->estado_pago, ['Pendiente', 'Suspendido']))
+                                        {{-- Completar: admin/sensei en pagos Pendientes, Suspendidos o Rechazados --}}
+                                        @if(in_array($user->rol, ['admin', 'sensei']) && in_array($pago->estado_pago, ['Pendiente', 'Suspendido', 'Rechazado']))
                                             <button type="button" class="btn-completar"
                                                 onclick="confirmarCompletar({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
                                                 <i class="bi bi-check-circle-fill"></i> Completar
@@ -843,8 +853,8 @@
                                             </span>
                                         @endif
 
-                                        {{-- Suspender: solo sensei, pagos no Completados --}}
-                                        @if($user->rol === 'sensei' && $pago->estado_pago !== 'Completado' && $pago->estado_pago !== 'Suspendido')
+                                        {{-- Suspender: solo sensei, solo en Pendiente --}}
+                                        @if($user->rol === 'sensei' && $pago->estado_pago === 'Pendiente')
                                             <button type="button" class="btn-suspender"
                                                 onclick="confirmarSuspender({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
                                                 <i class="bi bi-pause-circle"></i> Suspender
