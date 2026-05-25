@@ -154,7 +154,7 @@ class PagoApiController extends Controller
                     'motivo'        => $motivo ?? 'Pago Academia',
                     'alumno_email'  => $alumno->correo ?? 'alumno@academia.com',
                     'alumno_nombre' => "{$alumno->nombre} {$alumno->apaterno}",
-                ]);
+                ], true);
 
                 DB::table('pago')->where('id_pago', $id)->update([
                     'mp_preference_id' => $preferencia['id'],
@@ -290,7 +290,7 @@ class PagoApiController extends Controller
                     'motivo'        => "Abono - " . ($pago->motivo_pago ?? 'Pago Academia'),
                     'alumno_email'  => $alumno->correo ?? 'alumno@academia.com',
                     'alumno_nombre' => "{$alumno->nombre} {$alumno->apaterno}",
-                ]);
+                ], true);
 
                 DB::table('abono')->where('id_abono', $idAbono)->update([
                     'referencia' => $preferencia['id'],
@@ -381,7 +381,7 @@ class PagoApiController extends Controller
                 'motivo'        => $pago->motivo_pago ?? 'Pago Academia',
                 'alumno_email'  => $pago->correo ?? 'alumno@academia.com',
                 'alumno_nombre' => $pago->nombre_alumno,
-            ]);
+            ], true);
 
             DB::table('pago')->where('id_pago', $id)->update([
                 'mp_preference_id' => $preferencia['id'],

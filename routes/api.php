@@ -64,7 +64,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/alumnos',                       [AlumnoApiController::class, 'index']);
     Route::post('/alumnos',                      [AlumnoApiController::class, 'store']);
     Route::put('/alumnos/{id}',                  [AlumnoApiController::class, 'update']);
-    Route::get('/alumnos/{id}/historial-grados', [AlumnoApiController::class, 'historialGrados']);
+    Route::get('/alumnos/{id}/historial-grados',     [AlumnoApiController::class, 'historialGrados']);
+    Route::get('/alumnos/{id}/historial-seminarios', [AlumnoApiController::class, 'historialSeminarios']);
 
     // ── Tutores ───────────────────────────────────────────────────────────
     Route::get('/tutores',      [TutorApiController::class, 'index']);

@@ -1,5 +1,14 @@
 <?php
 // app/Services/MercadoPagoService.php — REEMPLAZA COMPLETO
+//
+// back_url inteligente:
+//   • Si la llamada llega por la API (header Authorization: Bearer …)
+//     → back_url usa el deep link de la app móvil  (APP_SCHEME://pagos/resultado)
+//   • Si la llamada llega por la web (sesión Laravel)
+//     → back_url usa la ruta web  (/pagos/resultado)
+//
+// El método crearPreferencia acepta un parámetro opcional $origenMovil (bool).
+// PagoApiController lo llama con true; PagoController (web) con false (default).
 
 namespace App\Services;
 
@@ -11,72 +20,95 @@ class MercadoPagoService
 {
     public function __construct()
     {
-        $token = config('services.mercadopago.access_token');
-
-        if (empty($token)) {
-            throw new \RuntimeException('MP_ACCESS_TOKEN no está configurado en .env');
-        }
-
-        MercadoPagoConfig::setAccessToken($token);
-
-        // Si el token es de cuenta de prueba (TEST- o APP_USR- de cuenta test),
-        // forzamos el runtime a sandbox para que el SDK opere correctamente.
-        // La variable MP_SANDBOX=true en Railway activa esto.
-        if (config('services.mercadopago.sandbox', false)) {
-            MercadoPagoConfig::setRuntimeEnviroment(MercadoPagoConfig::LOCAL);
-        }
+        MercadoPagoConfig::setAccessToken(
+            config('services.mercadopago.access_token')
+        );
     }
 
     /**
      * Crea una preferencia de pago en MercadoPago.
      *
-     * @param  array{
-     *   id_pago:       int,
-     *   monto:         float,
-     *   motivo:        string,
-     *   alumno_email:  string,
-     *   alumno_nombre: string,
-     * } $datos
-     * @return array{ id: string, init_point: string, sandbox_init_point: string }
+     * @param array $datos {
+     *   id_pago       int     — ID del registro en tabla `pago`
+     *   monto         float   — Monto a cobrar
+     *   motivo        string  — Descripción que verá el pagador
+     *   alumno_email  string  — Email del pagador
+     *   alumno_nombre string  — Nombre del pagador
+     * }
+     * @param bool $origenMovil  true → deep link; false → URL web (default)
+     *
+     * @return array {
+     *   id                  string — preference_id de MercadoPago
+     *   init_point          string — URL de producción
+     *   sandbox_init_point  string — URL de sandbox/test
+     * }
      */
-    public function crearPreferencia(array $datos): array
+    public function crearPreferencia(array $datos, bool $origenMovil = false): array
     {
-        $base = rtrim((string) config('app.url', 'http://localhost'), '/');
-        $client     = new PreferenceClient();
-        $preferencia = $client->create([
+        $idPago = $datos['id_pago'];
+
+        // ── Back URLs ─────────────────────────────────────────────────
+        if ($origenMovil) {
+            // Deep link → la app intercepta el esquema y navega internamente.
+            // Formato: SCHEME://pagos/resultado?status=STATUS&id_pago=ID
+            $scheme = config('app.mobile_scheme', env('APP_MOBILE_SCHEME', 'academiakarate'));
+
+            $backUrls = [
+                'success' => "{$scheme}://pagos/resultado?status=success&id_pago={$idPago}",
+                'failure' => "{$scheme}://pagos/resultado?status=failure&id_pago={$idPago}",
+                'pending' => "{$scheme}://pagos/resultado?status=pending&id_pago={$idPago}",
+            ];
+            // auto_return no se usa en móvil (requiere redirect web)
+            $autoReturn = null;
+        } else {
+            // Rutas web de Laravel
+            $base = rtrim(config('app.url'), '/');
+
+            $backUrls = [
+                'success' => "{$base}/pagos/resultado?status=success&id_pago={$idPago}",
+                'failure' => "{$base}/pagos/resultado?status=failure&id_pago={$idPago}",
+                'pending' => "{$base}/pagos/resultado?status=pending&id_pago={$idPago}",
+            ];
+            $autoReturn = 'approved';
+        }
+
+        // ── Payload de la preferencia ──────────────────────────────────
+        $payload = [
             'items' => [
                 [
-                    'id'          => (string) $datos['id_pago'],
-                    'title'       => $datos['motivo'] ?: 'Pago Academia Karate-Do SMT',
+                    'id'          => (string) $idPago,
+                    'title'       => $datos['motivo'] ?? 'Pago Academia',
                     'quantity'    => 1,
                     'unit_price'  => (float) $datos['monto'],
                     'currency_id' => 'MXN',
                 ],
             ],
             'payer' => [
-                'email' => $datos['alumno_email'],
-                'name'  => $datos['alumno_nombre'],
+                'name'  => $datos['alumno_nombre'] ?? '',
+                'email' => $datos['alumno_email']  ?? 'alumno@academia.com',
             ],
-            // URLs de retorno después de que MP redirige al navegador
-            'back_urls' => [
-                'success' => "{$base}/pagos/resultado?estado=success&id_pago={$datos['id_pago']}",
-                'failure' => "{$base}/pagos/resultado?estado=failure&id_pago={$datos['id_pago']}",
-                'pending' => "{$base}/pagos/resultado?estado=pending&id_pago={$datos['id_pago']}",
-            ],
-            'auto_return'          => 'approved',
-            // Webhook — MP notifica aquí cuando el pago cambia de estado
-            'notification_url'     => "{$base}/api/pagos/webhook",
-            'external_reference'   => (string) $datos['id_pago'],
-            'statement_descriptor' => 'Academia Karate-Do',
-            'expires'              => false,
-        ]);
+            'back_urls'        => $backUrls,
+            'external_reference' => (string) $idPago,
+            'statement_descriptor' => 'Academia Karate-Do SMT',
+        ];
 
-        Log::info("MP preferencia creada: {$preferencia->id} para pago #{$datos['id_pago']}");
+        // auto_return solo para web
+        if ($autoReturn) {
+            $payload['auto_return'] = $autoReturn;
+        }
+
+        // Webhook de notificaciones (opcional — descomenta si tienes HTTPS público)
+        // $payload['notification_url'] = rtrim(config('app.url'), '/') . '/api/pagos/webhook';
+
+        $client     = new PreferenceClient();
+        $preferencia = $client->create($payload);
+
+        Log::info("MP preferencia creada: #{$idPago} | origen: " . ($origenMovil ? 'móvil' : 'web'));
 
         return [
             'id'                 => $preferencia->id,
-            'init_point'         => $preferencia->init_point,         // producción
-            'sandbox_init_point' => $preferencia->sandbox_init_point, // sandbox
+            'init_point'         => $preferencia->init_point,
+            'sandbox_init_point' => $preferencia->sandbox_init_point,
         ];
     }
 }

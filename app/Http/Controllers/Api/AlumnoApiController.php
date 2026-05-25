@@ -236,4 +236,39 @@ class AlumnoApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Error al obtener historial.'], 500);
         }
     }
+
+    /**
+     * GET /api/alumnos/{id}/historial-seminarios
+     *
+     * Devuelve todos los seminarios en los que participó el alumno,
+     * ordenados del más reciente al más antiguo.
+     * Joins: historial_seminarios → seminario (catálogo).
+     */
+    public function historialSeminarios(int $id)
+    {
+        try {
+            $historial = DB::table('historial_seminarios as hs')
+                ->leftJoin('seminario as s', 'hs.id_seminario', '=', 's.id_seminario')
+                ->where('hs.id_usuario', $id)
+                ->orderBy('hs.id', 'desc')
+                ->select(
+                    'hs.id',
+                    'hs.fecha_participacion',
+                    'hs.observaciones',
+                    's.id_seminario',
+                    's.nombre_seminario',
+                    's.fecha       AS fecha_seminario',
+                    's.maestro',
+                    's.descripcion AS descripcion_seminario',
+                    's.resultado'
+                )
+                ->get();
+
+            return response()->json(['success' => true, 'data' => $historial]);
+
+        } catch (\Exception $e) {
+            Log::error('AlumnoApi@historialSeminarios: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error al obtener historial de seminarios.'], 500);
+        }
+    }
 }
