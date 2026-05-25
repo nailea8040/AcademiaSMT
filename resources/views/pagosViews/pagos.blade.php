@@ -334,23 +334,6 @@
                             @error('id_tipo_pago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                         </div>
 
-                        {{-- Monto — tomado del concepto, no editable por el admin --}}
-                        <div class="form-group">
-                            <label class="form-label">
-                                Monto Total
-                                <span style="font-size:11px;color:#718096;font-weight:400;">(definido por el concepto)</span>
-                            </label>
-                            <div class="form-input-wrapper" style="background:#f7f7f7;pointer-events:none;opacity:.85;">
-                                <i class="bi bi-currency-dollar input-icon"></i>
-                                <span id="monto_display_admin" style="flex:1;padding:10px 12px;font-size:14px;color:#2d3748;font-weight:600;">
-                                    —
-                                </span>
-                            </div>
-                            <input type="hidden" name="monto" id="monto_admin" value="{{ old('monto') }}">
-                            <div class="concepto-hint" id="montoHintAdmin" style="color:#e53935;font-weight:600;"></div>
-                            @error('monto')<div class="text-danger mt-1">{{ $message }}</div>@enderror
-                        </div>
-
                         {{-- Fecha --}}
                         <div class="form-group">
                             <label class="form-label" for="fechaPago">
@@ -364,12 +347,7 @@
                             @error('fechaPago')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                         </div>
 
-                        {{--
-                            Estado inicial:
-                            - Pendiente  → alumno pagará después
-                            - Completado → admin recibe efectivo en este momento
-                            "Fallido" no aparece aquí — lo asigna MercadoPago automáticamente.
-                        --}}
+                        {{-- Estado inicial --}}
                         <div class="form-group" id="estadoWrapAdmin">
                             <label class="form-label" for="estadoPago">
                                 Estado <span class="required">*</span>
@@ -571,10 +549,7 @@
                         @error('id_concepto')<div class="text-danger mt-1">{{ $message }}</div>@enderror
                     </div>
 
-                    {{--
-                        Monto: el alumno puede ajustarlo (para abonos parciales).
-                        Se autocompleta con el monto sugerido del concepto.
-                    --}}
+                    {{-- Monto --}}
                     <div class="form-group">
                         <label class="form-label" for="monto_alumno">
                             Monto a Pagar <span class="required">*</span>
@@ -726,7 +701,6 @@
                                 $montoTotal  = $pago->monto_total  ?? $pago->monto;
                                 $montoPagado = $pago->monto_pagado ?? 0;
                                 $saldo       = $montoTotal - $montoPagado;
-                                // Si el pago está Completado forzamos 100% visualmente
                                 $porcentaje  = $pago->estado_pago === 'Completado'
                                     ? 100
                                     : ($montoTotal > 0 ? min(100, ($montoPagado / $montoTotal) * 100) : 0);
@@ -804,8 +778,6 @@
 
                                 <td>
                                     <div class="acciones-cell">
-
-                                        {{-- Pagar con MP: cualquier rol si hay saldo y no está suspendido --}}
                                         @if(!in_array($pago->estado_pago, ['Completado', 'Suspendido']) && $saldo > 0)
                                             <a href="{{ route('pagos.pagar', $pago->id_pago) }}"
                                                class="btn btn-primary"
@@ -814,7 +786,6 @@
                                             </a>
                                         @endif
 
-                                        {{-- Abono: cualquier rol si hay saldo y no está suspendido --}}
                                         @if(!in_array($pago->estado_pago, ['Completado', 'Suspendido']) && $saldo > 0)
                                             <button type="button" class="btn-abono"
                                                 onclick="abrirModalAbono(
@@ -829,7 +800,6 @@
                                             </button>
                                         @endif
 
-                                        {{-- Completar: admin/sensei en pagos Pendientes, Suspendidos o Rechazados --}}
                                         @if(in_array($user->rol, ['admin', 'sensei']) && in_array($pago->estado_pago, ['Pendiente', 'Suspendido', 'Rechazado']))
                                             <button type="button" class="btn-completar"
                                                 onclick="confirmarCompletar({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
@@ -842,7 +812,6 @@
                                             </form>
                                         @endif
 
-                                        {{-- Ver abonos: cualquier rol --}}
                                         <button type="button"
                                             class="btn-abono"
                                             style="background:#f3e5f5;color:#6a1b9a;border-color:#ce93d8;"
@@ -856,7 +825,6 @@
                                             </span>
                                         @endif
 
-                                        {{-- Suspender: solo sensei, solo en Pendiente --}}
                                         @if($user->rol === 'sensei' && $pago->estado_pago === 'Pendiente')
                                             <button type="button" class="btn-suspender"
                                                 onclick="confirmarSuspender({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
@@ -864,11 +832,10 @@
                                             </button>
                                         @endif
 
-                                        {{-- Eliminar: solo admin, pagos no Completados --}}
                                         @if($user->rol === 'admin' && $pago->estado_pago !== 'Completado')
                                             <button type="button" class="btn-eliminar"
                                                 onclick="confirmarEliminar({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
-                                                <i class="bi bi-trash3"></i> Eliminar
+                                                <i class="bi bi-trash3"></i> Elimiinar
                                             </button>
                                         @endif
                                     </div>
@@ -935,14 +902,11 @@
                 <label for="tipo_abono">Tipo de abono <span style="color:#e53935;">*</span></label>
                 <select name="tipo_abono" id="tipo_abono" required onchange="cambiarTipoAbono(this.value)">
                     <option value="en_linea">En línea (MercadoPago)</option>
-                    {{-- Efectivo: visible para todos; el JS lo controla por rol --}}
                     <option value="efectivo" id="opcionEfectivo" style="display:none;">Efectivo</option>
                 </select>
             </div>
 
-            {{-- Aviso si alumno elige efectivo en el modal --}}
-            <div id="avisoEfectivoAbono" style="display:none;"
-                 class="aviso-efectivo" style="display:none;margin-bottom:8px;">
+            <div id="avisoEfectivoAbono" style="display:none;" class="aviso-efectivo">
                 <i class="bi bi-info-circle-fill"></i>
                 Tu abono en efectivo quedará <strong>Pendiente</strong> hasta que el administrador lo confirme.
             </div>
@@ -1036,27 +1000,19 @@
     </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════════
-     FORM OCULTO — ELIMINAR PAGO (admin, hard delete)
-══════════════════════════════════════════════════════════════════════ --}}
 <form id="formEliminarPago" method="POST" action="" style="display:none;">
     @csrf
     @method('DELETE')
 </form>
 
-{{-- ══════════════════════════════════════════════════════════════════════
-     FORM OCULTO — SUSPENDER PAGO (sensei, soft delete)
-══════════════════════════════════════════════════════════════════════ --}}
 <form id="formSuspenderPago" method="POST" action="" style="display:none;">
     @csrf
     @method('PATCH')
 </form>
 
 <script>
-    // ── Variables globales ─────────────────────────────────────────────
     const ROL_USUARIO = '{{ $user->rol }}';
 
-    // ── SweetAlert al cargar ───────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', function () {
         @if(session('sessionInsertado'))
             Swal.fire({
@@ -1067,7 +1023,6 @@
             });
         @endif
 
-        // ── Filtro por estado ──────────────────────────────────────────
         document.getElementById('filterEstado').addEventListener('change', function () {
             const val = this.value.toLowerCase();
             document.querySelectorAll('#pagosTable tbody tr').forEach(row => {
@@ -1075,7 +1030,6 @@
             });
         });
 
-        // ── Búsqueda ──────────────────────────────────────────────────
         document.getElementById('searchInput').addEventListener('keyup', function () {
             const val = this.value.toLowerCase();
             document.querySelectorAll('#pagosTable tbody tr').forEach(row => {
@@ -1083,32 +1037,23 @@
             });
         });
 
-        // ── Concepto admin → autocompletar monto (predefinido por concepto) ─
         const selectAdmin = document.getElementById('id_concepto_admin');
         if (selectAdmin) {
             selectAdmin.addEventListener('change', function () {
-                const opt     = this.options[this.selectedIndex];
-                const monto   = opt.dataset.monto;
-                const hint    = document.getElementById('conceptoHintAdmin');
-                const display = document.getElementById('monto_display_admin');
-                const hidden  = document.getElementById('monto_admin');
+                const opt  = this.options[this.selectedIndex];
+                const monto = opt.dataset.monto;
+                const hint  = document.getElementById('conceptoHintAdmin');
 
                 if (monto && parseFloat(monto) > 0) {
-                    hidden.value   = monto;
-                    display.textContent = '$' + parseFloat(monto).toFixed(2);
                     hint.innerHTML = `Monto del concepto: <strong>$${parseFloat(monto).toFixed(2)}</strong>`;
                 } else {
-                    hidden.value   = '';
-                    display.textContent = '—';
                     hint.innerHTML = opt.value ? 'Este concepto no tiene monto definido.' : '';
                 }
             });
 
-            // Pre-fill on page load if there was an old() value
             if (selectAdmin.value) selectAdmin.dispatchEvent(new Event('change'));
         }
 
-        // ── Concepto alumno → autocompletar monto ─────────────────────
         const selectAlumno = document.getElementById('id_concepto_alumno');
         if (selectAlumno) {
             selectAlumno.addEventListener('change', function () {
@@ -1125,7 +1070,6 @@
             });
         }
 
-        // ── Admin: pagar en línea → ocultar estado y referencia ───────
         const chkAdmin = document.getElementById('pagarEnLinea');
         if (chkAdmin) {
             chkAdmin.addEventListener('change', function () {
@@ -1148,7 +1092,6 @@
             });
         }
 
-        // ── Tipo de abono modal → mostrar referencia / aviso ──────────
         const tipoAbono = document.getElementById('tipo_abono');
         if (tipoAbono) {
             tipoAbono.addEventListener('change', function () {
@@ -1157,7 +1100,6 @@
         }
     });
 
-    // ── Tabs admin ─────────────────────────────────────────────────────
     function activarTab(tabId, btn) {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1165,19 +1107,16 @@
         btn.classList.add('active');
     }
 
-    // ── Aviso efectivo alumno (formulario principal) ───────────────────
     function mostrarAvisoEfectivo(valor) {
         const aviso = document.getElementById('avisoEfectivo');
         if (!aviso) return;
         const select  = document.getElementById('id_tipo_pago_alumno');
         const opt     = select ? select.options[select.selectedIndex] : null;
         const nombre  = opt ? opt.dataset.nombre : '';
-        // Mostrar aviso si elige "Efectivo" (o cualquier método que no sea en línea)
         const esEnLinea = document.getElementById('pagarEnLineaAlumno')?.checked;
         aviso.style.display = (!esEnLinea && nombre === 'efectivo') ? 'block' : 'none';
     }
 
-    // ── Toggle en línea alumno ─────────────────────────────────────────
     function toggleEnLineaAlumno(chk) {
         const btn   = document.getElementById('btnSubmitAlumno');
         const aviso = document.getElementById('avisoEfectivo');
@@ -1190,13 +1129,11 @@
             btn.innerHTML             = '<i class="bi bi-check-lg"></i> Registrar Pago';
             btn.style.backgroundColor = '';
             btn.style.borderColor     = '';
-            // Volver a revisar si hay aviso de efectivo
             const select = document.getElementById('id_tipo_pago_alumno');
             mostrarAvisoEfectivo(select ? select.value : '');
         }
     }
 
-    // ── Reset formulario alumno ────────────────────────────────────────
     function resetFormAlumno() {
         document.getElementById('conceptoHintAlumno').innerHTML = '';
         document.getElementById('avisoEfectivo').style.display  = 'none';
@@ -1204,178 +1141,3 @@
         btn.innerHTML             = '<i class="bi bi-check-lg"></i> Registrar Pago';
         btn.style.backgroundColor = '';
         btn.style.borderColor     = '';
-    }
-
-    // ── Modal Abono ───────────────────────────────────────────────────
-    function abrirModalAbono(idPago, nombreAlumno, montoTotal, montoPagado, saldo, rol) {
-        document.getElementById('abonoAlumnoNombre').textContent = nombreAlumno;
-        document.getElementById('abonoMontoTotal').textContent   = '$' + montoTotal.toFixed(2);
-        document.getElementById('abonoMontoPagado').textContent  = '$' + montoPagado.toFixed(2);
-        document.getElementById('abonoSaldo').textContent        = '$' + saldo.toFixed(2);
-        document.getElementById('monto_abono').max              = saldo;
-        document.getElementById('monto_abono').value            = '';
-
-        // Efectivo visible para todos los roles;
-        // el aviso de "quedará Pendiente" aparece para alumno/tutor
-        document.getElementById('opcionEfectivo').style.display  = '';
-        document.getElementById('tipo_abono').value              = 'en_linea';
-        document.getElementById('referenciaWrap').style.display  = 'none';
-        document.getElementById('avisoEfectivoAbono').style.display = 'none';
-        document.getElementById('textoSubmitAbono').textContent  = 'Ir a MercadoPago';
-
-        document.getElementById('formAbono').action = '/pagos/' + idPago + '/abono';
-        document.getElementById('modalAbono').classList.add('active');
-    }
-
-    // ── Cambio de tipo de abono en el modal ───────────────────────────
-    function cambiarTipoAbono(valor) {
-        const refWrap   = document.getElementById('referenciaWrap');
-        const aviso     = document.getElementById('avisoEfectivoAbono');
-        const textoBtn  = document.getElementById('textoSubmitAbono');
-        const btnSubmit = document.getElementById('formAbono').querySelector('button[type=submit]');
-
-        if (valor === 'efectivo') {
-            refWrap.style.display  = 'block';
-            textoBtn.textContent   = 'Registrar Abono';
-            btnSubmit.style.backgroundColor = '#4caf50';
-            // Mostrar aviso solo para alumno/tutor
-            if (ROL_USUARIO === 'alumno' || ROL_USUARIO === 'tutor') {
-                aviso.style.display = 'block';
-            }
-        } else {
-            refWrap.style.display  = 'none';
-            aviso.style.display    = 'none';
-            textoBtn.textContent   = 'Ir a MercadoPago';
-            btnSubmit.style.backgroundColor = '#e53935';
-        }
-    }
-
-    // ── Modal Ver Abonos ──────────────────────────────────────────────
-    function verAbonos(idPago, concepto) {
-        document.getElementById('tituloVerAbonos').textContent = 'Concepto: ' + concepto;
-        document.getElementById('listaAbonos').innerHTML =
-            '<p style="text-align:center;color:#9e9e9e;padding:20px;">Cargando...</p>';
-        document.getElementById('modalVerAbonos').classList.add('active');
-
-        fetch('/pagos/' + idPago + '/abonos', {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-        })
-        .then(res => res.json())
-        .then(data => {
-            const lista = document.getElementById('listaAbonos');
-            if (!data || data.length === 0) {
-                lista.innerHTML = '<p style="text-align:center;color:#9e9e9e;padding:20px;">No hay abonos registrados.</p>';
-                return;
-            }
-            lista.innerHTML = data.map(a => `
-                <div class="abono-item">
-                    <div>
-                        <div style="font-weight:600;color:#2d3748;">$${parseFloat(a.monto_abono).toFixed(2)}</div>
-                        <div style="color:#9e9e9e;font-size:11px;margin-top:2px;">
-                            ${a.fecha_abono ? a.fecha_abono.substring(0,10) : '—'}
-                            ${a.registrado_por_nombre ? ' · ' + a.registrado_por_nombre : ''}
-                        </div>
-                        ${a.referencia ? `<div style="color:#9e9e9e;font-size:11px;">Ref: ${a.referencia}</div>` : ''}
-                    </div>
-                    <span class="abono-tipo-badge tipo-${a.tipo_abono}">
-                        ${a.tipo_abono === 'efectivo' ? '💵 Efectivo' : '💳 En línea'}
-                    </span>
-                </div>
-            `).join('');
-        })
-        .catch(() => {
-            document.getElementById('listaAbonos').innerHTML =
-                '<p style="text-align:center;color:#e53935;padding:20px;">Error al cargar abonos.</p>';
-        });
-    }
-
-    // ── Modal Editar Concepto ─────────────────────────────────────────
-    function abrirEditConcepto(id, nombre, descripcion, monto, activo) {
-        document.getElementById('edit_nombre').value   = nombre;
-        document.getElementById('edit_desc').value     = descripcion;
-        document.getElementById('edit_monto').value    = monto || '';
-        document.getElementById('edit_activo').checked = activo === 1;
-        document.getElementById('formEditConcepto').action = '/conceptos-pago/' + id;
-        document.getElementById('modalEditConcepto').classList.add('active');
-    }
-
-    // ── Cerrar cualquier modal ────────────────────────────────────────
-    function cerrarModal(id) {
-        document.getElementById(id).classList.remove('active');
-    }
-
-    document.addEventListener('click', function (e) {
-        ['modalAbono', 'modalVerAbonos', 'modalEditConcepto'].forEach(id => {
-            const modal = document.getElementById(id);
-            if (modal && e.target === modal) modal.classList.remove('active');
-        });
-    });
-
-    // ── Confirmar Completar (admin/sensei) ───────────────────────────
-    function confirmarCompletar(idPago, concepto) {
-        Swal.fire({
-            title: '¿Marcar como completado?',
-            html: `Confirma que <strong>verificaste el pago</strong> de:<br>
-                   <span style="color:#2e7d32;font-weight:600;">"${concepto}"</span><br><br>
-                   <small style="color:#9e9e9e;">El saldo quedará en $0 y no se podrán registrar más abonos.</small>`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#2e7d32',
-            cancelButtonColor: '#9e9e9e',
-            confirmButtonText: '<i class="bi bi-check-circle-fill"></i> Sí, completar',
-            cancelButtonText: 'Cancelar',
-            reverseButtons: true,
-        }).then((result) => {
-            if (result.isConfirmed) {
-                document.getElementById('formCompletar-' + idPago).submit();
-            }
-        });
-    }
-
-    // ── Confirmar Eliminar (admin) ────────────────────────────────────
-    function confirmarEliminar(idPago, concepto) {
-        Swal.fire({
-            title: '¿Eliminar pago?',
-            html: `Estás por <strong>eliminar permanentemente</strong> el pago de:<br>
-                   <span style="color:#e53935;font-weight:600;">"${concepto}"</span><br><br>
-                   <small style="color:#9e9e9e;">Esta acción no se puede deshacer y también eliminará todos sus abonos.</small>`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#c62828',
-            cancelButtonColor: '#9e9e9e',
-            confirmButtonText: '<i class="bi bi-trash3"></i> Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            reverseButtons: true,
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const form = document.getElementById('formEliminarPago');
-                form.action = '/pagos/' + idPago;
-                form.submit();
-            }
-        });
-    }
-
-    // ── Confirmar Suspender (sensei) ──────────────────────────────────
-    function confirmarSuspender(idPago, concepto) {
-        Swal.fire({
-            title: '¿Suspender pago?',
-            html: `El pago de <strong>"${concepto}"</strong> será marcado como <span style="color:#f57f17;font-weight:600;">Suspendido</span>.<br><br>
-                   <small style="color:#9e9e9e;">El alumno no podrá realizar abonos mientras esté suspendido. Solo un administrador puede reactivarlo.</small>`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#f57f17',
-            cancelButtonColor: '#9e9e9e',
-            confirmButtonText: '<i class="bi bi-pause-circle"></i> Sí, suspender',
-            cancelButtonText: 'Cancelar',
-            reverseButtons: true,
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const form = document.getElementById('formSuspenderPago');
-                form.action = '/pagos/' + idPago + '/suspender';
-                form.submit();
-            }
-        });
-    }
-</script>
-</body>
-</html>
