@@ -835,7 +835,7 @@
                                         @if($user->rol === 'admin' && $pago->estado_pago !== 'Completado')
                                             <button type="button" class="btn-eliminar"
                                                 onclick="confirmarEliminar({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
-                                                <i class="bi bi-trash3"></i> Elimiinar
+                                                <i class="bi bi-trash3"></i> Eliminar
                                             </button>
                                         @endif
                                     </div>
@@ -1134,6 +1134,183 @@
         }
     }
 
+    // ── Abrir modal de abono ──────────────────────────────────────────
+    function abrirModalAbono(idPago, nombreAlumno, montoTotal, montoPagado, saldo, rol) {
+        document.getElementById('abonoAlumnoNombre').textContent = nombreAlumno;
+        document.getElementById('abonoMontoTotal').textContent   = '$' + parseFloat(montoTotal).toFixed(2);
+        document.getElementById('abonoMontoPagado').textContent  = '$' + parseFloat(montoPagado).toFixed(2);
+        document.getElementById('abonoSaldo').textContent        = '$' + parseFloat(saldo).toFixed(2);
+
+        // Poner el action correcto con la ruta de Laravel
+        const form = document.getElementById('formAbono');
+        form.action = '{{ url("pagos") }}/' + idPago + '/abono';
+
+        // Opción efectivo: visible siempre en el modal de abono
+        const opcionEfectivo = document.getElementById('opcionEfectivo');
+        if (opcionEfectivo) opcionEfectivo.style.display = '';
+
+        // Resetear el select al valor por defecto (en_linea) y disparar cambio visual
+        const selectTipo = document.getElementById('tipo_abono');
+        if (selectTipo) {
+            selectTipo.value = 'en_linea';
+            cambiarTipoAbono('en_linea');
+        }
+
+        // Limpiar el campo de monto
+        const montoInput = document.getElementById('monto_abono');
+        if (montoInput) montoInput.value = '';
+
+        // Limpiar referencia
+        const refInput = document.getElementById('referencia_abono');
+        if (refInput) refInput.value = '';
+
+        abrirModal('modalAbono');
+    }
+
+    // ── Cambiar tipo de abono (efectivo / en_linea) ───────────────────
+    function cambiarTipoAbono(valor) {
+        const referenciaWrap = document.getElementById('referenciaWrap');
+        const avisoEfectivo  = document.getElementById('avisoEfectivoAbono');
+        const textoBtn       = document.getElementById('textoSubmitAbono');
+        const btn            = document.querySelector('.btn-abono-submit');
+
+        if (valor === 'efectivo') {
+            if (referenciaWrap) referenciaWrap.style.display = '';
+            if (avisoEfectivo)  avisoEfectivo.style.display  = '';
+            if (textoBtn)       textoBtn.textContent          = 'Registrar Abono en Efectivo';
+            if (btn) { btn.style.backgroundColor = '#e53935'; btn.style.borderColor = '#e53935'; }
+        } else {
+            if (referenciaWrap) referenciaWrap.style.display = 'none';
+            if (avisoEfectivo)  avisoEfectivo.style.display  = 'none';
+            if (textoBtn)       textoBtn.textContent          = 'Ir a MercadoPago';
+            if (btn) { btn.style.backgroundColor = '#009ee3'; btn.style.borderColor = '#009ee3'; }
+        }
+    }
+
+    // ── Ver historial de abonos ───────────────────────────────────────
+    function verAbonos(idPago, concepto) {
+        document.getElementById('tituloVerAbonos').textContent = 'Abonos del pago: ' + concepto;
+        document.getElementById('listaAbonos').innerHTML =
+            '<p style="text-align:center;color:#9e9e9e;padding:20px;">Cargando...</p>';
+
+        abrirModal('modalVerAbonos');
+
+        fetch('{{ url("pagos") }}/' + idPago + '/abonos', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(abonos => {
+            const lista = document.getElementById('listaAbonos');
+            if (!abonos.length) {
+                lista.innerHTML = '<p style="text-align:center;color:#9e9e9e;padding:20px;">Sin abonos registrados.</p>';
+                return;
+            }
+            lista.innerHTML = abonos.map(a => `
+                <div class="abono-item">
+                    <div>
+                        <span class="abono-tipo-badge tipo-${a.tipo_abono}">${a.tipo_abono === 'en_linea' ? 'En línea' : 'Efectivo'}</span>
+                        <small style="display:block;color:#718096;margin-top:2px;">${a.fecha_abono ? a.fecha_abono.substring(0,10) : '—'}</small>
+                        ${a.referencia ? `<small style="color:#9e9e9e;">${a.referencia}</small>` : ''}
+                        ${a.registrado_por_nombre ? `<small style="color:#b0bec5;display:block;">Por: ${a.registrado_por_nombre}</small>` : ''}
+                    </div>
+                    <strong style="color:#e53935;">$${parseFloat(a.monto_abono).toFixed(2)}</strong>
+                </div>
+            `).join('');
+        })
+        .catch(() => {
+            document.getElementById('listaAbonos').innerHTML =
+                '<p style="text-align:center;color:#e53935;padding:20px;">Error al cargar los abonos.</p>';
+        });
+    }
+
+    // ── Abrir / cerrar modales ────────────────────────────────────────
+    function abrirModal(id) {
+        document.getElementById(id).classList.add('active');
+    }
+
+    function cerrarModal(id) {
+        document.getElementById(id).classList.remove('active');
+    }
+
+    // Cerrar modal al hacer clic fuera del box
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', function (e) {
+            if (e.target === this) cerrarModal(this.id);
+        });
+    });
+
+    // ── Confirmar completar pago ──────────────────────────────────────
+    function confirmarCompletar(idPago, concepto) {
+        Swal.fire({
+            title: '¿Marcar como completado?',
+            html: `Se marcará el pago de <strong>${concepto}</strong> como completado.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#2e7d32',
+            cancelButtonColor: '#9e9e9e',
+            confirmButtonText: 'Sí, completar',
+            cancelButtonText: 'Cancelar',
+        }).then(result => {
+            if (result.isConfirmed) {
+                document.getElementById('formCompletar-' + idPago).submit();
+            }
+        });
+    }
+
+    // ── Confirmar eliminar pago (admin) ───────────────────────────────
+    function confirmarEliminar(idPago, concepto) {
+        Swal.fire({
+            title: '¿Eliminar pago?',
+            html: `Se eliminará el pago <strong>${concepto}</strong>. Esta acción no se puede deshacer.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#c62828',
+            cancelButtonColor: '#9e9e9e',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+        }).then(result => {
+            if (result.isConfirmed) {
+                const form = document.getElementById('formEliminarPago');
+                form.action = '{{ url("pagos") }}/' + idPago;
+                form.submit();
+            }
+        });
+    }
+
+    // ── Confirmar suspender pago (sensei) ─────────────────────────────
+    function confirmarSuspender(idPago, concepto) {
+        Swal.fire({
+            title: '¿Suspender pago?',
+            html: `Se suspenderá el pago <strong>${concepto}</strong>.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#f57f17',
+            cancelButtonColor: '#9e9e9e',
+            confirmButtonText: 'Sí, suspender',
+            cancelButtonText: 'Cancelar',
+        }).then(result => {
+            if (result.isConfirmed) {
+                const form = document.getElementById('formSuspenderPago');
+                form.action = '{{ url("pagos") }}/' + idPago + '/suspender';
+                form.submit();
+            }
+        });
+    }
+
+    // ── Abrir modal editar concepto ───────────────────────────────────
+    function abrirEditConcepto(id, nombre, descripcion, monto, activo) {
+        document.getElementById('edit_nombre').value  = nombre;
+        document.getElementById('edit_desc').value    = descripcion;
+        document.getElementById('edit_monto').value   = monto || '';
+        document.getElementById('edit_activo').checked = activo == 1;
+
+        const form = document.getElementById('formEditConcepto');
+        form.action = '{{ url("conceptos-pago") }}/' + id;
+
+        abrirModal('modalEditConcepto');
+    }
+
+    // ── Reset form alumno ─────────────────────────────────────────────
     function resetFormAlumno() {
         document.getElementById('conceptoHintAlumno').innerHTML = '';
         document.getElementById('avisoEfectivo').style.display  = 'none';
@@ -1141,3 +1318,8 @@
         btn.innerHTML             = '<i class="bi bi-check-lg"></i> Registrar Pago';
         btn.style.backgroundColor = '';
         btn.style.borderColor     = '';
+    }
+</script>
+
+</body>
+</html>
