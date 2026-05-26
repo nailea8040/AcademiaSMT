@@ -57,14 +57,18 @@ class UsuarioApiController extends Controller
             'nombre'         => 'required|string|max:100',
             'apaterno'       => 'required|string|max:100',
             'amaterno'       => 'required|string|max:100',
-            'fecha_naci'     => 'required|date',
-            'tel'            => 'required|string|max:10',
+            'fecha_naci'     => [
+                'required', 'date',
+                'before:'  . now()->subYears(4)->toDateString(),
+                'after:'   . now()->subYears(100)->toDateString(),
+            ],
+            'tel'            => 'required|digits:10',
             'correo'         => 'required|email|unique:usuario,correo',
             'pass'           => 'required|min:6',
             'rol'            => 'required|in:admin,sensei,tutor,alumno',
             'numero_control' => 'nullable|string|max:20',
-            'grupo'          => 'nullable|string|max:10',
-            'especialidad'   => 'nullable|string|max:100',
+            'grupo'          => 'nullable|in:A,B',
+            'especialidad'   => 'nullable|in:Programación,Logística,Contabilidad,Mecánica,Soporte y mantenimiento,Laboratorio Clínico',
             'turno'          => 'nullable|in:Matutino,Vespertino,Nocturno',
         ]);
 
@@ -145,14 +149,18 @@ class UsuarioApiController extends Controller
             'nombre'         => 'required|string|max:100',
             'apaterno'       => 'required|string|max:100',
             'amaterno'       => 'required|string|max:100',
-            'fecha_naci'     => 'required|date',
-            'tel'            => 'required|string|max:20',
+            'fecha_naci'     => [
+                'required', 'date',
+                'before:'  . now()->subYears(4)->toDateString(),
+                'after:'   . now()->subYears(100)->toDateString(),
+            ],
+            'tel'            => 'required|digits:10',
             'correo'         => 'required|email|unique:usuario,correo,' . $id . ',id_usuario',
             'rol'            => 'required|in:admin,sensei,tutor,alumno',
             'pass'           => 'nullable|min:6',
             'numero_control' => 'nullable|string|max:20',
-            'grupo'          => 'nullable|string|max:10',
-            'especialidad'   => 'nullable|string|max:100',
+            'grupo'          => 'nullable|in:A,B',
+            'especialidad'   => 'nullable|in:Programación,Logística,Contabilidad,Mecánica,Soporte y mantenimiento,Laboratorio Clínico',
             'turno'          => 'nullable|in:Matutino,Vespertino,Nocturno',
         ]);
 
@@ -264,7 +272,7 @@ class UsuarioApiController extends Controller
             'amaterno'   => 'required|string|max:100',
             'fecha_naci' => 'required|date',
             'correo'     => 'required|email|unique:usuario,correo,' . $usuario->id_usuario . ',id_usuario',
-            'tel'        => 'required|string|digits:10',
+            'tel'        => 'required|digits:10',
             'password'   => ['nullable', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
         ]);
 

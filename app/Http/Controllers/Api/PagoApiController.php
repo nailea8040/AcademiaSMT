@@ -67,11 +67,18 @@ class PagoApiController extends Controller
         $rules = [
             'id_concepto'    => 'required|exists:concepto_pago,id_concepto',
             'id_tipo_pago'   => 'required|exists:tipo_pago,id_tipo_pago',
-            'monto'          => 'required|numeric|min:1',
             'fechaPago'      => 'required|date',
             'motivoPago'     => 'nullable|string|max:100',
             'pagar_en_linea' => 'boolean',
         ];
+
+        // Admin/sensei: el monto lo impone el concepto (llega como hidden o no llega).
+        // Alumno/tutor: deben enviarlo explícitamente (pueden hacer abono parcial).
+        if ($esAlumnoTutor) {
+            $rules['monto'] = 'required|numeric|min:1';
+        } else {
+            $rules['monto'] = 'nullable|numeric|min:1';
+        }
 
         // Reglas exclusivas de admin/sensei
         if ($esAdminSensei) {
@@ -100,6 +107,17 @@ class PagoApiController extends Controller
         $motivo   = $validated['motivoPago'] ?? null;
         if (!$motivo && $concepto) {
             $motivo = $concepto->nombre;
+        }
+
+        // Admin/sensei: si monto no llegó, usar monto_sugerido del concepto
+        if ($esAdminSensei && empty($validated['monto'])) {
+            if (!$concepto || !isset($concepto->monto_sugerido) || $concepto->monto_sugerido === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Este concepto no tiene monto definido. Edita el concepto y añade un monto primero.',
+                ], 422);
+            }
+            $validated['monto'] = $concepto->monto_sugerido;
         }
 
         try {
