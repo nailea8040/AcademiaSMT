@@ -103,7 +103,9 @@ return [
     */
 
     'batching' => [
-        'database' => env('DB_CONNECTION', 'sqlite'),
+        // CORRECCIÓN: fallback cambiado de 'sqlite' a 'mysql' — este proyecto
+        // usa MySQL. 'sqlite' causaría error si DB_CONNECTION no está definida.
+        'database' => env('DB_CONNECTION', 'mysql'),
         'table' => 'job_batches',
     ],
 
@@ -122,7 +124,8 @@ return [
 
     'failed' => [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
-        'database' => env('DB_CONNECTION', 'sqlite'),
+        // CORRECCIÓN: fallback cambiado de 'sqlite' a 'mysql'.
+        'database' => env('DB_CONNECTION', 'mysql'),
         'table' => 'failed_jobs',
     ],
 

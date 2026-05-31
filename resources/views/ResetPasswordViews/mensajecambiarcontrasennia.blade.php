@@ -72,7 +72,7 @@
     <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta. Para proceder con el cambio de contraseña, haz clic en el siguiente botón:</p>
 
     <div style="text-align: center;">
-        <a href="{{ env('APP_URL') }}/password/reset/{{ $token }}" class="button">
+        <a href="{{ route('password.reset', ['token' => $token]) }}" class="button">
             Restablecer Contraseña
         </a>
     </div>
@@ -80,8 +80,9 @@
     <p style="margin-top: 30px;">Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:</p>
     
     <div class="link-box">
-        <a href="{{ env('APP_URL') }}/password/reset/{{ $token }}" style="color: #007bff;">
-            {{ env('APP_URL') }}/password/reset/{{ $token }}
+        @php $resetUrl = route('password.reset', ['token' => $token]) @endphp
+        <a href="{{ $resetUrl }}" style="color: #007bff;">
+            {{ $resetUrl }}
         </a>
     </div>
 

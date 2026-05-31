@@ -27,7 +27,7 @@ return [
     ],
 
     // ── Providers ─────────────────────────────────────────────────────────────
-    // Le dice a Laravel qué modelo usar y cómo encontrar al usuario
+    // Le dice a Laravel qué modelo usar y cómo encontrar al usuario.
     'providers' => [
         'usuarios' => [
             'driver' => 'eloquent',
@@ -36,15 +36,22 @@ return [
     ],
 
     // ── Passwords ─────────────────────────────────────────────────────────────
-    // Configuración del broker de reset de contraseñas.
-    // NOTA: Tu proyecto NO usa la tabla password_resets ni este broker.
-    // El token se guarda directamente en la tabla usuario
-    // (columnas: token_recuperacion, token_expiracion, ultima_solicitud_token).
-    // Este bloque se mantiene para que Laravel no lance errores de configuración.
+    // IMPORTANTE: este proyecto NO usa el broker de reset de contraseñas de
+    // Laravel ni la tabla 'password_resets'.
+    //
+    // El flujo de recuperación es completamente custom:
+    //   - Token guardado en usuario.token_recuperacion
+    //   - Expiración en usuario.token_expiracion
+    //   - Lógica en ResetPasswordController
+    //
+    // Este bloque existe únicamente para que Laravel no lance un error de
+    // configuración. La tabla 'password_resets' NO necesita existir.
+    // No uses Password::broker() ni route('password.*') de Laravel en este
+    // proyecto — las rutas de recuperación son propias (ver routes/web.php).
     'passwords' => [
         'usuarios' => [
             'provider' => 'usuarios',
-            'table'    => 'password_resets', // ← tabla ya no existe, pero el broker no se usa
+            'table'    => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_resets'),
             'expire'   => 10,
             'throttle' => 60,
         ],
@@ -52,4 +59,5 @@ return [
 
     // ── Timeout de confirmación de contraseña ─────────────────────────────────
     'password_timeout' => 10800,
+
 ];

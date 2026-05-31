@@ -10,32 +10,49 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class cambiarcontrasenniaMailable extends Mailable
+/**
+ * Mailable para recuperación de contraseña.
+ *
+ * Implementa ShouldQueue para que el envío sea asíncrono cuando
+ * QUEUE_CONNECTION != 'sync'. Si no hay worker activo en Railway,
+ * cambia QUEUE_CONNECTION=sync en el .env para envío inmediato.
+ */
+class cambiarcontrasenniaMailable extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
-    
-    public $nombreCompleto;
-    public $token;
 
-    public function __construct($nombrecompleto, $token)
+    /**
+     * Número de intentos antes de marcar el job como fallido.
+     */
+    public int $tries = 3;
+
+    /**
+     * Segundos de espera entre intentos.
+     */
+    public int $backoff = 10;
+
+    public string $nombreCompleto;
+    public string $token;
+
+    public function __construct(string $nombrecompleto, string $token)
     {
         $this->nombreCompleto = $nombrecompleto;
-        $this->token = $token;
+        $this->token          = $token;
     }
 
     /**
      * Get the message envelope.
      */
     public function envelope(): Envelope
-{
-    return new Envelope(
-        from: new Address(
-            env('MAIL_FROM_ADDRESS', 'academiacentralkaratedosmt@gmail.com'), 
-            env('MAIL_FROM_NAME', 'Academia Karate-Do SMT')
-        ),
-        subject: 'Recuperación de Contraseña - Academia Karate-Do SMT',
-    );
-}
+    {
+        return new Envelope(
+            from: new Address(
+                config('mail.from.address', 'academiacentralkaratedosmt@gmail.com'),
+                config('mail.from.name',    'Academia Karate-Do SMT')
+            ),
+            subject: 'Recuperación de Contraseña - Academia Karate-Do SMT',
+        );
+    }
 
     /**
      * Get the message content definition.
@@ -46,8 +63,8 @@ class cambiarcontrasenniaMailable extends Mailable
             view: 'ResetPasswordViews.mensajecambiarcontrasennia',
             with: [
                 'nombreCompleto' => $this->nombreCompleto,
-                'token' => $this->token,
-            ]
+                'token'          => $this->token,
+            ],
         );
     }
 

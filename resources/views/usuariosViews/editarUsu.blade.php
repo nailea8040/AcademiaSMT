@@ -84,7 +84,7 @@
 
                     {{-- ── Rol ── --}}
                     @php
-                        $esSuperUsuario = strtolower(trim($usuario->correo)) === 'nailea8040@gmail.com';
+                        $esSuperUsuario = strtolower(trim($usuario->correo)) === strtolower(trim(config('app.super_admin_email', '')));
                     @endphp
                     <label for="rol" class="form-label mt-2">Rol</label>
                     <select id="rol" name="rol" class="form-select" required

@@ -48,16 +48,6 @@ Route::post('/olvido-contrasennia',    [ResetPasswordController::class, 'sendRes
 Route::get('/password/reset/{token}', [ResetPasswordController::class, 'showResetFormWithToken'])->name('password.reset');
 Route::put('/password/update',        [ResetPasswordController::class, 'resetPassword'])->name('password.update');
 
-// TEMPORAL — bórrala después de diagnosticar
-Route::get('/debug-mail', function () {
-    return [
-        'mailer'   => config('mail.default'),
-        'host'     => config('mail.mailers.smtp.host'),
-        'brevo_key'=> config('mail.mailers.brevo.key') ? 'SET' : 'NOT SET',
-        'app_url'  => config('app.url'),
-    ];
-})->middleware('web');
-
 // Galería y calendario — lectura pública
 Route::get('/galeria',    [GaleriaController::class,    'index'])->name('galeria.index');
 Route::get('/calendario', [CalendarioController::class, 'index'])->name('calendario.index');

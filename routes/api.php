@@ -103,8 +103,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Galería ───────────────────────────────────────────────────────────
     Route::post('/galeria',           [GaleriaApiController::class, 'store']);
-    Route::delete('/galeria/{id}',    [GaleriaApiController::class, 'destroy']);
+    // IMPORTANTE: la ruta estática '/galeria/evento' DEBE ir antes de '/galeria/{id}'
+    // para que Laravel no interprete 'evento' como un {id}.
     Route::delete('/galeria/evento',  [GaleriaApiController::class, 'destroyEvento']);
+    Route::delete('/galeria/{id}',    [GaleriaApiController::class, 'destroy']);
 
     // ── Asistencia ────────────────────────────────────────────────────────
     Route::get('/asistencia',         [AsistenciaApiController::class, 'index']);
