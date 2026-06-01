@@ -45,9 +45,20 @@ return [
     | considered expired. This will override any values set in the token's
     | "expires_at" attribute, but first-party sessions are not affected.
     |
+    | CORRECCIÓN: antes era null (tokens que nunca expiran).
+    | Con null, cada login desde la app acumula tokens en personal_access_tokens
+    | indefinidamente — uno por dispositivo, y más si el usuario reinstala la app.
+    |
+    | Ahora se usa 43200 minutos = 30 días.
+    | La app móvil debe manejar el 401 que recibirá al expirar y redirigir al login.
+    | perfil.tsx ya tiene ese manejo implementado (ver corrección anterior).
+    |
+    | Para limpiar tokens expirados de la BD automáticamente, agregar en
+    | routes/console.php:
+    |   Schedule::command('sanctum:prune-expired --hours=720')->daily();
+    |
     */
-
-    'expiration' => null,
+    'expiration' => env('SANCTUM_TOKEN_EXPIRATION', 43200),
 
     /*
     |--------------------------------------------------------------------------

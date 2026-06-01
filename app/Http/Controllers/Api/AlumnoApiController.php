@@ -5,10 +5,41 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class AlumnoApiController extends Controller
 {
+    // ── Supabase helpers ──────────────────────────────────────────────────────
+    // CORRECCIÓN: los documentos médicos (PDFs) ahora se suben a Supabase Storage
+    // en lugar del disco local de Railway, que es efímero.
+
+    private function supabaseUrl(): string
+    {
+        return rtrim((string) config('services.supabase.url'), '/');
+    }
+
+    private function supabaseKey(): string
+    {
+        return (string) config('services.supabase.secret_key');
+    }
+
+    private function supabaseUploadPdf(\Illuminate\Http\UploadedFile $archivo, string $path): string
+    {
+        $contenido = file_get_contents($archivo->getRealPath());
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->supabaseKey(),
+            'Content-Type'  => 'application/pdf',
+        ])->withBody($contenido, 'application/pdf')
+          ->post($this->supabaseUrl() . '/storage/v1/object/documentos/' . $path);
+
+        if ($response->failed()) {
+            throw new \Exception('Supabase upload error: ' . $response->body());
+        }
+
+        return $path;
+    }
     /**
      * GET /api/alumnos
      *
@@ -102,11 +133,12 @@ class AlumnoApiController extends Controller
                 ], 422);
             }
 
+            // CORRECCIÓN: subir PDF a Supabase en lugar del disco local efímero
             $rutaDoc = null;
             if ($request->hasFile('documento_medico')) {
                 $archivo = $request->file('documento_medico');
                 $nombre  = 'medico_' . $validated['id_alumno'] . '_' . time() . '.pdf';
-                $rutaDoc = $archivo->storeAs('documentos_medicos', $nombre, 'public');
+                $rutaDoc = $this->supabaseUploadPdf($archivo, $nombre);
             }
 
             DB::beginTransaction();
@@ -186,10 +218,13 @@ class AlumnoApiController extends Controller
             // Actualizar registro físico
             $updateFisico = [];
 
+            // CORRECCIÓN: subir PDF a Supabase en lugar del disco local efímero
             if ($request->hasFile('documento_medico')) {
                 $nombre = 'medico_' . $id . '_' . time() . '.pdf';
-                $updateFisico['certificado_medico'] = $request->file('documento_medico')
-                    ->storeAs('documentos_medicos', $nombre, 'public');
+                $updateFisico['certificado_medico'] = $this->supabaseUploadPdf(
+                    $request->file('documento_medico'),
+                    $nombre
+                );
             }
 
             if (!is_null($validated['peso'] ?? null)) {

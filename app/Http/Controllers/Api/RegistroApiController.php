@@ -6,10 +6,53 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class RegistroApiController extends Controller
 {
+    // ── Supabase helpers ──────────────────────────────────────────────────────
+    // CORRECCIÓN: los documentos médicos (PDFs) ahora se suben a Supabase Storage
+    // en lugar del disco local de Railway, que es efímero y los pierde en cada deploy.
+
+    private function supabaseUrl(): string
+    {
+        return rtrim((string) config('services.supabase.url'), '/');
+    }
+
+    private function supabaseKey(): string
+    {
+        return (string) config('services.supabase.secret_key');
+    }
+
+    private function supabaseBucket(): string
+    {
+        return 'documentos';
+    }
+
+    /**
+     * Sube un PDF a Supabase Storage y devuelve el path dentro del bucket.
+     * Se usa para certificados médicos de alumnos.
+     */
+    private function supabaseUploadPdf(\Illuminate\Http\UploadedFile $archivo, string $path): string
+    {
+        $contenido = file_get_contents($archivo->getRealPath());
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->supabaseKey(),
+            'Content-Type'  => 'application/pdf',
+        ])->withBody($contenido, 'application/pdf')
+          ->post($this->supabaseUrl() . '/storage/v1/object/' . $this->supabaseBucket() . '/' . $path);
+
+        if ($response->failed()) {
+            throw new \Exception('Supabase upload error: ' . $response->body());
+        }
+
+        return $path;
+    }
+
+    // ── store ─────────────────────────────────────────────────────────────────
+
     /**
      * POST /api/registro
      * Multipart/form-data. Soporta los mismos 4 flujos que RegistroController web:
@@ -46,7 +89,6 @@ class RegistroApiController extends Controller
             $rules['ocupacion']           = 'required|integer|exists:ocupacion,id_ocupacion';
             $rules['relacion_estudiante'] = 'required|string|max:50';
 
-            // Alumnos existentes (builder) — enviados como alumnos[i][id_alumno/relacion]
             $rules['alumnos']             = 'nullable|array';
             $rules['alumnos.*.id_alumno'] = 'required|exists:usuario,id_usuario';
             $rules['alumnos.*.relacion']  = 'required|string|max:50';
@@ -153,7 +195,6 @@ class RegistroApiController extends Controller
                     'relacion_estudiante' => $validated['relacion_estudiante'],
                 ]);
 
-                // Vincular alumnos EXISTENTES seleccionados en el builder
                 if (!empty($validated['alumnos'])) {
                     $rows = [];
                     foreach ($validated['alumnos'] as $a) {
@@ -168,7 +209,7 @@ class RegistroApiController extends Controller
                     DB::table('tutor_alumno')->insert($rows);
                 }
 
-                // Caso B2: tutor + alumno NUEVO (nombre completo en un solo campo desde app)
+                // Caso B2: tutor + alumno NUEVO
                 if ($alumnoExtra) {
                     $partes   = explode(' ', trim($validated['alumno_nombre']), 3);
                     $idAlumno = DB::table('usuario')->insertGetId([
@@ -191,12 +232,13 @@ class RegistroApiController extends Controller
                         'observaciones'   => 'Grado inicial. Tutor: ' . $validated['nombre'] . ' ' . $validated['apaterno'],
                     ]);
 
+                    // CORRECCIÓN: subir PDF a Supabase en lugar de disco local
                     $rutaDoc = null;
                     if ($request->hasFile('alumno_documento_medico')) {
-                        $rutaDoc = $request->file('alumno_documento_medico')->storeAs(
-                            'documentos_medicos',
-                            'medico_' . $idAlumno . '_' . time() . '.pdf',
-                            'public'
+                        $path    = 'medico_' . $idAlumno . '_' . time() . '.pdf';
+                        $rutaDoc = $this->supabaseUploadPdf(
+                            $request->file('alumno_documento_medico'),
+                            $path
                         );
                     }
 
@@ -208,7 +250,6 @@ class RegistroApiController extends Controller
                         'fecha_registro'     => $validated['alumno_fecha_inscrip'],
                     ]);
 
-                    // Vincular el alumno nuevo al tutor en tutor_alumno
                     DB::table('tutor_alumno')->insert([
                         'id_tutor'   => $idUsuario,
                         'id_alumno'  => $idAlumno,
@@ -236,12 +277,13 @@ class RegistroApiController extends Controller
                     'observaciones'   => $obsGrado,
                 ]);
 
+                // CORRECCIÓN: subir PDF a Supabase en lugar de disco local
                 $rutaDoc = null;
                 if ($request->hasFile('documento_medico')) {
-                    $rutaDoc = $request->file('documento_medico')->storeAs(
-                        'documentos_medicos',
-                        'medico_' . $idUsuario . '_' . time() . '.pdf',
-                        'public'
+                    $path    = 'medico_' . $idUsuario . '_' . time() . '.pdf';
+                    $rutaDoc = $this->supabaseUploadPdf(
+                        $request->file('documento_medico'),
+                        $path
                     );
                 }
 
@@ -253,7 +295,6 @@ class RegistroApiController extends Controller
                     'fecha_registro'     => $validated['Fecha_inscrip'],
                 ]);
 
-                // Vincular alumno ↔ tutor en tutor_alumno
                 if ($idTutorFinal) {
                     $relacionTutor = $tutorNuevo
                         ? $validated['tutor_relacion']

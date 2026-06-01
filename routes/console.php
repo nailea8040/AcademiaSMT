@@ -28,3 +28,21 @@ Schedule::call(function () {
 })->daily()
   ->name('purgar-tokens-vencidos')
   ->withoutOverlapping();
+
+/*
+|--------------------------------------------------------------------------
+| Limpieza de tokens Sanctum expirados
+|--------------------------------------------------------------------------
+|
+| Elimina de la tabla personal_access_tokens los tokens que han superado
+| el tiempo de expiración configurado en sanctum.php ('expiration').
+| --hours=720 = 30 días, igual que SANCTUM_TOKEN_EXPIRATION.
+|
+| Esto evita que la tabla crezca indefinidamente con tokens de usuarios
+| que reinstalaron la app o cambiaron de dispositivo.
+|
+*/
+Schedule::command('sanctum:prune-expired --hours=720')
+    ->daily()
+    ->name('sanctum-prune-expired')
+    ->withoutOverlapping();

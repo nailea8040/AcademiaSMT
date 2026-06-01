@@ -12,13 +12,15 @@ use Illuminate\Validation\Rules\Password;
 class UsuarioApiController extends Controller
 {
     // ── Superusuario protegido ───────────────────────────────────────────────
-
-    private const SUPERUSUARIO_CORREO = 'nailea8040@gmail.com';
+    // CORRECCIÓN: correo movido a config/app.php → env('SUPER_ADMIN_EMAIL')
+    // Nunca debe quedar un correo real en el código fuente.
 
     private function esSuperUsuario($usuario): bool
     {
         if (!$usuario) return false;
-        return strtolower(trim($usuario->correo)) === self::SUPERUSUARIO_CORREO;
+        $superEmail = strtolower(trim((string) config('app.super_admin_email', '')));
+        if ($superEmail === '') return false;
+        return strtolower(trim($usuario->correo)) === $superEmail;
     }
 
     private function authEsSuperUsuario(Request $request): bool

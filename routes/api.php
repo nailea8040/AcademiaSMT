@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\ContactoApiController;
 use App\Http\Controllers\Api\GradoApiController;
 use App\Http\Controllers\Api\AsistenciaApiController;
 use App\Http\Controllers\Api\UbicacionApiController;
+use App\Http\Controllers\Api\SeminarioApiController;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RUTAS PÚBLICAS — sin token
@@ -66,6 +67,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/alumnos/{id}',                  [AlumnoApiController::class, 'update']);
     Route::get('/alumnos/{id}/historial-grados',     [AlumnoApiController::class, 'historialGrados']);
     Route::get('/alumnos/{id}/historial-seminarios', [AlumnoApiController::class, 'historialSeminarios']);
+
+    // ── Seminarios ────────────────────────────────────────────────────────────
+    // CORRECCIÓN: SeminarioApiController existía pero ninguna ruta lo usaba.
+    // Rutas estáticas (catálogo) van ANTES que las dinámicas ({id}).
+    Route::get   ('/seminarios',                        [SeminarioApiController::class, 'index']);
+    Route::post  ('/seminarios',                        [SeminarioApiController::class, 'store']);
+    Route::put   ('/seminarios/{id}',                   [SeminarioApiController::class, 'update']);
+    Route::delete('/seminarios/{id}',                   [SeminarioApiController::class, 'destroy']);
+
+    // Historial de participaciones por alumno
+    Route::post  ('/alumnos/{id}/historial-seminarios', [SeminarioApiController::class, 'storeHistorial']);
+    Route::delete('/historial-seminarios/{id}',         [SeminarioApiController::class, 'destroyHistorial']);
 
     // ── Tutores ───────────────────────────────────────────────────────────
     Route::get('/tutores',      [TutorApiController::class, 'index']);
