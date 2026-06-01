@@ -30,6 +30,11 @@ Route::post('/contacto',        [ContactoApiController::class,'enviar']);
 Route::get('/calendario',       [CalendarioApiController::class,'index']);
 Route::get('/galeria',          [GaleriaApiController::class,   'index']);
 Route::get('/grados',           [GradoApiController::class,     'index']);
+// CORRECCIÓN: GET /seminarios movido aquí desde el grupo auth:sanctum.
+// El catálogo de seminarios debe ser visible sin token para que alumnos
+// no autenticados (o la pantalla de perfil antes del login) puedan consultarlo,
+// igual que calendario y galería que también son públicos.
+Route::get('/seminarios',       [SeminarioApiController::class, 'index']);
 
 // ── Webhook de MercadoPago — DEBE ser público, MP no envía token ──────────
 // IMPORTANTE: también excluir de CSRF en VerifyCsrfToken.php o bootstrap/app.php
@@ -69,9 +74,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/alumnos/{id}/historial-seminarios', [AlumnoApiController::class, 'historialSeminarios']);
 
     // ── Seminarios ────────────────────────────────────────────────────────────
-    // CORRECCIÓN: SeminarioApiController existía pero ninguna ruta lo usaba.
-    // Rutas estáticas (catálogo) van ANTES que las dinámicas ({id}).
-    Route::get   ('/seminarios',                        [SeminarioApiController::class, 'index']);
+    // NOTA: GET /seminarios fue movido al bloque público (ver arriba).
+    // Aquí solo viven las rutas de escritura que requieren autenticación.
     Route::post  ('/seminarios',                        [SeminarioApiController::class, 'store']);
     Route::put   ('/seminarios/{id}',                   [SeminarioApiController::class, 'update']);
     Route::delete('/seminarios/{id}',                   [SeminarioApiController::class, 'destroy']);

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 /**
  * EventoController — gestión de galería multimedia (admin panel).
@@ -140,8 +141,9 @@ class EventoController extends Controller
 
         try {
             $archivo       = $request->file('archivo');
+            // CORRECCIÓN: time() podía generar colisiones. Str::uuid() garantiza unicidad.
             $safe          = preg_replace('/[^a-zA-Z0-9._-]/', '_', $archivo->getClientOriginalName());
-            $nombreArchivo = time() . '_' . $safe;
+            $nombreArchivo = Str::uuid() . '_' . $safe;
 
             // Subir a Supabase Storage (no al disco local)
             $ruta = $this->supabaseUpload($archivo, $nombreArchivo);
@@ -166,7 +168,7 @@ class EventoController extends Controller
 
     // ── update ────────────────────────────────────────────────────────────────
 
-    public function update(Request $request, int $id)
+    public function update(Request $request, $id)
     {
         if (!$this->esAdmin()) {
             return back()->with('error', 'No tienes permisos para editar.');
@@ -199,7 +201,7 @@ class EventoController extends Controller
 
     // ── destroy ───────────────────────────────────────────────────────────────
 
-    public function destroy(int $id)
+    public function destroy($id)
     {
         if (!$this->esAdmin()) {
             return back()->with('error', 'No tienes permisos para eliminar archivos.');

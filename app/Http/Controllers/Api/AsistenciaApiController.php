@@ -110,6 +110,22 @@ class AsistenciaApiController extends Controller
                 ], 409);
             }
 
+            // CORRECCIÓN: verificar que el token del QR no haya sido usado antes.
+            // Esto evita que un alumno comparta su QR por WhatsApp y otro lo use
+            // para registrar asistencia en su nombre.
+            // El token en el QR es el timestamp ISO de cuando el alumno generó su código
+            // (campo 'fecha' del payload JSON del QR). Es único por sesión de pantalla.
+            $tokenYaUsado = DB::table('asistencia')
+                ->where('token', $validated['token'])
+                ->exists();
+
+            if ($tokenYaUsado) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Este código QR ya fue utilizado. El alumno debe generar uno nuevo.',
+                ], 409);
+            }
+
             // Convertir el ISO string a formato MySQL datetime
             // La app envía: "2025-04-24T14:30:00.000Z"
             // MySQL espera: "2025-04-24 14:30:00"

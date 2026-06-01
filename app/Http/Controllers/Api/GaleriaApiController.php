@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class GaleriaApiController extends Controller
 {
@@ -188,9 +189,10 @@ class GaleriaApiController extends Controller
             DB::beginTransaction();
 
             foreach ($request->file('archivos') as $i => $archivo) {
-                // Sanitizar nombre del archivo
+                // CORRECCIÓN: time() podía generar colisiones si dos archivos
+                // se subían en el mismo segundo. Str::uuid() garantiza unicidad absoluta.
                 $safe = preg_replace('/[^a-zA-Z0-9._-]/', '_', $archivo->getClientOriginalName());
-                $path = time() . '_' . $i . '_' . $safe;
+                $path = Str::uuid() . '_' . $safe;
 
                 // FIX: subir a Supabase Storage (antes usaba Storage::disk('public') local)
                 $ruta = $this->supabaseUpload($archivo, $path);

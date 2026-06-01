@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class GaleriaController extends Controller
 {
@@ -188,8 +189,10 @@ class GaleriaController extends Controller
             DB::beginTransaction();
 
             foreach ($archivos as $index => $archivo) {
+                // CORRECCIÓN: time() podía generar colisiones si dos archivos
+                // se subían en el mismo segundo. Str::uuid() garantiza unicidad absoluta.
                 $safe = preg_replace('/[^a-zA-Z0-9._-]/', '_', $archivo->getClientOriginalName());
-                $path = time() . '_' . $index . '_' . $safe;
+                $path = Str::uuid() . '_' . $safe;
 
                 // Subir a Supabase Storage
                 $ruta = $this->supabaseUpload($archivo, $path);

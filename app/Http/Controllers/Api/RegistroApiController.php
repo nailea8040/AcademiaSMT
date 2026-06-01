@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class RegistroApiController extends Controller
 {
@@ -97,6 +98,7 @@ class RegistroApiController extends Controller
                 $rules['alumno_nombre']           = 'required|string|max:200';
                 $rules['alumno_correo']           = 'required|email|unique:usuario,correo';
                 $rules['alumno_pass']             = 'required|min:8';
+                $rules['alumno_fecha_naci']       = 'required|date|before:today|after:' . now()->subYears(100)->toDateString();
                 $rules['alumno_grado']            = 'required|integer|exists:grado,id_grado';
                 $rules['alumno_fecha_inscrip']    = 'required|date';
                 $rules['alumno_documento_medico'] = 'required|file|mimes:pdf|max:5120';
@@ -148,7 +150,9 @@ class RegistroApiController extends Controller
                     'nombre'         => $validated['tutor_nombre'],
                     'apaterno'       => $validated['tutor_apaterno'],
                     'amaterno'       => $validated['tutor_amaterno'],
-                    'fecha_naci'     => $validated['tutor_fecha_naci'] ?? now()->subYears(30)->toDateString(),
+                    // CORRECCIÓN: antes era now()->subYears(30) — valor inventado.
+                    // tutor_fecha_naci ya es campo obligatorio con validación 'before:today'.
+                    'fecha_naci'     => $validated['tutor_fecha_naci'],
                     'telefono'       => $validated['tutor_tel'],
                     'correo'         => $validated['tutor_correo'],
                     'pass'           => Hash::make($validated['tutor_pass']),
@@ -216,7 +220,9 @@ class RegistroApiController extends Controller
                         'nombre'         => $partes[0] ?? '-',
                         'apaterno'       => $partes[1] ?? '-',
                         'amaterno'       => $partes[2] ?? '',
-                        'fecha_naci'     => now()->subYears(10)->toDateString(),
+                        // CORRECCIÓN: antes era now()->subYears(10) — valor inventado.
+                        // alumno_fecha_naci ahora es campo obligatorio con validación.
+                        'fecha_naci'     => $validated['alumno_fecha_naci'],
                         'telefono'       => $validated['tel'],
                         'correo'         => $validated['alumno_correo'],
                         'pass'           => Hash::make($validated['alumno_pass']),
@@ -235,7 +241,8 @@ class RegistroApiController extends Controller
                     // CORRECCIÓN: subir PDF a Supabase en lugar de disco local
                     $rutaDoc = null;
                     if ($request->hasFile('alumno_documento_medico')) {
-                        $path    = 'medico_' . $idAlumno . '_' . time() . '.pdf';
+                        // CORRECCIÓN: time() → Str::uuid() para evitar colisiones
+                        $path    = 'medico_' . $idAlumno . '_' . Str::uuid() . '.pdf';
                         $rutaDoc = $this->supabaseUploadPdf(
                             $request->file('alumno_documento_medico'),
                             $path
@@ -280,7 +287,8 @@ class RegistroApiController extends Controller
                 // CORRECCIÓN: subir PDF a Supabase en lugar de disco local
                 $rutaDoc = null;
                 if ($request->hasFile('documento_medico')) {
-                    $path    = 'medico_' . $idUsuario . '_' . time() . '.pdf';
+                    // CORRECCIÓN: time() → Str::uuid() para evitar colisiones
+                    $path    = 'medico_' . $idUsuario . '_' . Str::uuid() . '.pdf';
                     $rutaDoc = $this->supabaseUploadPdf(
                         $request->file('documento_medico'),
                         $path

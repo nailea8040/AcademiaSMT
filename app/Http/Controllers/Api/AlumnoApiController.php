@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AlumnoApiController extends Controller
 {
@@ -53,8 +54,14 @@ class AlumnoApiController extends Controller
      */
     public function index(Request $request)
     {
+        // Paginación: ?pagina=1&por_pagina=20 (por defecto 20 por página)
+        $porPagina = min((int) $request->query('por_pagina', 20), 100);
+        $pagina    = max((int) $request->query('pagina', 1), 1);
+        $offset    = ($pagina - 1) * $porPagina;
+
         try {
-            $alumnos = DB::table('usuario as a')
+            // Base query reutilizable para total y datos
+            $baseQuery = DB::table('usuario as a')
                 ->leftJoin('historial_grados as hg', function ($join) {
                     $join->on('hg.id_usuario', '=', 'a.id_usuario')
                          ->whereRaw('hg.id = (
@@ -65,7 +72,11 @@ class AlumnoApiController extends Controller
                 })
                 ->leftJoin('grado as g', 'hg.id_grado', '=', 'g.id_grado')
                 ->leftJoin('registro_fisico as rf', 'a.id_usuario', '=', 'rf.id_usuario')
-                ->where('a.rol', 'alumno')
+                ->where('a.rol', 'alumno');
+
+            $total = $baseQuery->count(DB::raw('DISTINCT a.id_usuario'));
+
+            $alumnos = $baseQuery
                 ->select(
                     'a.id_usuario',
                     'a.nombre',
@@ -90,6 +101,9 @@ class AlumnoApiController extends Controller
                     'rf.certificado_medico', 'rf.fecha_registro',
                     'rf.peso', 'rf.estatura'
                 )
+                ->orderBy('a.apaterno', 'asc')
+                ->limit($porPagina)
+                ->offset($offset)
                 ->get()
                 ->map(function ($a) {
                     $a->certificado_medico_url = $a->certificado_medico
@@ -98,7 +112,19 @@ class AlumnoApiController extends Controller
                     return $a;
                 });
 
-            return response()->json(['success' => true, 'data' => $alumnos]);
+            $ultimaPagina = (int) ceil($total / $porPagina);
+
+            return response()->json([
+                'success' => true,
+                'data'    => $alumnos,
+                'meta'    => [
+                    'total'         => $total,
+                    'por_pagina'    => $porPagina,
+                    'pagina_actual' => $pagina,
+                    'ultima_pagina' => $ultimaPagina,
+                    'hay_mas'       => $pagina < $ultimaPagina,
+                ],
+            ]);
 
         } catch (\Exception $e) {
             Log::error('AlumnoApi@index: ' . $e->getMessage());
@@ -137,7 +163,8 @@ class AlumnoApiController extends Controller
             $rutaDoc = null;
             if ($request->hasFile('documento_medico')) {
                 $archivo = $request->file('documento_medico');
-                $nombre  = 'medico_' . $validated['id_alumno'] . '_' . time() . '.pdf';
+                // CORRECCIÓN: time() → Str::uuid() para evitar colisiones
+                $nombre  = 'medico_' . $validated['id_alumno'] . '_' . Str::uuid() . '.pdf';
                 $rutaDoc = $this->supabaseUploadPdf($archivo, $nombre);
             }
 
@@ -220,7 +247,8 @@ class AlumnoApiController extends Controller
 
             // CORRECCIÓN: subir PDF a Supabase en lugar del disco local efímero
             if ($request->hasFile('documento_medico')) {
-                $nombre = 'medico_' . $id . '_' . time() . '.pdf';
+                // CORRECCIÓN: time() → Str::uuid() para evitar colisiones
+                $nombre = 'medico_' . $id . '_' . Str::uuid() . '.pdf';
                 $updateFisico['certificado_medico'] = $this->supabaseUploadPdf(
                     $request->file('documento_medico'),
                     $nombre

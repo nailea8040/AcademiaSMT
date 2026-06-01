@@ -34,19 +34,36 @@ class UsuarioApiController extends Controller
     {
         $this->soloAdminOSensei($request);
 
+        // Paginación: ?pagina=1&por_pagina=20 (por defecto 20 por página)
+        $porPagina = min((int) $request->query('por_pagina', 20), 100);
+        $pagina    = max((int) $request->query('pagina', 1), 1);
+        $offset    = ($pagina - 1) * $porPagina;
+
         $query = DB::table('usuario')
             ->select('id_usuario', 'nombre', 'apaterno', 'amaterno',
                      'correo', 'rol', 'estado', 'telefono', 'fecha_naci', 'fecha_registro',
                      'numero_control', 'grupo', 'especialidad', 'turno')
-            ->orderBy('nombre');
+            ->orderBy('apaterno');
 
         if ($request->user()->rol === 'sensei') {
             $query->where('rol', '!=', 'admin');
         }
 
-        $usuarios = $query->get();
+        $total     = (clone $query)->count();
+        $usuarios  = $query->limit($porPagina)->offset($offset)->get();
+        $ultimaPagina = (int) ceil($total / $porPagina);
 
-        return response()->json(['success' => true, 'data' => $usuarios]);
+        return response()->json([
+            'success' => true,
+            'data'    => $usuarios,
+            'meta'    => [
+                'total'         => $total,
+                'por_pagina'    => $porPagina,
+                'pagina_actual' => $pagina,
+                'ultima_pagina' => $ultimaPagina,
+                'hay_mas'       => $pagina < $ultimaPagina,
+            ],
+        ]);
     }
 
     // ── POST /api/usuarios ───────────────────────────────────────────────────
