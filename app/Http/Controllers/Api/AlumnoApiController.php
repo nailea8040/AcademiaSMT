@@ -86,6 +86,10 @@ class AlumnoApiController extends Controller
                     'a.correo',
                     'a.telefono',
                     'a.fecha_naci',
+                    'a.numero_control',
+                    'a.grupo',
+                    'a.especialidad',
+                    'a.turno',
                     'g.id_grado',
                     'g.nombreGrado',
                     DB::raw("CONCAT(a.nombre,' ',a.apaterno,' ',a.amaterno) AS nombre_completo"),
@@ -97,6 +101,7 @@ class AlumnoApiController extends Controller
                 ->groupBy(
                     'a.id_usuario', 'a.nombre', 'a.apaterno', 'a.amaterno',
                     'a.estado', 'a.correo', 'a.telefono', 'a.fecha_naci',
+                    'a.numero_control', 'a.grupo', 'a.especialidad', 'a.turno',
                     'g.id_grado', 'g.nombreGrado',
                     'rf.certificado_medico', 'rf.fecha_registro',
                     'rf.peso', 'rf.estatura'
@@ -144,6 +149,12 @@ class AlumnoApiController extends Controller
             'documento_medico'  => 'nullable|file|mimes:pdf|max:5120',
             'peso'              => 'nullable|numeric|min:0|max:300',
             'estatura'          => 'nullable|numeric|min:0|max:3',
+            // Bachiller
+            'es_bachiller'      => 'nullable|boolean',
+            'numero_control'    => 'nullable|string|max:20',
+            'grupo'             => 'nullable|in:1A,1B,2A,2B,3A,3B,4A,4B,5A,5B,6A,6B',
+            'especialidad'      => 'nullable|in:Análisis clínicos,Programación,Mecánica,Logística,Producción digital,Ciberseguridad,Soporte y mantenimiento',
+            'turno'             => 'nullable|in:Matutino,Vespertino',
         ]);
 
         try {
@@ -167,6 +178,8 @@ class AlumnoApiController extends Controller
                 $nombre  = 'medico_' . $validated['id_alumno'] . '_' . Str::uuid() . '.pdf';
                 $rutaDoc = $this->supabaseUploadPdf($archivo, $nombre);
             }
+
+            $esBachiller = $request->boolean('es_bachiller');
 
             DB::beginTransaction();
 
@@ -200,6 +213,16 @@ class AlumnoApiController extends Controller
                 ]);
             }
 
+            // Guardar datos bachiller en tabla usuario
+            DB::table('usuario')
+                ->where('id_usuario', $validated['id_alumno'])
+                ->update([
+                    'numero_control' => $esBachiller ? ($request->numero_control ?? null) : null,
+                    'grupo'          => $esBachiller ? ($request->grupo          ?? null) : null,
+                    'especialidad'   => $esBachiller ? ($request->especialidad   ?? null) : null,
+                    'turno'          => $esBachiller ? ($request->turno          ?? null) : null,
+                ]);
+
             DB::commit();
 
             return response()->json([
@@ -228,9 +251,17 @@ class AlumnoApiController extends Controller
             'documento_medico' => 'nullable|file|mimes:pdf|max:5120',
             'peso'             => 'nullable|numeric|min:0|max:300',
             'estatura'         => 'nullable|numeric|min:0|max:3',
+            // Bachiller
+            'es_bachiller'     => 'nullable|boolean',
+            'numero_control'   => 'nullable|string|max:20',
+            'grupo'            => 'nullable|in:1A,1B,2A,2B,3A,3B,4A,4B,5A,5B,6A,6B',
+            'especialidad'     => 'nullable|in:Análisis clínicos,Programación,Mecánica,Logística,Producción digital,Ciberseguridad,Soporte y mantenimiento',
+            'turno'            => 'nullable|in:Matutino,Vespertino',
         ]);
 
         try {
+            $esBachiller = $request->boolean('es_bachiller');
+
             DB::beginTransaction();
 
             // Solo inserta en historial — NO duplica en la lista
@@ -267,6 +298,16 @@ class AlumnoApiController extends Controller
                     ->where('id_usuario', $id)
                     ->update($updateFisico);
             }
+
+            // Guardar datos bachiller en tabla usuario
+            DB::table('usuario')
+                ->where('id_usuario', $id)
+                ->update([
+                    'numero_control' => $esBachiller ? ($request->numero_control ?? null) : null,
+                    'grupo'          => $esBachiller ? ($request->grupo          ?? null) : null,
+                    'especialidad'   => $esBachiller ? ($request->especialidad   ?? null) : null,
+                    'turno'          => $esBachiller ? ($request->turno          ?? null) : null,
+                ]);
 
             DB::commit();
 

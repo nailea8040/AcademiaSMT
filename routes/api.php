@@ -30,14 +30,9 @@ Route::post('/contacto',        [ContactoApiController::class,'enviar']);
 Route::get('/calendario',       [CalendarioApiController::class,'index']);
 Route::get('/galeria',          [GaleriaApiController::class,   'index']);
 Route::get('/grados',           [GradoApiController::class,     'index']);
-// CORRECCIÓN: GET /seminarios movido aquí desde el grupo auth:sanctum.
-// El catálogo de seminarios debe ser visible sin token para que alumnos
-// no autenticados (o la pantalla de perfil antes del login) puedan consultarlo,
-// igual que calendario y galería que también son públicos.
 Route::get('/seminarios',       [SeminarioApiController::class, 'index']);
 
 // ── Webhook de MercadoPago — DEBE ser público, MP no envía token ──────────
-// IMPORTANTE: también excluir de CSRF en VerifyCsrfToken.php o bootstrap/app.php
 Route::post('/pagos/webhook',   [PagoApiController::class, 'webhook']);
 
 Route::get('/conceptos-pago',         [PagoApiController::class, 'conceptosPago']);
@@ -67,20 +62,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/usuarios/{id}/toggle-estado', [UsuarioApiController::class, 'toggleEstado']);
 
     // ── Alumnos ───────────────────────────────────────────────────────────
-    Route::get('/alumnos',                       [AlumnoApiController::class, 'index']);
-    Route::post('/alumnos',                      [AlumnoApiController::class, 'store']);
-    Route::put('/alumnos/{id}',                  [AlumnoApiController::class, 'update']);
+    Route::get('/alumnos',                           [AlumnoApiController::class, 'index']);
+    Route::post('/alumnos',                          [AlumnoApiController::class, 'store']);
+    Route::put('/alumnos/{id}',                      [AlumnoApiController::class, 'update']);
     Route::get('/alumnos/{id}/historial-grados',     [AlumnoApiController::class, 'historialGrados']);
     Route::get('/alumnos/{id}/historial-seminarios', [AlumnoApiController::class, 'historialSeminarios']);
 
-    // ── Seminarios ────────────────────────────────────────────────────────────
-    // NOTA: GET /seminarios fue movido al bloque público (ver arriba).
-    // Aquí solo viven las rutas de escritura que requieren autenticación.
+    // ── Seminarios ────────────────────────────────────────────────────────
     Route::post  ('/seminarios',                        [SeminarioApiController::class, 'store']);
     Route::put   ('/seminarios/{id}',                   [SeminarioApiController::class, 'update']);
     Route::delete('/seminarios/{id}',                   [SeminarioApiController::class, 'destroy']);
-
-    // Historial de participaciones por alumno
     Route::post  ('/alumnos/{id}/historial-seminarios', [SeminarioApiController::class, 'storeHistorial']);
     Route::delete('/historial-seminarios/{id}',         [SeminarioApiController::class, 'destroyHistorial']);
 
@@ -91,27 +82,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/ocupaciones',  [TutorApiController::class, 'ocupaciones']);
 
     // ── Pagos ─────────────────────────────────────────────────────────────
-    // IMPORTANTE: las rutas con segmentos estáticos ('historial', 'procesar')
-    // deben ir ANTES de las rutas con parámetros dinámicos ({id})
-    // para que Laravel no interprete 'procesar' o 'historial' como un {id}.
+    // IMPORTANTE: rutas estáticas ANTES de las dinámicas {id}
 
     // Lista y registro
-    Route::get('/pagos',                         [PagoApiController::class, 'index']);
-    Route::post('/pagos',                        [PagoApiController::class, 'store']);
+    Route::get('/pagos',  [PagoApiController::class, 'index']);
+    Route::post('/pagos', [PagoApiController::class, 'store']);
 
     // Catálogo de tipos de pago
-    Route::get('/tipos-pago',                    [PagoApiController::class, 'tiposPago']);
+    Route::get('/tipos-pago', [PagoApiController::class, 'tiposPago']);
 
-    //
+    // NUEVO: pagos de un alumno específico para perfil del tutor
+    // Va ANTES de /{id} para que 'alumno' no sea interpretado como un {id}
+    Route::get('/pagos/alumno/{id_alumno}', [PagoApiController::class, 'pagosAlumnoTutor']);
 
     // Historial por usuario — estático, va antes de /{id}
-    Route::get('/pagos/historial/{idUsuario}',   [PagoApiController::class, 'historialAlumno']);
+    Route::get('/pagos/historial/{idUsuario}', [PagoApiController::class, 'historialAlumno']);
 
     // Rutas con {id} de pago — van después de las estáticas
-    Route::get('/pagos/{id}/preference',         [PagoApiController::class, 'getPreference']);
-    Route::get('/pagos/{id}/abonos',             [PagoApiController::class, 'listarAbonos']);
-    Route::post('/pagos/{id}/abono',             [PagoApiController::class, 'abono']);
-    Route::post('/pagos/{id}/completar',         [PagoApiController::class, 'completar']);
+    Route::get('/pagos/{id}/preference', [PagoApiController::class, 'getPreference']);
+    Route::get('/pagos/{id}/abonos',     [PagoApiController::class, 'listarAbonos']);
+    Route::post('/pagos/{id}/abono',     [PagoApiController::class, 'abono']);
+    Route::post('/pagos/{id}/completar', [PagoApiController::class, 'completar']);
 
     // ── Calendario ────────────────────────────────────────────────────────
     Route::post('/calendario',        [CalendarioApiController::class, 'store']);
@@ -120,16 +111,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Galería ───────────────────────────────────────────────────────────
     Route::post('/galeria',           [GaleriaApiController::class, 'store']);
-    // IMPORTANTE: la ruta estática '/galeria/evento' DEBE ir antes de '/galeria/{id}'
-    // para que Laravel no interprete 'evento' como un {id}.
     Route::delete('/galeria/evento',  [GaleriaApiController::class, 'destroyEvento']);
     Route::delete('/galeria/{id}',    [GaleriaApiController::class, 'destroy']);
 
     // ── Asistencia ────────────────────────────────────────────────────────
-    Route::get('/asistencia',         [AsistenciaApiController::class, 'index']);
-    Route::post('/asistencia',        [AsistenciaApiController::class, 'store']);
+    Route::get('/asistencia',  [AsistenciaApiController::class, 'index']);
+    Route::post('/asistencia', [AsistenciaApiController::class, 'store']);
 
     // ── Ubicación del dojo ────────────────────────────────────────────────
-    Route::get('/ubicacion',          [UbicacionApiController::class, 'index']);
-    Route::post('/ubicacion',         [UbicacionApiController::class, 'store']);
+    Route::get('/ubicacion',  [UbicacionApiController::class, 'index']);
+    Route::post('/ubicacion', [UbicacionApiController::class, 'store']);
 });

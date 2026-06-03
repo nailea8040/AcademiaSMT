@@ -1,445 +1,299 @@
 <?php
-// app/Http/Controllers/Api/PagoApiController.php — REEMPLAZA COMPLETO
 
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\MercadoPagoService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use MercadoPago\Client\Payment\PaymentClient;
 use MercadoPago\MercadoPagoConfig;
+use MercadoPago\Client\Preference\PreferenceClient;
+use MercadoPago\Exceptions\MPApiException;
 
 class PagoApiController extends Controller
 {
-    // ──────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     //  GET /api/pagos
-    //  Admin/sensei → todos los pagos
-    //  Alumno/tutor → solo los suyos
-    // ──────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     public function index(Request $request)
     {
+        $user = Auth::user();
+
         try {
-            $user  = $request->user();
-            $query = DB::table('pago as p')
-                ->join('usuario as u', 'p.id_usuario', '=', 'u.id_usuario')
-                ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
-                ->leftJoin('concepto_pago as cp', 'p.id_concepto', '=', 'cp.id_concepto')
+            $query = DB::table('pagos as p')
+                ->leftJoin('usuario as u',    'p.id_usuario',    '=', 'u.id_usuario')
+                ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago',  '=', 'tp.id_tipo_pago')
                 ->select(
-                    'p.id_pago', 'p.monto', 'p.monto_total', 'p.monto_pagado',
-                    'p.motivo_pago', 'p.fecha_pago', 'p.referencia_pago',
-                    'p.estado_pago', 'p.id_usuario', 'p.id_tipo_pago', 'p.id_concepto',
-                    'p.mp_preference_id', 'p.mp_payment_id', 'p.mp_status',
-                    DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno"),
+                    'p.id_pago',
+                    'p.id_usuario',
+                    'p.fecha_pago',
+                    'p.monto',
+                    'p.estadoPago',
+                    'p.motivoPago',
+                    'p.referenciaPago',
                     'tp.nombre_tipo',
-                    'cp.nombre AS nombre_concepto',
-                    DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante")
+                    DB::raw("CONCAT(u.nombre,' ',u.apaterno,' ',u.amaterno) AS nombre_alumno")
                 )
                 ->orderBy('p.fecha_pago', 'desc');
 
+            // Alumno/tutor solo ve sus propios pagos
             if (in_array($user->rol, ['alumno', 'tutor'])) {
                 $query->where('p.id_usuario', $user->id_usuario);
             }
 
-            return response()->json(['success' => true, 'data' => $query->get()]);
+            $pagos = $query->get();
+
+            return response()->json(['success' => true, 'data' => $pagos]);
 
         } catch (\Exception $e) {
             Log::error('PagoApi@index: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al obtener los pagos.'], 500);
+            return response()->json(['success' => false, 'message' => 'Error al obtener pagos.'], 500);
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     //  POST /api/pagos
-    //  Admin/sensei: registran cargos para cualquier alumno/tutor.
-    //  Alumno/tutor: registran su propio pago eligiendo concepto del
-    //                catálogo y ajustando el monto.
-    //                Estado siempre Pendiente hasta que admin confirme.
-    // ──────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     public function store(Request $request)
     {
-        $user          = $request->user();
-        $esAdminSensei = in_array($user->rol, ['admin', 'sensei']);
-        $esAlumnoTutor = in_array($user->rol, ['alumno', 'tutor']);
-
-        // Reglas comunes
-        $rules = [
-            'id_concepto'    => 'required|exists:concepto_pago,id_concepto',
-            'id_tipo_pago'   => 'required|exists:tipo_pago,id_tipo_pago',
-            'fechaPago'      => 'required|date',
-            'motivoPago'     => 'nullable|string|max:100',
-            'pagar_en_linea' => 'boolean',
-        ];
-
-        // Admin/sensei: el monto lo impone el concepto (llega como hidden o no llega).
-        // Alumno/tutor: deben enviarlo explícitamente (pueden hacer abono parcial).
-        if ($esAlumnoTutor) {
-            $rules['monto'] = 'required|numeric|min:1';
-        } else {
-            $rules['monto'] = 'nullable|numeric|min:1';
-        }
-
-        // Reglas exclusivas de admin/sensei
-        if ($esAdminSensei) {
-            $rules['id_alumno']      = 'required|exists:usuario,id_usuario';
-            $rules['estadoPago']     = 'required|in:Pendiente,Completado';
-            $rules['referenciaPago'] = 'nullable|string|max:100';
-        }
-
-        $validated = $request->validate($rules);
-
-        // Destinatario: admin elige, alumno es él mismo
-        $idDestinatario = $esAdminSensei
-            ? $validated['id_alumno']
-            : $user->id_usuario;
-
-        $pagarEnLinea = (bool) ($validated['pagar_en_linea'] ?? false);
-
-        // Estado inicial
-        $estadoFinal = 'Pendiente';
-        if ($esAdminSensei && !$pagarEnLinea) {
-            $estadoFinal = $validated['estadoPago'];
-        }
-
-        // Autocompletar motivo desde el concepto
-        $concepto = DB::table('concepto_pago')->where('id_concepto', $validated['id_concepto'])->first();
-        $motivo   = $validated['motivoPago'] ?? null;
-        if (!$motivo && $concepto) {
-            $motivo = $concepto->nombre;
-        }
-
-        // Admin/sensei: si monto no llegó, usar monto_sugerido del concepto
-        if ($esAdminSensei && empty($validated['monto'])) {
-            if (!$concepto || !isset($concepto->monto_sugerido) || $concepto->monto_sugerido === null) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Este concepto no tiene monto definido. Edita el concepto y añade un monto primero.',
-                ], 422);
-            }
-            $validated['monto'] = $concepto->monto_sugerido;
-        }
-
-        try {
-            $id = DB::table('pago')->insertGetId([
-                'id_usuario'      => $idDestinatario,
-                'id_tipo_pago'    => $validated['id_tipo_pago'],
-                'id_concepto'     => $validated['id_concepto'],
-                'monto'           => $validated['monto'],
-                'monto_total'     => $validated['monto'],
-                'monto_pagado'    => 0.00,
-                'motivo_pago'     => $motivo,
-                'fecha_pago'      => $validated['fechaPago'],
-                'referencia_pago' => $validated['referenciaPago'] ?? null,
-                'estado_pago'     => $estadoFinal,
-            ]);
-
-            // Admin registra efectivo como Completado → abono automático
-            if ($esAdminSensei && !$pagarEnLinea && $estadoFinal === 'Completado') {
-                DB::table('abono')->insert([
-                    'id_pago'        => $id,
-                    'id_usuario'     => $idDestinatario,
-                    'monto_abono'    => $validated['monto'],
-                    'fecha_abono'    => $validated['fechaPago'],
-                    'tipo_abono'     => 'efectivo',
-                    'referencia'     => $validated['referenciaPago'] ?? null,
-                    'registrado_por' => $user->id_usuario,
-                ]);
-                DB::table('pago')->where('id_pago', $id)->update([
-                    'monto_pagado' => $validated['monto'],
-                ]);
-            }
-
-            $respuesta = [
-                'success' => true,
-                'message' => $esAlumnoTutor && $estadoFinal === 'Pendiente' && !$pagarEnLinea
-                    ? 'Pago registrado. Quedará pendiente hasta que el administrador lo confirme.'
-                    : 'Pago registrado.',
-                'id'      => $id,
-            ];
-
-            // Pago en línea → crear preferencia MP
-            if ($pagarEnLinea) {
-                $alumno = DB::table('usuario')
-                    ->where('id_usuario', $idDestinatario)
-                    ->select('nombre', 'apaterno', 'correo')
-                    ->first();
-
-                $mpService   = new MercadoPagoService();
-                $preferencia = $mpService->crearPreferencia([
-                    'id_pago'       => $id,
-                    'monto'         => $validated['monto'],
-                    'motivo'        => $motivo ?? 'Pago Academia',
-                    'alumno_email'  => $alumno->correo ?? 'alumno@academia.com',
-                    'alumno_nombre' => "{$alumno->nombre} {$alumno->apaterno}",
-                ], true);
-
-                DB::table('pago')->where('id_pago', $id)->update([
-                    'mp_preference_id' => $preferencia['id'],
-                ]);
-
-                $respuesta['mercadopago'] = [
-                    'preference_id'      => $preferencia['id'],
-                    'init_point'         => $preferencia['init_point'],
-                    'sandbox_init_point' => $preferencia['sandbox_init_point'],
-                ];
-            }
-
-            return response()->json($respuesta, 201);
-
-        } catch (\Exception $e) {
-            Log::error('PagoApi@store: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al registrar el pago.'], 500);
-        }
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    //  POST /api/pagos/{id}/completar  — solo admin/sensei
-    // ──────────────────────────────────────────────────────────────────
-    public function completar(Request $request, int $id)
-    {
-        $user = $request->user();
-        if (!in_array($user->rol, ['admin', 'sensei'])) {
-            return response()->json(['success' => false, 'message' => 'No tienes permiso.'], 403);
-        }
-
-        $pago = DB::table('pago')->where('id_pago', $id)->first();
-        if (!$pago) return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
-
-        if ($pago->estado_pago === 'Completado') {
-            return response()->json(['success' => false, 'message' => 'Este pago ya estaba completado.'], 422);
-        }
-
-        $montoTotal = $pago->monto_total ?? $pago->monto;
-
-        DB::table('pago')->where('id_pago', $id)->update([
-            'estado_pago'  => 'Completado',
-            'monto_pagado' => $montoTotal,
-        ]);
-
-        $tieneAbonos = DB::table('abono')->where('id_pago', $id)->count();
-        if ($tieneAbonos === 0) {
-            DB::table('abono')->insert([
-                'id_pago'        => $id,
-                'id_usuario'     => $pago->id_usuario,
-                'monto_abono'    => $montoTotal,
-                'fecha_abono'    => now(),
-                'tipo_abono'     => $pago->mp_payment_id ? 'en_linea' : 'efectivo',
-                'referencia'     => $pago->mp_payment_id
-                    ? "MP-{$pago->mp_payment_id}"
-                    : 'Verificado por admin',
-                'registrado_por' => $user->id_usuario,
-            ]);
-        } else {
-            $totalAbonado = DB::table('abono')->where('id_pago', $id)->sum('monto_abono');
-            $diferencia   = $montoTotal - $totalAbonado;
-            if ($diferencia > 0) {
-                DB::table('abono')->insert([
-                    'id_pago'        => $id,
-                    'id_usuario'     => $pago->id_usuario,
-                    'monto_abono'    => $diferencia,
-                    'fecha_abono'    => now(),
-                    'tipo_abono'     => 'efectivo',
-                    'referencia'     => 'Completado por admin',
-                    'registrado_por' => $user->id_usuario,
-                ]);
-            }
-        }
-
-        return response()->json(['success' => true, 'message' => 'Pago marcado como completado.']);
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    //  POST /api/pagos/{id}/abono
-    //  Admin/sensei → efectivo (aplica inmediato) o en línea (MP)
-    //  Alumno/tutor → efectivo (Pendiente hasta confirmación) o en línea (MP)
-    // ──────────────────────────────────────────────────────────────────
-    public function abono(Request $request, int $id)
-    {
-        $user = $request->user();
+        $user = Auth::user();
 
         $validated = $request->validate([
-            'monto_abono' => 'required|numeric|min:1',
-            'tipo_abono'  => 'required|in:efectivo,en_linea',
-            'referencia'  => 'nullable|string|max:100',
+            'id_alumno'     => 'required|exists:usuario,id_usuario',
+            'id_tipo_pago'  => 'required|exists:tipo_pago,id_tipo_pago',
+            'monto'         => 'required|numeric|min:0',
+            'fechaPago'     => 'required|date',
+            'estadoPago'    => 'required|in:Pendiente,Completado,Cancelado',
+            'motivoPago'    => 'nullable|string|max:255',
+            'referenciaPago'=> 'nullable|string|max:100',
+            'pagar_en_linea'=> 'nullable|boolean',
         ]);
 
-        $pago = DB::table('pago')->where('id_pago', $id)->first();
-        if (!$pago) return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
-
-        if (in_array($user->rol, ['alumno', 'tutor']) &&
-            (int) $user->id_usuario !== (int) $pago->id_usuario) {
-            return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
+        // Solo admin/sensei pueden registrar pagos de otros
+        if (!in_array($user->rol, ['admin', 'sensei'])) {
+            if ($validated['id_alumno'] != $user->id_usuario) {
+                return response()->json(['success' => false, 'message' => 'No autorizado.'], 403);
+            }
         }
 
-        $montoTotal  = $pago->monto_total  ?? $pago->monto;
-        $montoPagado = $pago->monto_pagado ?? 0;
-        $saldo       = $montoTotal - $montoPagado;
+        // Verificar que el destinatario sea alumno
+        $destinatario = DB::table('usuario')
+            ->where('id_usuario', $validated['id_alumno'])
+            ->where('rol', 'alumno')
+            ->first();
 
-        if ($validated['monto_abono'] > $saldo) {
+        if (!$destinatario) {
             return response()->json([
                 'success' => false,
-                'message' => "El abono no puede ser mayor al saldo restante ($" . number_format($saldo, 2) . ").",
+                'message' => 'El destinatario debe ser un alumno activo.',
             ], 422);
         }
 
         try {
-            // Abono en línea → crear preferencia MP
-            if ($validated['tipo_abono'] === 'en_linea') {
-                $alumno = DB::table('usuario')
-                    ->where('id_usuario', $pago->id_usuario)
-                    ->select('nombre', 'apaterno', 'correo')
-                    ->first();
+            DB::beginTransaction();
 
-                $idAbono = DB::table('abono')->insertGetId([
-                    'id_pago'        => $id,
-                    'id_usuario'     => $pago->id_usuario,
-                    'monto_abono'    => $validated['monto_abono'],
-                    'fecha_abono'    => now(),
-                    'tipo_abono'     => 'en_linea',
-                    'referencia'     => null,
-                    'registrado_por' => $user->id_usuario,
-                ]);
-
-                $mpService   = new MercadoPagoService();
-                $preferencia = $mpService->crearPreferencia([
-                    'id_pago'       => $id,
-                    'monto'         => $validated['monto_abono'],
-                    'motivo'        => "Abono - " . ($pago->motivo_pago ?? 'Pago Academia'),
-                    'alumno_email'  => $alumno->correo ?? 'alumno@academia.com',
-                    'alumno_nombre' => "{$alumno->nombre} {$alumno->apaterno}",
-                ], true);
-
-                DB::table('abono')->where('id_abono', $idAbono)->update([
-                    'referencia' => $preferencia['id'],
-                ]);
-
-                return response()->json([
-                    'success'     => true,
-                    'message'     => 'Abono en línea iniciado.',
-                    'id_abono'    => $idAbono,
-                    'mercadopago' => [
-                        'preference_id'      => $preferencia['id'],
-                        'init_point'         => $preferencia['init_point'],
-                        'sandbox_init_point' => $preferencia['sandbox_init_point'],
-                    ],
-                ], 201);
-            }
-
-            // Abono en efectivo
-            $esAdminSensei = in_array($user->rol, ['admin', 'sensei']);
-
-            DB::table('abono')->insert([
-                'id_pago'        => $id,
-                'id_usuario'     => $pago->id_usuario,
-                'monto_abono'    => $validated['monto_abono'],
-                'fecha_abono'    => now(),
-                'tipo_abono'     => 'efectivo',
-                'referencia'     => $validated['referencia'] ?? null,
-                'registrado_por' => $user->id_usuario,
+            $id_pago = DB::table('pagos')->insertGetId([
+                'id_usuario'     => $validated['id_alumno'],
+                'id_tipo_pago'   => $validated['id_tipo_pago'],
+                'monto'          => $validated['monto'],
+                'fecha_pago'     => $validated['fechaPago'],
+                'estadoPago'     => $validated['estadoPago'],
+                'motivoPago'     => $validated['motivoPago']     ?? null,
+                'referenciaPago' => $validated['referenciaPago'] ?? null,
             ]);
 
-            if ($esAdminSensei) {
-                $nuevoMontoPagado = $montoPagado + $validated['monto_abono'];
-                $nuevoEstado      = $nuevoMontoPagado >= $montoTotal ? 'Completado' : 'Pendiente';
-                DB::table('pago')->where('id_pago', $id)->update([
-                    'monto_pagado' => $nuevoMontoPagado,
-                    'estado_pago'  => $nuevoEstado,
-                ]);
-                return response()->json([
-                    'success'        => true,
-                    'message'        => 'Abono registrado correctamente.',
-                    'nuevo_estado'   => $nuevoEstado,
-                    'monto_pagado'   => $nuevoMontoPagado,
-                    'saldo_restante' => $montoTotal - $nuevoMontoPagado,
-                ]);
-            } else {
-                // Alumno: queda Pendiente hasta confirmación de admin
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Abono registrado. Quedará pendiente hasta que el administrador lo confirme.',
-                ]);
-            }
-
-        } catch (\Exception $e) {
-            Log::error('PagoApi@abono: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al registrar el abono.'], 500);
-        }
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    //  GET /api/pagos/{id}/preference  — obtener/crear URL de MP
-    // ──────────────────────────────────────────────────────────────────
-    public function getPreference(Request $request, int $id)
-    {
-        $user = $request->user();
-        $pago = DB::table('pago as p')
-            ->join('usuario as u', 'p.id_usuario', '=', 'u.id_usuario')
-            ->where('p.id_pago', $id)
-            ->select(
-                'p.*',
-                DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno"),
-                'u.correo',
-                DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante")
-            )
-            ->first();
-
-        if (!$pago) return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
-
-        if (in_array($user->rol, ['alumno', 'tutor']) &&
-            (int) $user->id_usuario !== (int) $pago->id_usuario) {
-            return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
-        }
-
-        try {
-            $mpService   = new MercadoPagoService();
-            $preferencia = $mpService->crearPreferencia([
-                'id_pago'       => $pago->id_pago,
-                'monto'         => $pago->saldo_restante,
-                'motivo'        => $pago->motivo_pago ?? 'Pago Academia',
-                'alumno_email'  => $pago->correo ?? 'alumno@academia.com',
-                'alumno_nombre' => $pago->nombre_alumno,
-            ], true);
-
-            DB::table('pago')->where('id_pago', $id)->update([
-                'mp_preference_id' => $preferencia['id'],
-            ]);
+            DB::commit();
 
             return response()->json([
-                'success'            => true,
-                'preference_id'      => $preferencia['id'],
-                'init_point'         => $preferencia['init_point'],
-                'sandbox_init_point' => $preferencia['sandbox_init_point'],
-            ]);
+                'success' => true,
+                'message' => 'Pago registrado.',
+                'id_pago' => $id_pago,
+            ], 201);
 
         } catch (\Exception $e) {
-            Log::error('PagoApi@getPreference: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al crear la preferencia.'], 500);
+            DB::rollBack();
+            Log::error('PagoApi@store: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error al registrar.'], 500);
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────
-    //  GET /api/pagos/historial/{id}
-    // ──────────────────────────────────────────────────────────────────
-    public function historialAlumno(Request $request, int $idUsuario)
+    // ─────────────────────────────────────────────────────────────────────────
+    //  GET /api/pagos/{id}/preference  — genera link MercadoPago
+    // ─────────────────────────────────────────────────────────────────────────
+    public function getPreference(int $id)
     {
-        $user = $request->user();
+        $user = Auth::user();
 
-        if (in_array($user->rol, ['alumno', 'tutor']) && (int) $user->id_usuario !== $idUsuario) {
-            return response()->json(['success' => false, 'message' => 'No tienes permiso.'], 403);
+        $pago = DB::table('pagos as p')
+            ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
+            ->leftJoin('usuario as u',    'p.id_usuario',   '=', 'u.id_usuario')
+            ->where('p.id_pago', $id)
+            ->select('p.*', 'tp.nombre_tipo', DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno"))
+            ->first();
+
+        if (!$pago) {
+            return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
+        }
+
+        if (in_array($user->rol, ['alumno', 'tutor']) && $pago->id_usuario != $user->id_usuario) {
+            return response()->json(['success' => false, 'message' => 'No autorizado.'], 403);
         }
 
         try {
-            $pagos = DB::table('pago as p')
+            MercadoPagoConfig::setAccessToken(config('services.mercadopago.access_token'));
+            MercadoPagoConfig::setRuntimeEnviroment(MercadoPagoConfig::LOCAL);
+
+            $baseUrl = config('app.url');
+
+            $preferenceData = [
+                'items' => [[
+                    'id'          => (string) $pago->id_pago,
+                    'title'       => $pago->nombre_tipo ?? 'Pago Academia',
+                    'description' => $pago->motivoPago  ?? 'Pago de cuota',
+                    'quantity'    => 1,
+                    'unit_price'  => (float) $pago->monto,
+                    'currency_id' => 'MXN',
+                ]],
+                'payer' => [
+                    'name'  => $pago->nombre_alumno ?? 'Alumno',
+                    'email' => DB::table('usuario')->where('id_usuario', $pago->id_usuario)->value('correo') ?? '',
+                ],
+                'back_urls' => [
+                    'success' => $baseUrl . '/pagos/resultado?estado=success&pago_id=' . $pago->id_pago,
+                    'failure' => $baseUrl . '/pagos/resultado?estado=failure&pago_id=' . $pago->id_pago,
+                    'pending' => $baseUrl . '/pagos/resultado?estado=pending&pago_id=' . $pago->id_pago,
+                ],
+                'auto_return'       => 'approved',
+                'external_reference'=> (string) $pago->id_pago,
+                'notification_url'  => $baseUrl . '/api/pagos/webhook',
+            ];
+
+            $client     = new PreferenceClient();
+            $preference = $client->create($preferenceData);
+
+            return response()->json([
+                'success'           => true,
+                'preference_id'     => $preference->id,
+                'sandbox_init_point'=> $preference->sandbox_init_point,
+                'init_point'        => $preference->init_point,
+            ]);
+
+        } catch (MPApiException $e) {
+            Log::error('PagoApi@getPreference MP: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error con MercadoPago: ' . $e->getMessage()], 500);
+        } catch (\Exception $e) {
+            Log::error('PagoApi@getPreference: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error al generar preferencia.'], 500);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  POST /api/pagos/webhook  — notificación MercadoPago
+    // ─────────────────────────────────────────────────────────────────────────
+    public function webhook(Request $request)
+    {
+        try {
+            $type   = $request->input('type') ?? $request->input('topic');
+            $dataId = $request->input('data.id') ?? $request->input('id');
+
+            Log::info('MP Webhook: type=' . $type . ' id=' . $dataId);
+
+            if ($type === 'payment' && $dataId) {
+                MercadoPagoConfig::setAccessToken(config('services.mercadopago.access_token'));
+
+                $paymentClient = new \MercadoPago\Client\Payment\PaymentClient();
+                $payment       = $paymentClient->get((int) $dataId);
+
+                if ($payment && $payment->status === 'approved') {
+                    $extRef = $payment->external_reference;
+                    if ($extRef) {
+                        DB::table('pagos')
+                            ->where('id_pago', (int) $extRef)
+                            ->update(['estadoPago' => 'Completado', 'referenciaPago' => (string) $dataId]);
+                        Log::info('Pago ' . $extRef . ' marcado como Completado vía webhook.');
+                    }
+                }
+            }
+
+            return response()->json(['success' => true], 200);
+
+        } catch (\Exception $e) {
+            Log::error('PagoApi@webhook: ' . $e->getMessage());
+            return response()->json(['success' => false], 200); // 200 para que MP no reintente
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  POST /api/pagos/procesar  — Payment Brick
+    // ─────────────────────────────────────────────────────────────────────────
+    public function procesar(Request $request)
+    {
+        $validated = $request->validate([
+            'token'          => 'required|string',
+            'issuer_id'      => 'nullable',
+            'payment_method_id' => 'required|string',
+            'transaction_amount' => 'required|numeric',
+            'installments'   => 'required|integer',
+            'payer'          => 'required|array',
+            'payer.email'    => 'required|email',
+            'id_pago'        => 'required|integer|exists:pagos,id_pago',
+        ]);
+
+        try {
+            MercadoPagoConfig::setAccessToken(config('services.mercadopago.access_token'));
+
+            $paymentClient = new \MercadoPago\Client\Payment\PaymentClient();
+            $payment       = $paymentClient->create([
+                'token'              => $validated['token'],
+                'issuer_id'          => $validated['issuer_id'] ?? null,
+                'payment_method_id'  => $validated['payment_method_id'],
+                'transaction_amount' => (float) $validated['transaction_amount'],
+                'installments'       => (int) $validated['installments'],
+                'payer'              => $validated['payer'],
+                'external_reference' => (string) $validated['id_pago'],
+            ]);
+
+            if ($payment->status === 'approved') {
+                DB::table('pagos')
+                    ->where('id_pago', $validated['id_pago'])
+                    ->update(['estadoPago' => 'Completado', 'referenciaPago' => (string) $payment->id]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'status'  => $payment->status,
+                'detail'  => $payment->status_detail,
+            ]);
+
+        } catch (MPApiException $e) {
+            Log::error('PagoApi@procesar MP: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        } catch (\Exception $e) {
+            Log::error('PagoApi@procesar: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error al procesar pago.'], 500);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  GET /api/pagos/historial/{idUsuario}
+    // ─────────────────────────────────────────────────────────────────────────
+    public function historialAlumno(int $idUsuario)
+    {
+        $user = Auth::user();
+
+        if (in_array($user->rol, ['alumno', 'tutor']) && $idUsuario !== $user->id_usuario) {
+            return response()->json(['success' => false, 'message' => 'No autorizado.'], 403);
+        }
+
+        try {
+            $pagos = DB::table('pagos as p')
                 ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
-                ->leftJoin('concepto_pago as cp', 'p.id_concepto', '=', 'cp.id_concepto')
                 ->where('p.id_usuario', $idUsuario)
                 ->select(
-                    'p.id_pago', 'p.monto', 'p.monto_total', 'p.monto_pagado',
-                    'p.motivo_pago', 'p.fecha_pago', 'p.referencia_pago',
-                    'p.estado_pago', 'p.mp_status', 'tp.nombre_tipo',
-                    'cp.nombre AS nombre_concepto',
-                    DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante")
+                    'p.id_pago', 'p.fecha_pago', 'p.monto',
+                    'p.estadoPago', 'p.motivoPago', 'p.referenciaPago',
+                    'tp.nombre_tipo'
                 )
                 ->orderBy('p.fecha_pago', 'desc')
                 ->get();
@@ -452,28 +306,19 @@ class PagoApiController extends Controller
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     //  GET /api/pagos/{id}/abonos
-    // ──────────────────────────────────────────────────────────────────
-    public function listarAbonos(Request $request, int $id)
+    // ─────────────────────────────────────────────────────────────────────────
+    public function listarAbonos(int $id)
     {
-        $user = $request->user();
-        $pago = DB::table('pago')->where('id_pago', $id)->first();
-        if (!$pago) return response()->json(['success' => false, 'message' => 'No encontrado.'], 404);
-
-        if (in_array($user->rol, ['alumno', 'tutor']) &&
-            (int) $user->id_usuario !== (int) $pago->id_usuario) {
-            return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
-        }
-
         try {
             $abonos = DB::table('abono as a')
-                ->leftJoin('usuario as u', 'a.registrado_por', '=', 'u.id_usuario')
+                ->leftJoin('usuario as u', 'a.id_registrado_por', '=', 'u.id_usuario')
                 ->where('a.id_pago', $id)
                 ->select(
-                    'a.id_abono', 'a.monto_abono', 'a.fecha_abono',
-                    'a.tipo_abono', 'a.referencia', 'a.mp_status',
-                    DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS registrado_por_nombre")
+                    'a.id_abono', 'a.monto', 'a.fecha_abono',
+                    'a.metodo', 'a.notas',
+                    DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS registrado_por")
                 )
                 ->orderBy('a.fecha_abono', 'desc')
                 ->get();
@@ -482,80 +327,135 @@ class PagoApiController extends Controller
 
         } catch (\Exception $e) {
             Log::error('PagoApi@listarAbonos: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error.'], 500);
+            return response()->json(['success' => false, 'message' => 'Error al obtener abonos.'], 500);
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────
-    //  GET /api/conceptos-pago  — catálogo activo (todos los roles)
-    // ──────────────────────────────────────────────────────────────────
-    public function conceptosPago()
+    // ─────────────────────────────────────────────────────────────────────────
+    //  POST /api/pagos/{id}/abono
+    // ─────────────────────────────────────────────────────────────────────────
+    public function abono(Request $request, int $id)
     {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'monto'  => 'required|numeric|min:0.01',
+            'metodo' => 'required|in:efectivo,transferencia,tarjeta',
+            'notas'  => 'nullable|string|max:255',
+        ]);
+
         try {
-            return response()->json([
-                'success' => true,
-                'data'    => DB::table('concepto_pago')->where('activo', 1)->orderBy('nombre')->get(),
+            $pago = DB::table('pagos')->where('id_pago', $id)->first();
+            if (!$pago) {
+                return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
+            }
+
+            DB::table('abono')->insert([
+                'id_pago'           => $id,
+                'monto'             => $validated['monto'],
+                'fecha_abono'       => now()->toDateString(),
+                'metodo'            => $validated['metodo'],
+                'notas'             => $validated['notas'] ?? null,
+                'id_registrado_por' => $user->id_usuario,
             ]);
+
+            return response()->json(['success' => true, 'message' => 'Abono registrado.']);
+
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Error.'], 500);
+            Log::error('PagoApi@abono: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error al registrar abono.'], 500);
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    //  POST /api/pagos/{id}/completar
+    // ─────────────────────────────────────────────────────────────────────────
+    public function completar(int $id)
+    {
+        $user = Auth::user();
+
+        if (!in_array($user->rol, ['admin', 'sensei'])) {
+            return response()->json(['success' => false, 'message' => 'No autorizado.'], 403);
+        }
+
+        try {
+            $affected = DB::table('pagos')
+                ->where('id_pago', $id)
+                ->update(['estadoPago' => 'Completado']);
+
+            if (!$affected) {
+                return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
+            }
+
+            return response()->json(['success' => true, 'message' => 'Pago marcado como Completado.']);
+
+        } catch (\Exception $e) {
+            Log::error('PagoApi@completar: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error al completar.'], 500);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     //  GET /api/tipos-pago
-    // ──────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     public function tiposPago()
     {
         try {
-            return response()->json([
-                'success' => true,
-                'data'    => DB::table('tipo_pago')->orderBy('id_tipo_pago')->get(),
-            ]);
+            $tipos = DB::table('tipo_pago')->orderBy('id_tipo_pago')->get();
+            return response()->json(['success' => true, 'data' => $tipos]);
         } catch (\Exception $e) {
+            Log::error('PagoApi@tiposPago: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Error.'], 500);
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────
-    //  POST /api/conceptos-pago  — crear concepto (admin/sensei)
-    // ──────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    //  GET /api/conceptos-pago
+    // ─────────────────────────────────────────────────────────────────────────
+    public function conceptosPago()
+    {
+        try {
+            $conceptos = DB::table('concepto_pago')
+                ->where('activo', 1)
+                ->orderBy('nombre')
+                ->get();
+            return response()->json(['success' => true, 'data' => $conceptos]);
+        } catch (\Exception $e) {
+            Log::error('PagoApi@conceptosPago: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error.'], 500);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  POST /api/conceptos-pago
+    // ─────────────────────────────────────────────────────────────────────────
     public function storeConcepto(Request $request)
     {
-        $user = $request->user();
-        if (!in_array($user->rol, ['admin', 'sensei'])) {
-            return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
-        }
-
         $validated = $request->validate([
             'nombre'         => 'required|string|max:100|unique:concepto_pago,nombre',
             'descripcion'    => 'nullable|string|max:255',
             'monto_sugerido' => 'nullable|numeric|min:0',
         ]);
 
-        $id = DB::table('concepto_pago')->insertGetId([
-            'nombre'         => $validated['nombre'],
-            'descripcion'    => $validated['descripcion'] ?? null,
-            'monto_sugerido' => $validated['monto_sugerido'] ?? null,
-            'activo'         => 1,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Concepto creado correctamente.',
-            'id'      => $id,
-        ], 201);
+        try {
+            $id = DB::table('concepto_pago')->insertGetId([
+                'nombre'         => $validated['nombre'],
+                'descripcion'    => $validated['descripcion']    ?? null,
+                'monto_sugerido' => $validated['monto_sugerido'] ?? null,
+                'activo'         => 1,
+            ]);
+            return response()->json(['success' => true, 'id_concepto' => $id, 'message' => 'Concepto creado.'], 201);
+        } catch (\Exception $e) {
+            Log::error('PagoApi@storeConcepto: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error al crear concepto.'], 500);
+        }
     }
 
-    // ──────────────────────────────────────────────────────────────────
-    //  PUT /api/conceptos-pago/{id}  — editar concepto (admin/sensei)
-    // ──────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    //  PUT /api/conceptos-pago/{id}
+    // ─────────────────────────────────────────────────────────────────────────
     public function updateConcepto(Request $request, int $id)
     {
-        $user = $request->user();
-        if (!in_array($user->rol, ['admin', 'sensei'])) {
-            return response()->json(['success' => false, 'message' => 'Sin permiso.'], 403);
-        }
-
         $validated = $request->validate([
             'nombre'         => 'required|string|max:100|unique:concepto_pago,nombre,' . $id . ',id_concepto',
             'descripcion'    => 'nullable|string|max:255',
@@ -563,306 +463,87 @@ class PagoApiController extends Controller
             'activo'         => 'nullable|boolean',
         ]);
 
-        DB::table('concepto_pago')->where('id_concepto', $id)->update([
-            'nombre'         => $validated['nombre'],
-            'descripcion'    => $validated['descripcion'] ?? null,
-            'monto_sugerido' => $validated['monto_sugerido'] ?? null,
-            'activo'         => $validated['activo'] ?? 1,
-        ]);
-
-        return response()->json(['success' => true, 'message' => 'Concepto actualizado correctamente.']);
+        try {
+            DB::table('concepto_pago')->where('id_concepto', $id)->update([
+                'nombre'         => $validated['nombre'],
+                'descripcion'    => $validated['descripcion']    ?? null,
+                'monto_sugerido' => $validated['monto_sugerido'] ?? null,
+                'activo'         => $validated['activo']         ?? 1,
+            ]);
+            return response()->json(['success' => true, 'message' => 'Concepto actualizado.']);
+        } catch (\Exception $e) {
+            Log::error('PagoApi@updateConcepto: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error al actualizar.'], 500);
+        }
     }
 
-    // ──────────────────────────────────────────────────────────────────
-    //  POST /api/pagos/procesar  (Payment Brick callback)
-    // ──────────────────────────────────────────────────────────────────
-    public function procesar(Request $request)
+    // ─────────────────────────────────────────────────────────────────────────
+    //  NUEVO: GET /api/pagos/alumno/{id_alumno}
+    //  Pagos de un alumno específico — para el perfil del tutor en la app
+    //
+    //  Acceso:
+    //   - admin / sensei: siempre
+    //   - tutor: solo si el alumno está en su tabla tutor_alumno
+    // ─────────────────────────────────────────────────────────────────────────
+    public function pagosAlumnoTutor(int $id_alumno)
     {
-        // Validación básica de entrada
-        // id_pago puede venir como string ("19") o integer (19) desde el Brick
-        $validated = $request->validate([
-            'formData' => 'required|array',
-            'id_pago'  => 'required|numeric',
-        ]);
+        $user = Auth::user();
 
-        // Log para diagnóstico — muestra qué llega exactamente del Brick
-        Log::info('MP procesar: request recibido', [
-            'id_pago'       => $request->input('id_pago'),
-            'formData_keys' => array_keys($request->input('formData', [])),
-            'content_type'  => $request->header('Content-Type'),
-        ]);
-
-        // Obtener el registro de pago con los datos del alumno
-        $pagoRegistro = DB::table('pago as p')
-            ->join('usuario as u', 'p.id_usuario', '=', 'u.id_usuario')
-            ->where('p.id_pago', $validated['id_pago'])
-            ->select(
-                'p.*', 'u.correo',
-                DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante")
-            )
+        // Verificar que el alumno existe y tiene rol correcto
+        $alumno = DB::table('usuario')
+            ->where('id_usuario', $id_alumno)
+            ->where('rol', 'alumno')
+            ->select('id_usuario', 'nombre', 'apaterno', 'amaterno', 'correo')
             ->first();
 
-        if (!$pagoRegistro) {
-            return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
+        if (!$alumno) {
+            return response()->json(['success' => false, 'message' => 'Alumno no encontrado.'], 404);
         }
 
-        // No reprocesar pagos ya completados
-        if ($pagoRegistro->estado_pago === 'Completado') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Este pago ya fue completado anteriormente.',
-            ], 422);
+        // Si es tutor, verificar relación
+        if ($user->rol === 'tutor') {
+            $relacionado = DB::table('tutor_alumno')
+                ->where('id_tutor',  $user->id_usuario)
+                ->where('id_alumno', $id_alumno)
+                ->exists();
+
+            if (!$relacionado) {
+                return response()->json(['success' => false, 'message' => 'No tienes permiso para ver estos pagos.'], 403);
+            }
+        } elseif (!in_array($user->rol, ['admin', 'sensei'])) {
+            return response()->json(['success' => false, 'message' => 'No autorizado.'], 403);
         }
 
         try {
-            // Inicializar MP con el Access Token del servidor
-            $accessToken = (string) config('services.mercadopago.access_token', '');
-if (empty($accessToken)) {
-    Log::error('MP_ACCESS_TOKEN no configurado en .env');
-    return response()->json(['success' => false, 'message' => 'Error de configuración de pagos.'], 500);
-}
-MercadoPagoConfig::setAccessToken($accessToken);
+            $pagos = DB::table('pagos as p')
+                ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
+                ->where('p.id_usuario', $id_alumno)
+                ->select(
+                    'p.id_pago',
+                    'p.fecha_pago',
+                    'p.monto',
+                    'p.estadoPago',
+                    'p.motivoPago',
+                    'p.referenciaPago',
+                    'tp.nombre_tipo'
+                )
+                ->orderBy('p.fecha_pago', 'desc')
+                ->get();
 
-            // Activar modo sandbox si MP_SANDBOX=true (cuenta de prueba Vendedor)
-            if (config('services.mercadopago.sandbox', false)) {
-                MercadoPagoConfig::setRuntimeEnviroment(MercadoPagoConfig::LOCAL);
-            }
-
-            $formData = $validated['formData'];
-
-            // CORRECCIÓN PRINCIPAL:
-            // El Payment Brick envía en formData['transaction_amount'] el monto de la preferencia.
-            // NO lo sobreescribimos con saldo_restante para evitar discrepancias que MP rechaza.
-            // Solo garantizamos que el email del pagador sea el del alumno registrado.
-            $paymentData = $formData;
-
-            // NO sobreescribir el email del payer: el Brick ya lo captura del usuario.
-            // Si se reemplaza con el email del alumno registrado en BD, MP puede rechazar
-            // el pago en sandbox porque espera el email de la cuenta Comprador de prueba.
-
-            // Metadatos internos — no afectan el procesamiento de MP
-            $paymentData['external_reference'] = (string) $pagoRegistro->id_pago;
-            $paymentData['metadata']           = ['id_pago' => $pagoRegistro->id_pago];
-
-            // Descripción del pago (aparece en el estado de cuenta)
-            if (!isset($paymentData['description']) || empty($paymentData['description'])) {
-                $paymentData['description'] = $pagoRegistro->motivo_pago ?? 'Pago Academia Karate-Do';
-            }
-
-            Log::info("MP procesar: enviando pago para id_pago #{$pagoRegistro->id_pago}", [
-                'transaction_amount' => $paymentData['transaction_amount'] ?? 'no_set',
-                'payment_method'     => $paymentData['payment_method_id'] ?? ($paymentData['paymentMethodId'] ?? 'brick'),
-            ]);
-
-            $client  = new PaymentClient();
-            $payment = $client->create($paymentData);
-
-            Log::info("MP procesar: respuesta MP para pago #{$pagoRegistro->id_pago}", [
-                'status'        => $payment->status,
-                'status_detail' => $payment->status_detail,
-                'payment_id'    => $payment->id,
-            ]);
-
-            // Mapeo de estado MP → estado interno
-            $estadoInterno = match ($payment->status) {
-                'approved'                             => 'Completado',
-                'pending', 'in_process', 'authorized' => 'Pendiente',
-                default                               => 'Rechazado',  // rejected, cancelled, etc.
-            };
-
-            // Solo actualizar monto_pagado si MP aprobó el pago
-            $montoTransaccion = (float) ($payment->transaction_amount ?? $pagoRegistro->saldo_restante);
-            $montoPagadoActual = (float) ($pagoRegistro->monto_pagado ?? 0);
-            $nuevoMontoPagado  = $estadoInterno === 'Completado'
-                ? $montoPagadoActual + $montoTransaccion
-                : $montoPagadoActual; // rechazado/pendiente → no tocar el saldo
-
-            // Rechazado → estado queda en 'Rechazado' para mostrarlo en la tabla
-            // El alumno puede volver a intentar (botón Pagar sigue visible en Rechazado)
-            $estadoPago = match ($estadoInterno) {
-                'Completado' => 'Completado',
-                'Rechazado'  => 'Rechazado',
-                default      => 'Pendiente',
-            };
-
-            // Actualizar registro de pago
-            DB::table('pago')->where('id_pago', $pagoRegistro->id_pago)->update([
-                'mp_payment_id'   => (string) $payment->id,
-                'mp_status'       => $payment->status,
-                'estado_pago'     => $estadoPago,
-                'referencia_pago' => "MP-{$payment->id}",
-                'monto_pagado'    => $nuevoMontoPagado,
-            ]);
-
-            // Registrar abono solo si fue aprobado
-            if ($estadoInterno === 'Completado') {
-                // Evitar abonos duplicados (por si el webhook llega antes)
-                $existeAbono = DB::table('abono')
-                    ->where('id_pago', $pagoRegistro->id_pago)
-                    ->where('referencia', "MP-{$payment->id}")
-                    ->exists();
-
-                if (!$existeAbono) {
-                    DB::table('abono')->insert([
-                        'id_pago'     => $pagoRegistro->id_pago,
-                        'id_usuario'  => $pagoRegistro->id_usuario,
-                        'monto_abono' => $montoTransaccion,
-                        'fecha_abono' => now(),
-                        'tipo_abono'  => 'en_linea',
-                        'mp_status'   => $payment->status,
-                        'referencia'  => "MP-{$payment->id}",
-                    ]);
-                }
-            }
+            $tipos_pago = DB::table('tipo_pago')->orderBy('id_tipo_pago')->get();
+            $conceptos  = DB::table('concepto_pago')->where('activo', 1)->orderBy('nombre')->get();
 
             return response()->json([
-                'success'        => true,
-                'status'         => $payment->status,
-                'status_detail'  => $payment->status_detail,
-                'id'             => $payment->id,
-                'estado_interno' => $estadoInterno,
+                'success'    => true,
+                'alumno'     => $alumno,
+                'pagos'      => $pagos,
+                'tipos_pago' => $tipos_pago,
+                'conceptos'  => $conceptos,
             ]);
-
-        } catch (\MercadoPago\Exceptions\MPApiException $e) {
-            $msgOriginal = $e->getMessage();
-            // Log detallado para diagnóstico
-            Log::warning("MP procesar MPApiException para pago #{$pagoRegistro->id_pago}", [
-                'message'      => $msgOriginal,
-                'status_code'  => $e->getApiResponse()?->getStatusCode(),
-                'content'      => $e->getApiResponse()?->getContent(),
-            ]);
-            return response()->json([
-                'success' => false,
-                'message' => $this->traducirErrorMP($msgOriginal),
-                'debug'   => $msgOriginal, // temporal para diagnóstico
-            ], 422);
 
         } catch (\Exception $e) {
-            Log::error("MP procesar Exception para pago #{$pagoRegistro->id_pago}", [
-                'message' => $e->getMessage(),
-                'class'   => get_class($e),
-                'trace'   => $e->getTraceAsString(),
-            ]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al procesar el pago. Intenta de nuevo.',
-                'debug'   => $e->getMessage(), // temporal para diagnóstico
-            ], 422);
+            Log::error('PagoApi@pagosAlumnoTutor: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error al obtener pagos.'], 500);
         }
-    }
-
-
-    // ──────────────────────────────────────────────────────────────────
-    //  POST /api/pagos/webhook  (PÚBLICA — sin auth:sanctum)
-    // ──────────────────────────────────────────────────────────────────
-    public function webhook(Request $request)
-    {
-        $type      = $request->input('type');
-        $paymentId = $request->input('data.id');
-
-        if ($type !== 'payment' || !$paymentId) {
-            return response()->json(['ok' => true]);
-        }
-
-        try {
-            $accessToken = config('services.mercadopago.access_token');
-            $response    = \Illuminate\Support\Facades\Http::withToken($accessToken)
-                ->get("https://api.mercadopago.com/v1/payments/{$paymentId}");
-
-            if (!$response->ok()) {
-                return response()->json(['ok' => false]);
-            }
-
-            $pago        = $response->json();
-            $mpStatus    = $pago['status']             ?? null;
-            $externalRef = $pago['external_reference'] ?? null;
-            $monto       = $pago['transaction_amount'] ?? 0;
-
-            if (!$externalRef) return response()->json(['ok' => true]);
-
-            $estadoInterno = match ($mpStatus) {
-                'approved'                             => 'Completado',
-                'pending', 'in_process', 'authorized' => 'Pendiente',
-                default                               => 'Rechazado',
-            };
-
-            $pagoRegistro = DB::table('pago')->where('id_pago', (int) $externalRef)->first();
-
-            if ($pagoRegistro) {
-                $montoPagadoActual = (float) ($pagoRegistro->monto_pagado ?? 0);
-                $montoTotal        = (float) ($pagoRegistro->monto_total ?? $pagoRegistro->monto);
-
-                // Solo sumar al saldo si fue aprobado
-                $nuevoMontoPagado = $estadoInterno === 'Completado'
-                    ? min($montoPagadoActual + $monto, $montoTotal) // no superar el total
-                    : $montoPagadoActual;
-
-                // Estado final: si el monto ya cubre el total → Completado
-                // Si fue rechazado → volver a Pendiente para permitir reintento
-                $estadoFinal = match (true) {
-                    $estadoInterno === 'Completado' && $nuevoMontoPagado >= $montoTotal => 'Completado',
-                    $estadoInterno === 'Completado'                                    => 'Pendiente',
-                    $estadoInterno === 'Rechazado'                                     => 'Rechazado',
-                    default                                                            => 'Pendiente',
-                };
-
-                DB::table('pago')->where('id_pago', (int) $externalRef)->update([
-                    'mp_payment_id'   => (string) $paymentId,
-                    'mp_status'       => $mpStatus,
-                    'estado_pago'     => $estadoFinal,
-                    'referencia_pago' => "MP-{$paymentId}",
-                    'monto_pagado'    => $nuevoMontoPagado,
-                ]);
-
-                if ($estadoInterno === 'Completado') {
-                    $existeAbono = DB::table('abono')
-                        ->where('id_pago', (int) $externalRef)
-                        ->where('referencia', "MP-{$paymentId}")
-                        ->exists();
-
-                    if (!$existeAbono) {
-                        DB::table('abono')->insert([
-                            'id_pago'     => (int) $externalRef,
-                            'id_usuario'  => $pagoRegistro->id_usuario,
-                            'monto_abono' => $monto,
-                            'fecha_abono' => now(),
-                            'tipo_abono'  => 'en_linea',
-                            'mp_status'   => $mpStatus,
-                            'referencia'  => "MP-{$paymentId}",
-                        ]);
-                    }
-                }
-
-                Log::info("MP Webhook: pago #{$externalRef} → {$estadoFinal} (MP: {$mpStatus})");
-            }
-
-        } catch (\Exception $e) {
-            Log::error('MP Webhook error: ' . $e->getMessage());
-        }
-
-        return response()->json(['ok' => true]);
-    }
-
-    // ── Helper ────────────────────────────────────────────────────────
-    private function traducirErrorMP(string $mensaje): string
-    {
-        $traducciones = [
-            'cc_rejected_insufficient_amount'      => 'Fondos insuficientes en la tarjeta.',
-            'cc_rejected_bad_filled_card_number'   => 'Número de tarjeta incorrecto.',
-            'cc_rejected_bad_filled_date'          => 'Fecha de vencimiento incorrecta.',
-            'cc_rejected_bad_filled_security_code' => 'Código de seguridad incorrecto.',
-            'cc_rejected_blacklist'                => 'Tarjeta no habilitada para este tipo de pago.',
-            'cc_rejected_call_for_authorize'       => 'Debes autorizar el pago con tu banco.',
-            'cc_rejected_card_disabled'            => 'Tarjeta deshabilitada. Contacta a tu banco.',
-            'cc_rejected_duplicated_payment'       => 'Pago duplicado. Ya realizaste este pago.',
-            'cc_rejected_high_risk'                => 'Pago rechazado por seguridad.',
-            'cc_rejected_max_attempts'             => 'Alcanzaste el límite de intentos. Usa otra tarjeta.',
-        ];
-
-        foreach ($traducciones as $key => $texto) {
-            if (str_contains($mensaje, $key)) return $texto;
-        }
-
-        return 'El pago no pudo procesarse. Verifica los datos e intenta de nuevo.';
     }
 }

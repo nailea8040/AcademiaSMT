@@ -271,7 +271,7 @@
                             <div class="form-input-wrapper">
                                 <i class="bi bi-person-badge input-icon"></i>
                                 <select name="id_alumno" id="id_alumno" class="form-select" required>
-                                    <option value="">Seleccione alumno o tutor</option>
+                                    <option value="">Seleccione un alumno</option>
                                     @foreach($alumnos as $alumno)
                                         <option value="{{ $alumno->id_usuario }}"
                                             {{ old('id_alumno') == $alumno->id_usuario ? 'selected' : '' }}>

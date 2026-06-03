@@ -71,10 +71,10 @@ class PagoController extends Controller
 
             if (in_array($user->rol, ['admin', 'sensei'])) {
                 $alumnos = DB::table('usuario')
-                    ->whereIn('rol', ['alumno', 'tutor'])
+                    ->where('rol', 'alumno')
                     ->where('estado', 1)
-                    ->select('id_usuario', 'rol', DB::raw("CONCAT(nombre,' ',apaterno,' (',rol,')') AS nombre_completo"))
-                    ->orderBy('nombre')
+                    ->select('id_usuario', DB::raw("CONCAT(nombre,' ',apaterno,' ',amaterno) AS nombre_completo"))
+                    ->orderBy('apaterno')
                     ->get();
 
                 $conceptos_todos = DB::table('concepto_pago')->orderBy('nombre')->get();
@@ -655,4 +655,68 @@ class PagoController extends Controller
             ->with('sessionInsertado', 'true')
             ->with('mensaje', 'Concepto actualizado correctamente.');
     }
-}
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  NUEVO: pagos de un alumno específico — para perfil del tutor
+    //
+    //  GET /pagos/alumno/{id_alumno}
+    //  Solo accesible para:
+    //    - admin / sensei (siempre)
+    //    - tutor que tenga al alumno en su tabla tutor_alumno
+    // ─────────────────────────────────────────────────────────────────────────
+    public function pagosAlumno(int $id_alumno)
+    {
+        $user = Auth::user();
+
+        // Verificar que el alumno existe
+        $alumno = DB::table('usuario')
+            ->where('id_usuario', $id_alumno)
+            ->where('rol', 'alumno')
+            ->select('id_usuario', 'nombre', 'apaterno', 'amaterno', 'correo')
+            ->first();
+
+        if (!$alumno) {
+            abort(404, 'Alumno no encontrado.');
+        }
+
+        // Si es tutor, verificar que el alumno le pertenece
+        if ($user->rol === 'tutor') {
+            $relacionado = DB::table('tutor_alumno')
+                ->where('id_tutor',  $user->id_usuario)
+                ->where('id_alumno', $id_alumno)
+                ->exists();
+
+            if (!$relacionado) {
+                abort(403, 'No tienes permiso para ver los pagos de este alumno.');
+            }
+        } elseif (!in_array($user->rol, ['admin', 'sensei'])) {
+            abort(403);
+        }
+
+        // CORREGIDO: Se cambió 'pagos' por 'pago' y snake_case para las columnas de la BD
+        $pagos = DB::table('pago as p')
+            ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
+            ->where('p.id_usuario', $id_alumno)
+            ->select(
+                'p.id_pago',
+                'p.fecha_pago',
+                'p.monto',
+                'p.estado_pago',
+                'p.motivo_pago',
+                'tp.nombre_tipo'
+            )
+            ->orderBy('p.fecha_pago', 'desc')
+            ->get();
+
+        $tipos_pago = DB::table('tipo_pago')->orderBy('id_tipo_pago')->get();
+        $conceptos  = DB::table('concepto_pago')->where('activo', 1)->orderBy('nombre')->get();
+
+        return response()->json([
+            'success'    => true,
+            'alumno'     => $alumno,
+            'pagos'      => $pagos,
+            'tipos_pago' => $tipos_pago,
+            'conceptos'  => $conceptos,
+        ]);
+    }
+} // <-- Esta llave es la que cierra la clase PagoController y ahora sí engloba a todo.

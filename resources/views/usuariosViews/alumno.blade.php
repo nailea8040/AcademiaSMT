@@ -406,16 +406,32 @@
                                         <label class="form-label">Grupo</label>
                                         <div class="form-input-wrapper">
                                             <i class="bi bi-people-fill input-icon"></i>
-                                            <input type="text" class="form-input" name="grupo"
-                                                   placeholder="Ej: 3A, 2B" maxlength="10">
+                                            <select class="form-select" name="grupo">
+                                                <option value="">— Selecciona —</option>
+                                                @foreach(['1A','1B','2A','2B','3A','3B','4A','4B','5A','5B','6A','6B'] as $g)
+                                                    <option value="{{ $g }}">{{ $g }}</option>
+                                                @endforeach
+                                            </select>
                                         </div>
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">Especialidad</label>
                                         <div class="form-input-wrapper">
                                             <i class="bi bi-mortarboard-fill input-icon"></i>
-                                            <input type="text" class="form-input" name="especialidad"
-                                                   placeholder="Ej: Informática" maxlength="100">
+                                            <select class="form-select" name="especialidad">
+                                                <option value="">— Selecciona —</option>
+                                                @foreach([
+                                                    'Análisis clínicos',
+                                                    'Programación',
+                                                    'Mecánica',
+                                                    'Logística',
+                                                    'Producción digital',
+                                                    'Ciberseguridad',
+                                                    'Soporte y mantenimiento',
+                                                ] as $esp)
+                                                    <option value="{{ $esp }}">{{ $esp }}</option>
+                                                @endforeach
+                                            </select>
                                         </div>
                                     </div>
                                     <div class="form-group">
@@ -736,17 +752,32 @@
                                 <label class="field-label">Grupo</label>
                                 <div class="field-wrapper">
                                     <i class="bi bi-people-fill field-icon"></i>
-                                    <input type="text" class="field-input" id="edit_grupo"
-                                           name="grupo" placeholder="Ej: 3A" maxlength="10">
+                                    <select class="field-input" id="edit_grupo" name="grupo">
+                                        <option value="">— Selecciona —</option>
+                                        @foreach(['1A','1B','2A','2B','3A','3B','4A','4B','5A','5B','6A','6B'] as $g)
+                                            <option value="{{ $g }}">{{ $g }}</option>
+                                        @endforeach
+                                    </select>
                                 </div>
                             </div>
                             <div class="form-field">
                                 <label class="field-label">Especialidad</label>
                                 <div class="field-wrapper">
                                     <i class="bi bi-mortarboard-fill field-icon"></i>
-                                    <input type="text" class="field-input" id="edit_especialidad"
-                                           name="especialidad"
-                                           placeholder="Ej: Informática" maxlength="100">
+                                    <select class="field-input" id="edit_especialidad" name="especialidad">
+                                        <option value="">— Selecciona —</option>
+                                        @foreach([
+                                            'Análisis clínicos',
+                                            'Programación',
+                                            'Mecánica',
+                                            'Logística',
+                                            'Producción digital',
+                                            'Ciberseguridad',
+                                            'Soporte y mantenimiento',
+                                        ] as $esp)
+                                            <option value="{{ $esp }}">{{ $esp }}</option>
+                                        @endforeach
+                                    </select>
                                 </div>
                             </div>
                             <div class="form-field">

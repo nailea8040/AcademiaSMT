@@ -77,10 +77,9 @@
                     <input type="email" id="correo" name="correo" class="form-control"
                            value="{{ old('correo', $usuario->correo) }}" required>
 
-                    <label for="tel" class="form-label mt-2">Teléfono</label>
-                    {{-- ✅ columna real en BD es 'telefono', no 'tel' --}}
+                    <label for="telefono" class="form-label mt-2">Teléfono</label>
                     <input type="text" id="telefono" name="telefono" class="form-control" maxlength="20"
-                           value="{{ old('tel', $usuario->telefono) }}" required>
+                           value="{{ old('telefono', $usuario->telefono) }}" required>
 
                     {{-- ── Rol ── --}}
                     @php
@@ -92,13 +91,12 @@
                             {{ $esSuperUsuario ? 'disabled' : '' }}>
                         <option value="">Selecciona tipo de usuario</option>
                         @php $currentRol = old('rol', $usuario->rol); @endphp
-                        <option value="admin"   {{ $currentRol == 'admin'   ? 'selected' : '' }}>Administrador</option>
-                        <option value="sensei"  {{ $currentRol == 'sensei'  ? 'selected' : '' }}>Sensei</option>
-                        <option value="tutor"   {{ $currentRol == 'tutor'   ? 'selected' : '' }}>Tutor</option>
-                        <option value="alumno"  {{ $currentRol == 'alumno'  ? 'selected' : '' }}>Alumno</option>
+                        <option value="admin"  {{ $currentRol == 'admin'  ? 'selected' : '' }}>Administrador</option>
+                        <option value="sensei" {{ $currentRol == 'sensei' ? 'selected' : '' }}>Sensei</option>
+                        <option value="tutor"  {{ $currentRol == 'tutor'  ? 'selected' : '' }}>Tutor</option>
+                        <option value="alumno" {{ $currentRol == 'alumno' ? 'selected' : '' }}>Alumno</option>
                     </select>
                     @if($esSuperUsuario)
-                        {{-- Campo oculto para que el rol se envíe aunque el select esté disabled --}}
                         <input type="hidden" name="rol" value="{{ $usuario->rol }}">
                         <small class="text-danger">
                             <i class="bi bi-shield-lock-fill"></i>
@@ -118,26 +116,23 @@
                     <input type="password" id="pass" name="pass" class="form-control"
                            placeholder="Mínimo 6 caracteres" minlength="6">
 
-                    {{-- Fecha de registro solo lectura --}}
                     <label class="form-label mt-2">Fecha de Registro</label>
                     <input type="text" class="form-control"
                            value="{{ $usuario->fecha_registro }}" disabled>
 
-                    {{-- ── Sección bachiller (solo visible si rol = alumno) ── --}}
+                    {{-- ── Sección bachiller ── --}}
                     <div class="mt-3" id="bachillerWrapper"
-                         style="display: {{ old('rol', $usuario->rol) === 'alumno' ? 'block' : 'none' }}">
+                         style="display: {{ in_array(old('rol', $usuario->rol), ['admin','sensei','tutor','alumno']) ? 'block' : 'none' }}">
 
                         <label class="bachiller-toggle-label">
-                            @php
-                                $tieneBachiller = !empty($usuario->numero_control);
-                            @endphp
+                            @php $tieneBachiller = !empty($usuario->numero_control); @endphp
                             <input type="checkbox"
                                    name="es_bachiller"
                                    id="esBachillerCheck"
                                    value="1"
                                    onchange="toggleBachiller(this.checked)"
                                    {{ old('es_bachiller', $tieneBachiller) ? 'checked' : '' }}>
-                            ¿El alumno pertenece al bachiller?
+                            ¿El usuario pertenece al bachiller?
                         </label>
 
                         <div id="bachillerSection"
@@ -150,23 +145,49 @@
                                            placeholder="Ej: 12345678" maxlength="20"
                                            value="{{ old('numero_control', $usuario->numero_control) }}">
                                 </div>
+
+                                {{-- GRUPO — select fijo 1A-6B --}}
                                 <div class="col-md-6">
                                     <label class="form-label">Grupo</label>
-                                    <input type="text" name="grupo" class="form-control"
-                                           placeholder="Ej: 3A, 2B" maxlength="10"
-                                           value="{{ old('grupo', $usuario->grupo) }}">
+                                    <select name="grupo" class="form-select">
+                                        <option value="">— Selecciona —</option>
+                                        @foreach(['1A','1B','2A','2B','3A','3B','4A','4B','5A','5B','6A','6B'] as $g)
+                                            <option value="{{ $g }}"
+                                                {{ old('grupo', $usuario->grupo) == $g ? 'selected' : '' }}>
+                                                {{ $g }}
+                                            </option>
+                                        @endforeach
+                                    </select>
                                 </div>
+
+                                {{-- ESPECIALIDAD — select fijo --}}
                                 <div class="col-md-6">
                                     <label class="form-label">Especialidad</label>
-                                    <input type="text" name="especialidad" class="form-control"
-                                           placeholder="Ej: Informática" maxlength="100"
-                                           value="{{ old('especialidad', $usuario->especialidad) }}">
+                                    <select name="especialidad" class="form-select">
+                                        <option value="">— Selecciona —</option>
+                                        @foreach([
+                                            'Análisis clínicos',
+                                            'Programación',
+                                            'Mecánica',
+                                            'Logística',
+                                            'Producción digital',
+                                            'Ciberseguridad',
+                                            'Soporte y mantenimiento',
+                                        ] as $esp)
+                                            <option value="{{ $esp }}"
+                                                {{ old('especialidad', $usuario->especialidad) == $esp ? 'selected' : '' }}>
+                                                {{ $esp }}
+                                            </option>
+                                        @endforeach
+                                    </select>
                                 </div>
+
+                                {{-- TURNO --}}
                                 <div class="col-md-6">
                                     <label class="form-label">Turno</label>
                                     <select name="turno" class="form-select">
                                         <option value="">— Selecciona —</option>
-                                        @foreach(['Matutino','Vespertino','Nocturno'] as $t)
+                                        @foreach(['Matutino','Vespertino'] as $t)
                                             <option value="{{ $t }}"
                                                 {{ old('turno', $usuario->turno) == $t ? 'selected' : '' }}>
                                                 {{ $t }}
@@ -201,13 +222,13 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Mostrar/ocultar sección bachiller según el rol seleccionado
+        // CORRECCIÓN: todos los roles pueden pertenecer al bachiller
         function mostrarBachiller() {
             const rol     = document.getElementById('rol').value;
             const wrapper = document.getElementById('bachillerWrapper');
-            wrapper.style.display = (rol === 'alumno') ? 'block' : 'none';
+            wrapper.style.display = rol ? 'block' : 'none';
 
-            // Si cambia de alumno, limpiar bachiller
-            if (rol !== 'alumno') {
+            if (!rol) {
                 document.getElementById('esBachillerCheck').checked = false;
                 toggleBachiller(false);
             }
@@ -219,45 +240,45 @@
             section.style.display = checked ? 'block' : 'none';
 
             if (!checked) {
-                ['numero_control','grupo','especialidad'].forEach(function(name) {
+                // Limpiar número de control
+                const nc = document.querySelector('[name="numero_control"]');
+                if (nc) nc.value = '';
+                // Limpiar selects
+                ['grupo', 'especialidad', 'turno'].forEach(function(name) {
                     const el = document.querySelector('[name="' + name + '"]');
                     if (el) el.value = '';
                 });
-                const turno = document.querySelector('[name="turno"]');
-                if (turno) turno.value = '';
             }
         }
     </script>
     <script>
-    // Mostrar errores de sesión con SweetAlert
-    @if(session('sessionInsertado') === 'false')
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: '{{ session('mensaje') }}',
-        });
-    @endif
+        @if(session('sessionInsertado') === 'false')
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: '{{ session('mensaje') }}',
+            });
+        @endif
 
-    @if(session('sessionInsertado') === 'true')
-        Swal.fire({
-            icon: 'success',
-            title: '¡Listo!',
-            text: '{{ session('mensaje') }}',
-        });
-    @endif
+        @if(session('sessionInsertado') === 'true')
+            Swal.fire({
+                icon: 'success',
+                title: '¡Listo!',
+                text: '{{ session('mensaje') }}',
+            });
+        @endif
 
-    // Mostrar errores de validación con SweetAlert
-    @if($errors->any())
-        Swal.fire({
-            icon: 'warning',
-            title: 'Revisa el formulario',
-            html: `<ul style="text-align:left">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>`,
-        });
-    @endif
-</script>
+        @if($errors->any())
+            Swal.fire({
+                icon: 'warning',
+                title: 'Revisa el formulario',
+                html: `<ul style="text-align:left">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>`,
+            });
+        @endif
+    </script>
 </body>
 </html>

@@ -13,10 +13,15 @@ class TutorApiController extends Controller
      * GET /api/tutores
      * Lista todos los tutores con su información base + alumnos relacionados.
      */
-    public function index()
+    public function index(Request $request)
     {
+        // Paginación: ?pagina=1&por_pagina=20 (por defecto 20 por página)
+        $porPagina = min((int) $request->query('por_pagina', 20), 100);
+        $pagina    = max((int) $request->query('pagina', 1), 1);
+        $offset    = ($pagina - 1) * $porPagina;
+
         try {
-            $tutores = DB::table('tutor as t')
+            $baseQuery = DB::table('tutor as t')
                 ->join('usuario as u', 't.id_Tutor', '=', 'u.id_usuario')
                 ->leftJoin('ocupacion as o', 't.id_ocupacion', '=', 'o.id_ocupacion')
                 ->select(
@@ -29,7 +34,11 @@ class TutorApiController extends Controller
                     'u.telefono',
                     'u.estado'
                 )
-                ->get();
+                ->orderBy('u.apaterno', 'asc');
+
+            $total        = (clone $baseQuery)->count();
+            $tutores      = $baseQuery->limit($porPagina)->offset($offset)->get();
+            $ultimaPagina = (int) ceil($total / $porPagina);
 
             // Adjuntar alumnos relacionados desde tabla intermedia
             foreach ($tutores as $tutor) {
@@ -44,7 +53,17 @@ class TutorApiController extends Controller
                     ->get();
             }
 
-            return response()->json(['success' => true, 'data' => $tutores]);
+            return response()->json([
+                'success' => true,
+                'data'    => $tutores,
+                'meta'    => [
+                    'total'         => $total,
+                    'por_pagina'    => $porPagina,
+                    'pagina_actual' => $pagina,
+                    'ultima_pagina' => $ultimaPagina,
+                    'hay_mas'       => $pagina < $ultimaPagina,
+                ],
+            ]);
 
         } catch (\Exception $e) {
             Log::error('TutorApi@index: ' . $e->getMessage());

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * FIX duplicados en index():
@@ -96,8 +97,8 @@ class AlumnoController extends Controller
             'estatura'          => 'nullable|numeric|min:0|max:3',
             'es_bachiller'      => 'nullable|boolean',
             'numero_control'    => 'nullable|string|max:20',
-            'grupo'             => 'nullable|string|max:10',
-            'especialidad'      => 'nullable|string|max:100',
+            'grupo'             => 'nullable|in:1A,1B,2A,2B,3A,3B,4A,4B,5A,5B,6A,6B',
+            'especialidad'      => 'nullable|in:Análisis clínicos,Programación,Mecánica,Logística,Producción digital,Ciberseguridad,Soporte y mantenimiento',
             'turno'             => 'nullable|in:Matutino,Vespertino',
         ]);
 
@@ -182,8 +183,8 @@ class AlumnoController extends Controller
             'estatura'         => 'nullable|numeric|min:0|max:3',
             'es_bachiller'     => 'nullable|boolean',
             'numero_control'   => 'nullable|string|max:20',
-            'grupo'            => 'nullable|string|max:10',
-            'especialidad'     => 'nullable|string|max:100',
+            'grupo'            => 'nullable|in:1A,1B,2A,2B,3A,3B,4A,4B,5A,5B,6A,6B',
+            'especialidad'     => 'nullable|in:Análisis clínicos,Programación,Mecánica,Logística,Producción digital,Ciberseguridad,Soporte y mantenimiento',
             'turno'            => 'nullable|in:Matutino,Vespertino',
         ]);
 
@@ -379,8 +380,8 @@ class AlumnoController extends Controller
     public function historialSeminarios(int $id)
     {
         try {
-            if (auth()->check()) {
-                $authUser = auth()->user();
+            if (Auth::check()) {
+                $authUser = Auth::user();
                 if ($authUser->rol === 'alumno' && (int) $authUser->id_usuario !== $id) {
                     return response()->json(['error' => 'Sin permiso.'], 403);
                 }
