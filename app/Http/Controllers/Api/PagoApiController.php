@@ -21,19 +21,30 @@ class PagoApiController extends Controller
         $user = Auth::user();
 
         try {
-            $query = DB::table('pagos as p')
-                ->leftJoin('usuario as u',    'p.id_usuario',    '=', 'u.id_usuario')
-                ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago',  '=', 'tp.id_tipo_pago')
+            // ✅ FIX: tabla 'pago' (sin s) + columnas snake_case correctas
+            $query = DB::table('pago as p')
+                ->leftJoin('usuario as u',    'p.id_usuario',   '=', 'u.id_usuario')
+                ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
+                ->leftJoin('concepto_pago as cp', 'p.id_concepto', '=', 'cp.id_concepto')
                 ->select(
                     'p.id_pago',
                     'p.id_usuario',
                     'p.fecha_pago',
                     'p.monto',
-                    'p.estadoPago',
-                    'p.motivoPago',
-                    'p.referenciaPago',
+                    'p.monto_total',
+                    'p.monto_pagado',
+                    'p.estado_pago',
+                    'p.motivo_pago',
+                    'p.referencia_pago',
+                    'p.mp_preference_id',
+                    'p.mp_payment_id',
+                    'p.mp_status',
+                    'p.id_concepto',
+                    'p.id_tipo_pago',
                     'tp.nombre_tipo',
-                    DB::raw("CONCAT(u.nombre,' ',u.apaterno,' ',u.amaterno) AS nombre_alumno")
+                    'cp.nombre AS nombre_concepto',
+                    DB::raw("CONCAT(u.nombre,' ',u.apaterno,' ',u.amaterno) AS nombre_alumno"),
+                    DB::raw("COALESCE(p.monto_total, p.monto) - COALESCE(p.monto_pagado, 0) AS saldo_restante")
                 )
                 ->orderBy('p.fecha_pago', 'desc');
 
@@ -60,14 +71,15 @@ class PagoApiController extends Controller
         $user = Auth::user();
 
         $validated = $request->validate([
-            'id_alumno'     => 'required|exists:usuario,id_usuario',
-            'id_tipo_pago'  => 'required|exists:tipo_pago,id_tipo_pago',
-            'monto'         => 'required|numeric|min:0',
-            'fechaPago'     => 'required|date',
-            'estadoPago'    => 'required|in:Pendiente,Completado,Cancelado',
-            'motivoPago'    => 'nullable|string|max:255',
-            'referenciaPago'=> 'nullable|string|max:100',
-            'pagar_en_linea'=> 'nullable|boolean',
+            'id_alumno'      => 'required|exists:usuario,id_usuario',
+            'id_tipo_pago'   => 'required|exists:tipo_pago,id_tipo_pago',
+            'id_concepto'    => 'nullable|exists:concepto_pago,id_concepto',
+            'monto'          => 'required|numeric|min:0',
+            'fechaPago'      => 'required|date',
+            'estadoPago'     => 'required|in:Pendiente,Completado,Cancelado',
+            'motivoPago'     => 'nullable|string|max:255',
+            'referenciaPago' => 'nullable|string|max:100',
+            'pagar_en_linea' => 'nullable|boolean',
         ]);
 
         // Solo admin/sensei pueden registrar pagos de otros
@@ -93,14 +105,18 @@ class PagoApiController extends Controller
         try {
             DB::beginTransaction();
 
-            $id_pago = DB::table('pagos')->insertGetId([
+            // ✅ FIX: tabla 'pago' (sin s) + columnas snake_case
+            $id_pago = DB::table('pago')->insertGetId([
                 'id_usuario'     => $validated['id_alumno'],
                 'id_tipo_pago'   => $validated['id_tipo_pago'],
+                'id_concepto'    => $validated['id_concepto'] ?? null,
                 'monto'          => $validated['monto'],
+                'monto_total'    => $validated['monto'],
+                'monto_pagado'   => 0,
                 'fecha_pago'     => $validated['fechaPago'],
-                'estadoPago'     => $validated['estadoPago'],
-                'motivoPago'     => $validated['motivoPago']     ?? null,
-                'referenciaPago' => $validated['referenciaPago'] ?? null,
+                'estado_pago'    => $validated['estadoPago'],
+                'motivo_pago'    => $validated['motivoPago']     ?? null,
+                'referencia_pago'=> $validated['referenciaPago'] ?? null,
             ]);
 
             DB::commit();
@@ -125,11 +141,16 @@ class PagoApiController extends Controller
     {
         $user = Auth::user();
 
-        $pago = DB::table('pagos as p')
+        // ✅ FIX: tabla 'pago' (sin s) + columnas snake_case
+        $pago = DB::table('pago as p')
             ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
             ->leftJoin('usuario as u',    'p.id_usuario',   '=', 'u.id_usuario')
             ->where('p.id_pago', $id)
-            ->select('p.*', 'tp.nombre_tipo', DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno"))
+            ->select(
+                'p.*',
+                'tp.nombre_tipo',
+                DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS nombre_alumno")
+            )
             ->first();
 
         if (!$pago) {
@@ -149,10 +170,10 @@ class PagoApiController extends Controller
             $preferenceData = [
                 'items' => [[
                     'id'          => (string) $pago->id_pago,
-                    'title'       => $pago->nombre_tipo ?? 'Pago Academia',
-                    'description' => $pago->motivoPago  ?? 'Pago de cuota',
+                    'title'       => $pago->nombre_tipo  ?? 'Pago Academia',
+                    'description' => $pago->motivo_pago  ?? 'Pago de cuota',
                     'quantity'    => 1,
-                    'unit_price'  => (float) $pago->monto,
+                    'unit_price'  => (float) ($pago->monto_total ?? $pago->monto),
                     'currency_id' => 'MXN',
                 ]],
                 'payer' => [
@@ -162,21 +183,21 @@ class PagoApiController extends Controller
                 'back_urls' => [
                     'success' => $baseUrl . '/pagos/resultado?estado=success&pago_id=' . $pago->id_pago,
                     'failure' => $baseUrl . '/pagos/resultado?estado=failure&pago_id=' . $pago->id_pago,
-                    'pending' => $baseUrl . '/pagos/resultado?estado=pending&pago_id=' . $pago->id_pago,
+                    'pending' => $baseUrl . '/pagos/resultado?estado=pending&pago_id='  . $pago->id_pago,
                 ],
-                'auto_return'       => 'approved',
-                'external_reference'=> (string) $pago->id_pago,
-                'notification_url'  => $baseUrl . '/api/pagos/webhook',
+                'auto_return'        => 'approved',
+                'external_reference' => (string) $pago->id_pago,
+                'notification_url'   => $baseUrl . '/api/pagos/webhook',
             ];
 
             $client     = new PreferenceClient();
             $preference = $client->create($preferenceData);
 
             return response()->json([
-                'success'           => true,
-                'preference_id'     => $preference->id,
-                'sandbox_init_point'=> $preference->sandbox_init_point,
-                'init_point'        => $preference->init_point,
+                'success'            => true,
+                'preference_id'      => $preference->id,
+                'sandbox_init_point' => $preference->sandbox_init_point,
+                'init_point'         => $preference->init_point,
             ]);
 
         } catch (MPApiException $e) {
@@ -208,9 +229,15 @@ class PagoApiController extends Controller
                 if ($payment && $payment->status === 'approved') {
                     $extRef = $payment->external_reference;
                     if ($extRef) {
-                        DB::table('pagos')
+                        // ✅ FIX: tabla 'pago' (sin s) + columnas snake_case
+                        DB::table('pago')
                             ->where('id_pago', (int) $extRef)
-                            ->update(['estadoPago' => 'Completado', 'referenciaPago' => (string) $dataId]);
+                            ->update([
+                                'estado_pago'    => 'Completado',
+                                'referencia_pago'=> (string) $dataId,
+                                'mp_payment_id'  => (string) $dataId,
+                                'mp_status'      => 'approved',
+                            ]);
                         Log::info('Pago ' . $extRef . ' marcado como Completado vía webhook.');
                     }
                 }
@@ -230,14 +257,15 @@ class PagoApiController extends Controller
     public function procesar(Request $request)
     {
         $validated = $request->validate([
-            'token'          => 'required|string',
-            'issuer_id'      => 'nullable',
-            'payment_method_id' => 'required|string',
+            'token'              => 'required|string',
+            'issuer_id'          => 'nullable',
+            'payment_method_id'  => 'required|string',
             'transaction_amount' => 'required|numeric',
-            'installments'   => 'required|integer',
-            'payer'          => 'required|array',
-            'payer.email'    => 'required|email',
-            'id_pago'        => 'required|integer|exists:pagos,id_pago',
+            'installments'       => 'required|integer',
+            'payer'              => 'required|array',
+            'payer.email'        => 'required|email',
+            // ✅ FIX: validar contra tabla 'pago' (sin s)
+            'id_pago'            => 'required|integer|exists:pago,id_pago',
         ]);
 
         try {
@@ -255,9 +283,15 @@ class PagoApiController extends Controller
             ]);
 
             if ($payment->status === 'approved') {
-                DB::table('pagos')
+                // ✅ FIX: tabla 'pago' (sin s) + columnas snake_case
+                DB::table('pago')
                     ->where('id_pago', $validated['id_pago'])
-                    ->update(['estadoPago' => 'Completado', 'referenciaPago' => (string) $payment->id]);
+                    ->update([
+                        'estado_pago'    => 'Completado',
+                        'referencia_pago'=> (string) $payment->id,
+                        'mp_payment_id'  => (string) $payment->id,
+                        'mp_status'      => 'approved',
+                    ]);
             }
 
             return response()->json([
@@ -287,12 +321,19 @@ class PagoApiController extends Controller
         }
 
         try {
-            $pagos = DB::table('pagos as p')
+            // ✅ FIX: tabla 'pago' (sin s) + columnas snake_case
+            $pagos = DB::table('pago as p')
                 ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
                 ->where('p.id_usuario', $idUsuario)
                 ->select(
-                    'p.id_pago', 'p.fecha_pago', 'p.monto',
-                    'p.estadoPago', 'p.motivoPago', 'p.referenciaPago',
+                    'p.id_pago',
+                    'p.fecha_pago',
+                    'p.monto',
+                    'p.monto_total',
+                    'p.monto_pagado',
+                    'p.estado_pago',
+                    'p.motivo_pago',
+                    'p.referencia_pago',
                     'tp.nombre_tipo'
                 )
                 ->orderBy('p.fecha_pago', 'desc')
@@ -316,9 +357,13 @@ class PagoApiController extends Controller
                 ->leftJoin('usuario as u', 'a.id_registrado_por', '=', 'u.id_usuario')
                 ->where('a.id_pago', $id)
                 ->select(
-                    'a.id_abono', 'a.monto', 'a.fecha_abono',
-                    'a.metodo', 'a.notas',
-                    DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS registrado_por")
+                    'a.id_abono',
+                    'a.monto_abono',
+                    'a.fecha_abono',
+                    'a.tipo_abono',
+                    'a.referencia',
+                    'a.mp_status',
+                    DB::raw("CONCAT(u.nombre,' ',u.apaterno) AS registrado_por_nombre")
                 )
                 ->orderBy('a.fecha_abono', 'desc')
                 ->get();
@@ -339,24 +384,38 @@ class PagoApiController extends Controller
         $user = Auth::user();
 
         $validated = $request->validate([
-            'monto'  => 'required|numeric|min:0.01',
-            'metodo' => 'required|in:efectivo,transferencia,tarjeta',
-            'notas'  => 'nullable|string|max:255',
+            'monto_abono' => 'required|numeric|min:0.01',
+            'tipo_abono'  => 'required|in:efectivo,en_linea',
+            'referencia'  => 'nullable|string|max:255',
         ]);
 
         try {
-            $pago = DB::table('pagos')->where('id_pago', $id)->first();
+            // ✅ FIX: tabla 'pago' (sin s)
+            $pago = DB::table('pago')->where('id_pago', $id)->first();
             if (!$pago) {
                 return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
             }
 
             DB::table('abono')->insert([
                 'id_pago'           => $id,
-                'monto'             => $validated['monto'],
+                'monto_abono'       => $validated['monto_abono'],
                 'fecha_abono'       => now()->toDateString(),
-                'metodo'            => $validated['metodo'],
-                'notas'             => $validated['notas'] ?? null,
+                'tipo_abono'        => $validated['tipo_abono'],
+                'referencia'        => $validated['referencia'] ?? null,
                 'id_registrado_por' => $user->id_usuario,
+            ]);
+
+            // Recalcular monto_pagado sumando todos los abonos
+            $totalAbonado = DB::table('abono')
+                ->where('id_pago', $id)
+                ->sum('monto_abono');
+
+            $montoTotal = $pago->monto_total ?? $pago->monto;
+
+            // ✅ FIX: tabla 'pago' (sin s) + columnas snake_case
+            DB::table('pago')->where('id_pago', $id)->update([
+                'monto_pagado' => $totalAbonado,
+                'estado_pago'  => ($totalAbonado >= $montoTotal) ? 'Completado' : $pago->estado_pago,
             ]);
 
             return response()->json(['success' => true, 'message' => 'Abono registrado.']);
@@ -379,13 +438,16 @@ class PagoApiController extends Controller
         }
 
         try {
-            $affected = DB::table('pagos')
-                ->where('id_pago', $id)
-                ->update(['estadoPago' => 'Completado']);
-
-            if (!$affected) {
+            // ✅ FIX: tabla 'pago' (sin s) + columna snake_case
+            $pago = DB::table('pago')->where('id_pago', $id)->first();
+            if (!$pago) {
                 return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
             }
+
+            DB::table('pago')->where('id_pago', $id)->update([
+                'estado_pago'  => 'Completado',
+                'monto_pagado' => $pago->monto_total ?? $pago->monto,
+            ]);
 
             return response()->json(['success' => true, 'message' => 'Pago marcado como Completado.']);
 
@@ -478,18 +540,13 @@ class PagoApiController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  NUEVO: GET /api/pagos/alumno/{id_alumno}
+    //  GET /api/pagos/alumno/{id_alumno}
     //  Pagos de un alumno específico — para el perfil del tutor en la app
-    //
-    //  Acceso:
-    //   - admin / sensei: siempre
-    //   - tutor: solo si el alumno está en su tabla tutor_alumno
     // ─────────────────────────────────────────────────────────────────────────
     public function pagosAlumnoTutor(int $id_alumno)
     {
         $user = Auth::user();
 
-        // Verificar que el alumno existe y tiene rol correcto
         $alumno = DB::table('usuario')
             ->where('id_usuario', $id_alumno)
             ->where('rol', 'alumno')
@@ -500,7 +557,6 @@ class PagoApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Alumno no encontrado.'], 404);
         }
 
-        // Si es tutor, verificar relación
         if ($user->rol === 'tutor') {
             $relacionado = DB::table('tutor_alumno')
                 ->where('id_tutor',  $user->id_usuario)
@@ -515,17 +571,22 @@ class PagoApiController extends Controller
         }
 
         try {
-            $pagos = DB::table('pagos as p')
+            // ✅ FIX: tabla 'pago' (sin s) + columnas snake_case
+            $pagos = DB::table('pago as p')
                 ->leftJoin('tipo_pago as tp', 'p.id_tipo_pago', '=', 'tp.id_tipo_pago')
+                ->leftJoin('concepto_pago as cp', 'p.id_concepto', '=', 'cp.id_concepto')
                 ->where('p.id_usuario', $id_alumno)
                 ->select(
                     'p.id_pago',
                     'p.fecha_pago',
                     'p.monto',
-                    'p.estadoPago',
-                    'p.motivoPago',
-                    'p.referenciaPago',
-                    'tp.nombre_tipo'
+                    'p.monto_total',
+                    'p.monto_pagado',
+                    'p.estado_pago',
+                    'p.motivo_pago',
+                    'p.referencia_pago',
+                    'tp.nombre_tipo',
+                    'cp.nombre AS nombre_concepto'
                 )
                 ->orderBy('p.fecha_pago', 'desc')
                 ->get();

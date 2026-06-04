@@ -20,184 +20,545 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        /* ── Saldo badges ── */
-        .saldo-badge { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600; }
-        .saldo-pendiente  { background:#fff3e0;color:#e65100; }
-        .saldo-completado { background:#e8f5e9;color:#2e7d32; }
+        /* ═══════════════════════════════════════════════════════════════
+           PAGOS — Dashboard SaaS rediseño
+        ═══════════════════════════════════════════════════════════════ */
 
-        /* ── Progress bar ── */
-        .progress-bar-wrap { width:100%;background:#f0f0f0;border-radius:10px;height:6px;margin-top:4px; }
-        .progress-bar-fill { height:6px;border-radius:10px;background:linear-gradient(90deg,#e53935,#ff7043);transition:width 0.4s; }
+        /* ── Variables ── */
+        :root {
+            --red:      #e53935;
+            --red-dark: #b71c1c;
+            --red-soft: #fff5f5;
+            --green:    #22c55e;
+            --amber:    #f59e0b;
+            --blue:     #3b82f6;
+            --purple:   #8b5cf6;
+            --text:     #1e293b;
+            --muted:    #64748b;
+            --border:   #e2e8f0;
+            --surface:  #ffffff;
+            --bg:       #f8fafc;
+            --radius:   16px;
+            --shadow:   0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+            --shadow-md:0 4px 24px rgba(0,0,0,0.10);
+        }
 
-        /* ── Modales ── */
-        .modal-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center; }
-        .modal-overlay.active { display:flex; }
-        .modal-box { background:white;border-radius:20px;padding:32px;width:100%;max-width:500px;box-shadow:0 8px 32px rgba(0,0,0,0.15);max-height:90vh;overflow-y:auto; }
-        .modal-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:20px; }
-        .modal-header h3 { font-size:18px;color:#2d3748;margin:0; }
-        .modal-close { background:none;border:none;font-size:22px;cursor:pointer;color:#9e9e9e; }
-        .modal-close:hover { color:#e53935; }
+        /* ── Layout general ── */
+        body { background: var(--bg); }
 
-        /* ── Lista de abonos ── */
-        .abonos-list { max-height:260px;overflow-y:auto;margin-bottom:16px; }
-        .abono-item { display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:13px; }
-        .abono-item:last-child { border-bottom:none; }
-        .abono-tipo-badge { padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600; }
-        .tipo-efectivo { background:#e8f5e9;color:#2e7d32; }
-        .tipo-en_linea { background:#e3f2fd;color:#1565c0; }
+        .content-wrapper {
+            padding: 0 28px 40px;
+            max-width: 1400px;
+        }
 
-        /* ── Form abono modal ── */
-        .form-abono { margin-top:16px;border-top:1px solid #f0f0f0;padding-top:16px; }
-        .form-abono label { font-size:13px;font-weight:600;color:#4a5568;margin-bottom:4px;display:block; }
-        .form-abono input, .form-abono select { width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;margin-bottom:12px;box-sizing:border-box; }
-        .btn-abono-submit { width:100%;padding:12px;background:#e53935;color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer; }
-        .btn-abono-submit:hover { background:#c62828; }
+        /* ── Header premium ── */
+        .page-hero {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 28px 0 20px;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .page-hero-left h1 {
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--text);
+            margin: 0 0 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .page-hero-left h1 .hero-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--red), #ff6b6b);
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .page-hero-left .breadcrumb {
+            font-size: 13px;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .page-hero-left .breadcrumb a { color: var(--muted); text-decoration:none; }
+        .page-hero-left .breadcrumb a:hover { color: var(--red); }
 
-        /* ── Botones de acciones ── */
-        .btn-completar { display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none; }
-        .btn-completar:hover { background:#c8e6c9; }
-        .btn-abono { display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer; }
-        .btn-abono:hover { background:#ffe0b2; }
-        .acciones-cell { display:flex;flex-wrap:wrap;gap:6px;align-items:center; }
-
-        /* ── Botón Eliminar (admin) ── */
-        .btn-eliminar { display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#fce4ec;color:#c62828;border:1px solid #ef9a9a;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer; }
-        .btn-eliminar:hover { background:#ffcdd2; }
-
-        /* ── Botón Suspender (sensei) ── */
-        .btn-suspender { display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#fff8e1;color:#f57f17;border:1px solid #ffe082;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer; }
-        .btn-suspender:hover { background:#fff3cd; }
-
-        /* ── Badge Suspendido ── */
-        .badge-suspendido { background:#fff8e1;color:#f57f17;border:1px solid #ffe082; }
-
-        /* ── Badge Rechazado ── */
-        .badge-rechazado { background:#fce4ec;color:#c62828;border:1px solid #ef9a9a; }
-
-        /* ── Concepto hint ── */
-        .concepto-hint { font-size:12px;color:#718096;margin-top:4px;min-height:18px; }
-        .concepto-hint strong { color:#e53935; }
-
-        /* ── Panel gestión conceptos ── */
-        .conceptos-panel { margin-top:8px; }
-
-        /* Grid de tarjetas — 4 por fila */
-        .conceptos-grid {
+        /* ── Stats grid ── */
+        .stats-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 16px;
-            margin-top: 4px;
+            margin-bottom: 24px;
         }
-        @media (max-width: 900px) {
-            .conceptos-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (max-width: 540px) {
-            .conceptos-grid { grid-template-columns: 1fr; }
-        }
-        .concepto-card {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 16px 18px;
+        @media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 540px)  { .stats-grid { grid-template-columns: 1fr; } }
+
+        .stat-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow);
             display: flex;
-            flex-direction: column;
-            gap: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-            transition: box-shadow 0.2s, transform 0.2s;
+            align-items: flex-start;
+            gap: 14px;
             position: relative;
             overflow: hidden;
+            transition: transform .2s, box-shadow .2s;
         }
-        .concepto-card:hover {
-            box-shadow: 0 6px 20px rgba(229,57,53,0.10);
-            transform: translateY(-2px);
-        }
-        .concepto-card::before {
+        .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+        .stat-card::after {
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 3px;
-            background: linear-gradient(90deg, #e53935, #ff7043);
         }
-        .concepto-card.inactivo-card::before {
-            background: #e2e8f0;
-        }
-        .concepto-card-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 8px;
-        }
-        .concepto-nombre {
-            font-weight: 700;
-            color: #2d3748;
-            font-size: 14px;
-            line-height: 1.3;
-            flex: 1;
-        }
-        .concepto-estado {
-            font-size: 11px;
-            padding: 3px 9px;
-            border-radius: 20px;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-        .concepto-activo   { background:#e8f5e9; color:#2e7d32; }
-        .concepto-inactivo { background:#fce4ec; color:#c62828; }
-        .concepto-desc {
-            font-size: 12px;
-            color: #9e9e9e;
-            line-height: 1.4;
-            flex: 1;
-            min-height: 32px;
-        }
-        .concepto-card-bottom {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 4px;
-            padding-top: 10px;
-            border-top: 1px solid #f0f0f0;
-        }
-        .concepto-monto {
+        .stat-card.red::after    { background: linear-gradient(90deg, var(--red), #ff6b6b); }
+        .stat-card.green::after  { background: linear-gradient(90deg, var(--green), #86efac); }
+        .stat-card.amber::after  { background: linear-gradient(90deg, var(--amber), #fcd34d); }
+        .stat-card.blue::after   { background: linear-gradient(90deg, var(--blue), #93c5fd); }
+
+        .stat-icon {
+            width: 46px; height: 46px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
             font-size: 20px;
-            font-weight: 800;
-            color: #e53935;
+            flex-shrink: 0;
         }
-        .concepto-monto.sin-monto {
-            font-size: 14px;
-            font-weight: 500;
-            color: #b0bec5;
+        .stat-card.red   .stat-icon { background:#fef2f2; color:var(--red); }
+        .stat-card.green .stat-icon { background:#f0fdf4; color:var(--green); }
+        .stat-card.amber .stat-icon { background:#fffbeb; color:var(--amber); }
+        .stat-card.blue  .stat-icon { background:#eff6ff; color:var(--blue); }
+
+        .stat-body { flex: 1; min-width: 0; }
+        .stat-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+        .stat-value { font-size: 24px; font-weight: 800; color: var(--text); line-height: 1; }
+        .stat-sub   { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+        /* ── Card / panel base ── */
+        .panel {
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            overflow: hidden;
         }
-        .btn-edit-concepto {
-            background: none;
-            border: 1px solid #cbd5e0;
-            border-radius: 8px;
-            padding: 5px 12px;
-            cursor: pointer;
-            color: #718096;
-            font-size: 12px;
-            font-weight: 600;
-            display: inline-flex;
+        .panel-header {
+            padding: 18px 24px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
             align-items: center;
-            gap: 4px;
-            transition: background 0.15s, color 0.15s;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
         }
-        .btn-edit-concepto:hover { background:#fff0f0; color:#e53935; border-color:#e53935; }
+        .panel-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+        .panel-title i { color: var(--red); font-size: 17px; }
+        .panel-body { padding: 24px; }
 
-        /* ── Tabs (solo admin) ── */
-        .tabs-nav { display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid #e2e8f0; }
-        .tab-btn { background:none;border:none;padding:10px 20px;font-size:14px;font-weight:600;color:#718096;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px; }
-        .tab-btn.active { color:#e53935;border-bottom-color:#e53935; }
-        .tab-content { display:none; }
-        .tab-content.active { display:block; }
+        /* ── Tabs mejorados ── */
+        .tabs-nav {
+            display: flex;
+            gap: 2px;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+        .tab-btn {
+            background: none; border: none;
+            padding: 10px 18px;
+            font-size: 13px; font-weight: 600;
+            color: var(--muted);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            white-space: nowrap;
+            transition: color .15s, border-color .15s;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .tab-btn:hover { color: var(--text); }
+        .tab-btn.active { color: var(--red); border-bottom-color: var(--red); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
 
-        /* ── Info banner alumno ── */
-        .info-banner { background:#e3f2fd;border-left:4px solid #1565c0;border-radius:8px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px; }
-        .info-banner i { font-size:20px;color:#1565c0;margin-top:2px; }
-        .info-banner p { margin:0;font-size:14px;color:#1a237e;line-height:1.5; }
+        /* ── Form mejorado ── */
+        .form-section-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .7px;
+            margin: 0 0 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .form-section-title i { color: var(--red); font-size: 14px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+        .form-grid.full-width { grid-template-columns: 1fr; }
+        @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
 
-        /* ── Aviso pago efectivo alumno ── */
-        .aviso-efectivo { background:#fff8e1;border-left:4px solid #f9a825;border-radius:8px;padding:12px 16px;margin-top:8px;font-size:13px;color:#7a5c00;display:none; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-label { font-size: 12px; font-weight: 700; color: var(--text); letter-spacing: .2px; }
+        .required { color: var(--red); }
+
+        .form-input-wrapper { position: relative; }
+        .input-icon {
+            position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+            color: var(--muted); font-size: 14px; pointer-events: none;
+        }
+        .form-input, .form-select {
+            width: 100%;
+            padding: 10px 12px 10px 36px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            font-size: 14px;
+            color: var(--text);
+            background: var(--bg);
+            box-sizing: border-box;
+            transition: border-color .15s, box-shadow .15s;
+            appearance: none;
+        }
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--red);
+            box-shadow: 0 0 0 3px rgba(229,57,53,.10);
+            background: white;
+        }
+
+        /* ── Botones ── */
+        .btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 10px 20px; border-radius: 10px;
+            font-size: 14px; font-weight: 700;
+            cursor: pointer; border: none;
+            transition: all .15s;
+            text-decoration: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--red), #ef5350);
+            color: white;
+            box-shadow: 0 2px 8px rgba(229,57,53,.30);
+        }
+        .btn-primary:hover { background: linear-gradient(135deg, var(--red-dark), var(--red)); }
+        .btn-secondary {
+            background: var(--bg); color: var(--muted);
+            border: 1.5px solid var(--border);
+        }
+        .btn-secondary:hover { background: var(--border); color: var(--text); }
+
+        .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+
+        /* ── Badges de estado ── */
+        .badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: 700;
+        }
+        .badge-success    { background:#f0fdf4; color:#16a34a; }
+        .badge-warning    { background:#fffbeb; color:#d97706; }
+        .badge-danger     { background:#fef2f2; color:#dc2626; }
+        .badge-suspendido { background:#fdf4ff; color:#9333ea; }
+        .badge-rechazado  { background:#fef2f2; color:#dc2626; }
+
+        /* ── Progress ── */
+        .progress-bar-wrap { width:100%; background:#f1f5f9; border-radius:10px; height:5px; margin-top:5px; }
+        .progress-bar-fill { height:5px; border-radius:10px; background:linear-gradient(90deg,var(--red),#ff6b6b); transition:width .4s; }
+
+        /* ── Saldo badges ── */
+        .saldo-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+        .saldo-pendiente  { background:#fffbeb; color:#d97706; }
+        .saldo-completado { background:#f0fdf4; color:#16a34a; }
+
+        /* ── Tabla ── */
+        .table-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .table-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .filter-select {
+            padding: 8px 12px 8px 12px;
+            border: 1.5px solid var(--border); border-radius: 10px;
+            font-size: 13px; color: var(--text); background: white;
+            cursor: pointer;
+        }
+        .filter-select:focus { outline: none; border-color: var(--red); }
+        .search-box { position: relative; }
+        .search-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:13px; }
+        .search-input {
+            padding: 8px 12px 8px 32px;
+            border: 1.5px solid var(--border); border-radius: 10px;
+            font-size: 13px; color: var(--text); background: white; width: 200px;
+        }
+        .search-input:focus { outline:none; border-color:var(--red); }
+
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: var(--bg); border-bottom: 2px solid var(--border); }
+        th {
+            padding: 11px 16px;
+            font-size: 11px; font-weight: 700;
+            color: var(--muted); text-transform: uppercase; letter-spacing: .5px;
+            text-align: left; white-space: nowrap;
+        }
+        td { padding: 14px 16px; font-size: 13px; color: var(--text); border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        tbody tr:hover { background: #fafbfc; }
+        tbody tr:last-child td { border-bottom: none; }
+
+        .amount { font-weight: 800; font-size: 14px; color: var(--text); }
+        .student-cell { display: flex; align-items: center; gap: 10px; }
+        .student-avatar {
+            width: 34px; height: 34px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--red), #ff6b6b);
+            color: white; font-size: 12px; font-weight: 800;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .student-name { font-weight: 600; color: var(--text); }
+
+        /* ── Botones de acciones en tabla ── */
+        .acciones-cell { display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
+        .btn-sm {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 10px; border-radius: 8px;
+            font-size: 11px; font-weight: 700;
+            cursor: pointer; border: none; transition: all .15s;
+            text-decoration: none;
+        }
+        .btn-completar  { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
+        .btn-completar:hover  { background:#dcfce7; }
+        .btn-abono      { background:#fffbeb; color:#d97706; border:1px solid #fed7aa; }
+        .btn-abono:hover      { background:#fef3c7; }
+        .btn-abonos-ver { background:#fdf4ff; color:#9333ea; border:1px solid #e9d5ff; }
+        .btn-abonos-ver:hover { background:#f3e8ff; }
+        .btn-eliminar   { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
+        .btn-eliminar:hover   { background:#fee2e2; }
+        .btn-suspender  { background:#fffbeb; color:#d97706; border:1px solid #fde68a; }
+        .btn-suspender:hover  { background:#fef9c3; }
+
+        /* ── Info banner ── */
+        .info-banner { background:#eff6ff; border-left:4px solid var(--blue); border-radius:10px; padding:14px 18px; margin-bottom:20px; display:flex; align-items:flex-start; gap:12px; }
+        .info-banner i { font-size:18px; color:var(--blue); margin-top:1px; }
+        .info-banner p { margin:0; font-size:13px; color:#1e40af; line-height:1.5; }
+
+        /* ── Aviso efectivo ── */
+        .aviso-efectivo { background:#fffbeb; border-left:4px solid var(--amber); border-radius:8px; padding:12px 16px; margin-top:8px; font-size:13px; color:#92400e; display:none; }
+
+        /* ── Concepto hint ── */
+        .concepto-hint { font-size:12px; color:var(--muted); margin-top:4px; min-height:18px; }
+        .concepto-hint strong { color:var(--red); }
+
+        /* ── Modales ── */
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:9999; align-items:center; justify-content:center; backdrop-filter:blur(2px); }
+        .modal-overlay.active { display:flex; }
+        .modal-box { background:white; border-radius:20px; padding:28px; width:100%; max-width:500px; box-shadow:0 20px 60px rgba(0,0,0,0.20); max-height:90vh; overflow-y:auto; }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+        .modal-header h3 { font-size:17px; font-weight:800; color:var(--text); margin:0; display:flex; align-items:center; gap:8px; }
+        .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:var(--muted); width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; transition:background .15s; }
+        .modal-close:hover { background:var(--border); color:var(--text); }
+
+        /* ── Abonos ── */
+        .abonos-list { max-height:260px; overflow-y:auto; margin-bottom:16px; }
+        .abono-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; }
+        .abono-item:last-child { border-bottom:none; }
+        .abono-tipo-badge { padding:3px 9px; border-radius:8px; font-size:11px; font-weight:700; }
+        .tipo-efectivo { background:#f0fdf4; color:#16a34a; }
+        .tipo-en_linea { background:#eff6ff; color:#1d4ed8; }
+
+        .form-abono { margin-top:16px; border-top:1px solid var(--border); padding-top:16px; }
+        .form-abono label { font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px; display:block; }
+        .form-abono input, .form-abono select { width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:10px; font-size:14px; margin-bottom:12px; box-sizing:border-box; transition:border-color .15s; }
+        .form-abono input:focus, .form-abono select:focus { outline:none; border-color:var(--red); }
+        .btn-abono-submit { width:100%; padding:12px; background:linear-gradient(135deg,var(--red),#ef5350); color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(229,57,53,.30); }
+        .btn-abono-submit:hover { background:linear-gradient(135deg,var(--red-dark),var(--red)); }
+
+        /* ── Info panel pago ── */
+        .pago-info-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; background:var(--bg); border-radius:12px; padding:14px; margin-bottom:16px; }
+        .pago-info-item { display:flex; flex-direction:column; gap:2px; }
+        .pago-info-label { font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+        .pago-info-value { font-size:14px; font-weight:700; color:var(--text); }
+        .pago-info-value.danger { color:var(--red); }
+        .pago-info-value.success { color:var(--green); }
+
+        /* ── Empty state ── */
+        .empty-state { text-align:center; padding:48px 24px; color:var(--muted); }
+        .empty-state i { font-size:40px; color:var(--border); display:block; margin-bottom:12px; }
+        .empty-state p { margin:0; font-size:14px; }
+
+        /* ── Concepto cards ── */
+        .conceptos-panel { margin-top: 8px; }
+        .conceptos-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:4px; }
+        @media (max-width:900px) { .conceptos-grid { grid-template-columns:repeat(2,1fr); } }
+        @media (max-width:540px) { .conceptos-grid { grid-template-columns:1fr; } }
+
+        .concepto-card {
+            background:white; border:1.5px solid var(--border); border-radius:14px;
+            padding:16px 18px; display:flex; flex-direction:column; gap:8px;
+            box-shadow:var(--shadow); transition:all .2s; position:relative; overflow:hidden;
+        }
+        .concepto-card:hover { box-shadow:var(--shadow-md); transform:translateY(-2px); border-color:#fecaca; }
+        .concepto-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--red),#ff6b6b); }
+        .concepto-card.inactivo-card::before { background:var(--border); }
+        .concepto-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+        .concepto-nombre { font-weight:700; color:var(--text); font-size:14px; line-height:1.3; flex:1; }
+        .concepto-estado { font-size:11px; padding:3px 9px; border-radius:20px; font-weight:700; white-space:nowrap; }
+        .concepto-activo   { background:#f0fdf4; color:#16a34a; }
+        .concepto-inactivo { background:#fef2f2; color:#dc2626; }
+        .concepto-desc { font-size:12px; color:var(--muted); line-height:1.4; flex:1; min-height:32px; }
+        .concepto-card-bottom { display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding-top:10px; border-top:1px solid var(--border); }
+        .concepto-monto { font-size:20px; font-weight:800; color:var(--red); }
+        .concepto-monto.sin-monto { font-size:14px; font-weight:500; color:#cbd5e1; }
+        .btn-edit-concepto { background:none; border:1.5px solid var(--border); border-radius:8px; padding:5px 12px; cursor:pointer; color:var(--muted); font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:4px; transition:all .15s; }
+        .btn-edit-concepto:hover { background:var(--red-soft); color:var(--red); border-color:var(--red); }
+
+        /* ── Alert ── */
+        .alert { display:flex; align-items:flex-start; gap:12px; padding:14px 18px; border-radius:12px; margin-bottom:20px; font-size:14px; }
+        .alert-success { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; }
+        .alert-danger  { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
+        .alert-icon    { font-size:18px; margin-top:1px; flex-shrink:0; }
+
+        /* ── Sección tutor colapsable ── */
+        .tutor-section {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .tutor-section-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 22px;
+            cursor: pointer;
+            background: white;
+            border: none;
+            width: 100%;
+            text-align: left;
+            transition: background .15s;
+            gap: 12px;
+        }
+        .tutor-section-toggle:hover { background: var(--bg); }
+        .tutor-section-toggle-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .tutor-section-icon {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--red), #ff6b6b);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 16px; flex-shrink: 0;
+        }
+        .tutor-section-title { font-size: 15px; font-weight: 700; color: var(--text); }
+        .tutor-section-subtitle { font-size: 12px; color: var(--muted); margin-top: 1px; }
+        .tutor-section-badge {
+            background: linear-gradient(135deg, var(--red), #ff6b6b);
+            color: white;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+        .tutor-chevron { color: var(--muted); transition: transform .25s; font-size: 16px; }
+        .tutor-chevron.open { transform: rotate(180deg); }
+
+        .tutor-section-body {
+            display: none;
+            padding: 0 22px 20px;
+            border-top: 1px solid var(--border);
+        }
+        .tutor-section-body.open { display: block; }
+
+        .alumno-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 14px;
+            padding-top: 18px;
+        }
+        .alumno-card {
+            background: var(--bg);
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all .2s;
+        }
+        .alumno-card:hover { border-color: #fecaca; background: var(--red-soft); box-shadow: 0 4px 14px rgba(229,57,53,.10); }
+        .alumno-avatar {
+            width: 44px; height: 44px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--red), #ff6b6b);
+            color: white; font-weight: 800; font-size: 15px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .alumno-info { flex: 1; min-width: 0; }
+        .alumno-nombre { font-weight: 700; color: var(--text); font-size: 14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .alumno-relacion { font-size: 12px; color: var(--muted); margin-top: 2px; }
+        .btn-ver-pagos {
+            background: linear-gradient(135deg, var(--red), #ef5350);
+            color: white; border: none; border-radius: 10px;
+            padding: 8px 14px; font-size: 12px; font-weight: 700;
+            cursor: pointer; white-space: nowrap;
+            display: inline-flex; align-items: center; gap: 5px;
+            box-shadow: 0 2px 6px rgba(229,57,53,.25);
+            transition: all .15s;
+        }
+        .btn-ver-pagos:hover { background: linear-gradient(135deg, var(--red-dark), var(--red)); }
+
+        /* Modal pagos del alumno */
+        .modal-pagos-alumno .modal-box { max-width: 620px; }
+        .modal-pagos-header {
+            background: linear-gradient(135deg, var(--red), #ef5350);
+            margin: -28px -28px 20px;
+            padding: 22px 28px;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .modal-pagos-header h3 { color: white; font-size: 17px; font-weight: 800; margin: 0; }
+        .modal-pagos-header .btn-close-white { background: rgba(255,255,255,.2); border:none; color:white; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; transition: background .15s; }
+        .modal-pagos-header .btn-close-white:hover { background: rgba(255,255,255,.35); }
+        .badge-Pendiente  { background:#fffbeb; color:#d97706; }
+        .badge-Completado { background:#f0fdf4; color:#16a34a; }
+        .badge-Cancelado  { background:#fef2f2; color:#dc2626; }
+        .badge-Suspendido { background:#fdf4ff; color:#9333ea; }
+        .badge-estado { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+        .pago-row { border-bottom:1px solid var(--border); padding:12px 0; }
+        .pago-row:last-child { border-bottom:none; }
+        .form-nuevo-pago { background:var(--bg); border-radius:14px; padding:18px; margin-top:16px; border:1.5px solid var(--border); }
+        .form-nuevo-pago h6 { color:var(--red); font-weight:800; margin-bottom:14px; font-size:14px; }
+        .form-nuevo-pago select, .form-nuevo-pago input[type=text], .form-nuevo-pago input[type=number], .form-nuevo-pago input[type=date] {
+            width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:10px; font-size:13px; box-sizing:border-box; margin-bottom:10px; transition:border-color .15s;
+        }
+        .form-nuevo-pago select:focus, .form-nuevo-pago input:focus { outline:none; border-color:var(--red); }
+        .form-nuevo-pago label { font-size:12px; font-weight:700; color:var(--text); display:block; margin-bottom:3px; }
+        .btn-guardar-pago { width:100%; padding:11px; background:linear-gradient(135deg,var(--red),#ef5350); color:white; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(229,57,53,.25); }
+        .btn-guardar-pago:hover { background:linear-gradient(135deg,var(--red-dark),var(--red)); }
     </style>
 </head>
 <body>
@@ -205,10 +566,10 @@
 
 <div class="main-content">
 
-    <header class="header">
-        <div>
-            <h1 class="header-title">
-                <i class="bi bi-cash-coin"></i>
+    <div class="page-hero">
+        <div class="page-hero-left">
+            <h1>
+                <span class="hero-icon"><i class="bi bi-cash-coin"></i></span>
                 @if(in_array($user->rol, ['admin', 'sensei'])) Gestión de Pagos
                 @else Mis Pagos
                 @endif
@@ -219,7 +580,7 @@
                 <span>Pagos</span>
             </div>
         </div>
-    </header>
+    </div>
 
     <div class="content-wrapper">
 
@@ -236,13 +597,57 @@
              - Tab 1: Registrar cargo a un alumno
              - Tab 2: Gestionar catálogo de conceptos
         ══════════════════════════════════════════════════════════ --}}
+        {{-- ── Stats cards ──────────────────────────────────────────────────── --}}
+        @php
+            $totalPagos     = count($pagos);
+            $completados    = collect($pagos)->where('estado_pago','Completado')->count();
+            $pendientes     = collect($pagos)->where('estado_pago','Pendiente')->count();
+            $totalRecaudado = collect($pagos)->where('estado_pago','Completado')->sum('monto_total') ?: 0;
+            $totalPendiente = collect($pagos)->where('estado_pago','Pendiente')->sum('monto') ?: 0;
+        @endphp
+        <div class="stats-grid" style="margin-bottom:24px;">
+            <div class="stat-card red">
+                <div class="stat-icon"><i class="bi bi-receipt-cutoff"></i></div>
+                <div class="stat-body">
+                    <div class="stat-label">Total Pagos</div>
+                    <div class="stat-value">{{ $totalPagos }}</div>
+                    <div class="stat-sub">registros</div>
+                </div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
+                <div class="stat-body">
+                    <div class="stat-label">Completados</div>
+                    <div class="stat-value">{{ $completados }}</div>
+                    <div class="stat-sub">pagos saldados</div>
+                </div>
+            </div>
+            <div class="stat-card amber">
+                <div class="stat-icon"><i class="bi bi-clock-fill"></i></div>
+                <div class="stat-body">
+                    <div class="stat-label">Pendientes</div>
+                    <div class="stat-value">{{ $pendientes }}</div>
+                    <div class="stat-sub">por cobrar</div>
+                </div>
+            </div>
+            <div class="stat-card blue">
+                <div class="stat-icon"><i class="bi bi-currency-dollar"></i></div>
+                <div class="stat-body">
+                    <div class="stat-label">Recaudado</div>
+                    <div class="stat-value">${{ number_format($totalRecaudado, 0) }}</div>
+                    <div class="stat-sub">en completados</div>
+                </div>
+            </div>
+        </div>
+
         @if(in_array($user->rol, ['admin', 'sensei']))
 
-        <div class="form-container form-theme-red">
-            <div class="form-header">
-                <h2><i class="bi bi-credit-card-fill"></i> Panel de Pagos</h2>
-                <p>Registra cargos para los alumnos y gestiona el catálogo de conceptos.</p>
+        <div class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title"><i class="bi bi-credit-card-fill"></i> Panel de Pagos</h2>
+                <span style="font-size:13px;color:var(--muted);">Registra cargos y gestiona conceptos</span>
             </div>
+            <div class="panel-body">
 
             {{-- Tabs de navegación --}}
             <div class="tabs-nav">
@@ -260,7 +665,7 @@
                     @csrf
 
                     {{-- Destinatario --}}
-                    <h3 class="section-title-header">
+                    <h3 class="form-section-title">
                         <i class="bi bi-person-circle"></i> Alumno o Tutor Destinatario
                     </h3>
                     <div class="form-grid full-width">
@@ -285,7 +690,7 @@
                     </div>
 
                     {{-- Concepto y detalles --}}
-                    <h3 class="section-title-header">
+                    <h3 class="form-section-title">
                         <i class="bi bi-receipt-cutoff"></i> Detalles del Cargo
                     </h3>
                     <div class="form-grid">
@@ -420,7 +825,7 @@
                 {{-- Formulario para nuevo concepto --}}
                 <form method="POST" action="{{ route('conceptos.store') }}" class="form-body" style="margin-bottom:24px;">
                     @csrf
-                    <h3 class="section-title-header">
+                    <h3 class="form-section-title">
                         <i class="bi bi-plus-circle"></i> Agregar Nuevo Concepto
                     </h3>
                     <div class="form-grid">
@@ -459,7 +864,7 @@
 
                 {{-- Lista de conceptos existentes --}}
                 <div class="form-body" style="padding-top:0; margin-top:0;">
-                <h3 class="section-title-header" style="margin-top:0;">
+                <h3 class="form-section-title" style="margin-top:0;">
                     <i class="bi bi-list-ul"></i> Conceptos Registrados
                 </h3>
                 <div class="conceptos-panel">
@@ -511,16 +916,17 @@
         ══════════════════════════════════════════════════════════ --}}
         @else
 
-        <div class="form-container form-theme-red">
-            <div class="form-header">
-                <h2><i class="bi bi-credit-card-fill"></i> Registrar Pago</h2>
-                <p>Elige el concepto, ajusta el monto si vas a hacer un pago parcial y selecciona cómo vas a pagar.</p>
+        <div class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title"><i class="bi bi-wallet2"></i> Registrar Pago</h2>
+                <span style="font-size:13px;color:var(--muted);">Elige concepto, ajusta el monto y selecciona método de pago</span>
             </div>
+            <div class="panel-body">
 
             <form id="registroPagoAlumno" method="POST" action="{{ route('pagos.store') }}" class="form-body">
                 @csrf
 
-                <h3 class="section-title-header">
+                <h3 class="form-section-title">
                     <i class="bi bi-bookmark"></i> Concepto del Pago
                 </h3>
                 <div class="form-grid">
@@ -647,7 +1053,8 @@
                     </button>
                 </div>
             </form>
-        </div>
+            </div>{{-- /panel-body --}}
+        </div>{{-- /panel --}}
 
         @endif
 
@@ -655,85 +1062,51 @@
              SECCIÓN EXCLUSIVA PARA TUTORES — alumnos relacionados
         ══════════════════════════════════════════════════════════ --}}
         @if($user->rol === 'tutor')
-        <style>
-            .alumno-card-tutor {
-                background: #fff;
-                border-radius: 16px;
-                padding: 18px 20px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.07);
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 14px;
-                border-left: 5px solid #e53935;
-                transition: transform .15s, box-shadow .15s;
-            }
-            .alumno-card-tutor:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(229,57,53,.15); }
-            .alumno-avatar-sm {
-                width: 46px; height: 46px; border-radius: 50%;
-                background: linear-gradient(135deg,#e53935,#b71c1c);
-                color: #fff; font-weight: 700; font-size: 16px;
-                display: flex; align-items: center; justify-content: center;
-                flex-shrink: 0;
-            }
-            .alumno-info-sm { flex: 1; }
-            .alumno-info-sm .nombre { font-weight: 700; color: #2d3748; font-size: 15px; }
-            .alumno-info-sm .relacion { font-size: 12px; color: #718096; margin-top: 2px; }
-            .btn-ver-pagos {
-                background: #e53935; color: #fff; border: none;
-                border-radius: 10px; padding: 8px 16px; font-size: 13px;
-                font-weight: 600; cursor: pointer; white-space: nowrap;
-                transition: background .2s;
-            }
-            .btn-ver-pagos:hover { background: #b71c1c; }
-            /* Modal pagos alumno */
-            .modal-pagos-alumno .modal-header { background: #e53935; color: #fff; border-radius: 16px 16px 0 0; }
-            .modal-pagos-alumno .modal-header .btn-close { filter: invert(1); }
-            .badge-estado { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-            .badge-Pendiente   { background:#fff3e0; color:#e65100; }
-            .badge-Completado  { background:#e8f5e9; color:#2e7d32; }
-            .badge-Cancelado   { background:#fce4ec; color:#c62828; }
-            .badge-Suspendido  { background:#f3e5f5; color:#6a1b9a; }
-            .pago-row { border-bottom: 1px solid #f0f0f0; padding: 12px 0; }
-            .pago-row:last-child { border-bottom: none; }
-            .form-nuevo-pago { background: #f8f9fa; border-radius: 12px; padding: 18px; margin-top: 16px; }
-            .form-nuevo-pago h6 { color: #e53935; font-weight: 700; margin-bottom: 14px; }
-        </style>
-
-        <div class="table-container" style="margin-bottom: 1.5rem;">
-            <div class="table-header">
-                <h2 class="table-title">
-                    <i class="bi bi-people-fill"></i> Mis Alumnos Relacionados
-                </h2>
-            </div>
-
-            @if($alumnosRelacionados->isEmpty())
-                <div class="alert alert-info d-flex align-items-center gap-2 m-3">
-                    <i class="bi bi-info-circle-fill"></i>
-                    <span>No tienes alumnos relacionados en este momento.</span>
-                </div>
-            @else
-                <div class="d-flex flex-column gap-3 p-3">
-                    @foreach($alumnosRelacionados as $alumno)
-                    <div class="alumno-card-tutor">
-                        <div class="alumno-avatar-sm">
-                            {{ strtoupper(substr($alumno->primer_nombre,0,1)) }}{{ strtoupper(substr($alumno->primer_apellido,0,1)) }}
-                        </div>
-                        <div class="alumno-info-sm">
-                            <div class="nombre">{{ $alumno->nombre_alumno }}</div>
-                            <div class="relacion">
-                                <i class="bi bi-person-heart"></i> {{ ucfirst($alumno->relacion) }}
-                            </div>
-                        </div>
-                        <button class="btn-ver-pagos"
-                                onclick="abrirPagosAlumno({{ $alumno->id_alumno }}, '{{ addslashes($alumno->nombre_alumno) }}')"
-                                type="button">
-                            <i class="bi bi-credit-card-2-front-fill me-1"></i> Ver Pagos
-                        </button>
+        <div class="tutor-section">
+            <button class="tutor-section-toggle" onclick="toggleTutorSection()" type="button">
+                <div class="tutor-section-toggle-left">
+                    <div class="tutor-section-icon"><i class="bi bi-people-fill"></i></div>
+                    <div>
+                        <div class="tutor-section-title">Mis Alumnos Relacionados</div>
+                        <div class="tutor-section-subtitle">Consulta y gestiona los pagos de tus alumnos</div>
                     </div>
-                    @endforeach
                 </div>
-            @endif
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span class="tutor-section-badge">{{ $alumnosRelacionados->count() }} alumno{{ $alumnosRelacionados->count() != 1 ? 's' : '' }}</span>
+                    <i class="bi bi-chevron-down tutor-chevron" id="tutorChevron"></i>
+                </div>
+            </button>
+
+            <div class="tutor-section-body" id="tutorSectionBody">
+                @if($alumnosRelacionados->isEmpty())
+                    <div style="text-align:center;padding:32px;color:var(--muted);">
+                        <i class="bi bi-person-x" style="font-size:36px;color:var(--border);display:block;margin-bottom:10px;"></i>
+                        <p style="margin:0;font-size:14px;">No tienes alumnos relacionados en este momento.</p>
+                    </div>
+                @else
+                    <div class="alumno-grid">
+                        @foreach($alumnosRelacionados as $alumno)
+                        <div class="alumno-card">
+                            <div class="alumno-avatar">
+                                {{ strtoupper(substr($alumno->nombre_alumno,0,1)) }}
+                            </div>
+                            <div class="alumno-info">
+                                <div class="alumno-nombre">{{ $alumno->nombre_alumno }}</div>
+                                <div class="alumno-relacion">
+                                    <i class="bi bi-heart-fill" style="color:var(--red);font-size:10px;"></i>
+                                    {{ ucfirst($alumno->relacion) }}
+                                </div>
+                            </div>
+                            <button class="btn-ver-pagos"
+                                    onclick="abrirPagosAlumno({{ $alumno->id_alumno }}, '{{ addslashes($alumno->nombre_alumno) }}')"
+                                    type="button">
+                                <i class="bi bi-card-list"></i> Ver Pagos
+                            </button>
+                        </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
         </div>
 
         {{-- ── Modal pagos por alumno ───────────────────────────────────────── --}}
@@ -956,14 +1329,16 @@
         {{-- ══════════════════════════════════════════════════════════
              TABLA DE PAGOS (todos los roles)
         ══════════════════════════════════════════════════════════ --}}
-        <div class="table-container">
-            <div class="table-header">
-                <h2 class="table-title">
+        <div class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">
                     <i class="bi bi-table"></i>
                     @if(in_array($user->rol, ['admin', 'sensei']))
-                        Historial de Pagos ({{ count($pagos) }})
+                        Historial de Pagos
+                        <span style="background:var(--bg);color:var(--muted);font-size:12px;padding:2px 10px;border-radius:20px;border:1px solid var(--border);">{{ count($pagos) }}</span>
                     @else
-                        Mis Pagos ({{ count($pagos) }})
+                        Mis Pagos
+                        <span style="background:var(--bg);color:var(--muted);font-size:12px;padding:2px 10px;border-radius:20px;border:1px solid var(--border);">{{ count($pagos) }}</span>
                     @endif
                 </h2>
                 <div class="table-filters">
@@ -971,16 +1346,17 @@
                         <option value="">Todos los estados</option>
                         <option value="Completado">Completado</option>
                         <option value="Pendiente">Pendiente</option>
-                        <option value="Fallido">Fallido</option>
+                        <option value="Suspendido">Suspendido</option>
+                        <option value="Rechazado">Rechazado</option>
                     </select>
                     <div class="search-box">
                         <i class="bi bi-search search-icon"></i>
-                        <input type="text" class="search-input" id="searchInput" placeholder="Buscar...">
+                        <input type="text" class="search-input" id="searchInput" placeholder="Buscar concepto, alumno...">
                     </div>
                 </div>
             </div>
 
-            <div class="table-responsive">
+            <div class="table-responsive" style="padding:0 24px 24px;">
                 <table id="pagosTable">
                     <thead>
                         <tr>
@@ -1082,14 +1458,13 @@
                                     <div class="acciones-cell">
                                         @if(!in_array($pago->estado_pago, ['Completado', 'Suspendido']) && $saldo > 0)
                                             <a href="{{ route('pagos.pagar', $pago->id_pago) }}"
-                                               class="btn btn-primary"
-                                               style="padding:5px 12px;font-size:12px;display:inline-flex;align-items:center;gap:5px;">
+                                               class="btn-sm btn-primary" style="">
                                                 <i class="bi bi-credit-card-fill"></i> Pagar
                                             </a>
                                         @endif
 
                                         @if(!in_array($pago->estado_pago, ['Completado', 'Suspendido']) && $saldo > 0)
-                                            <button type="button" class="btn-abono"
+                                            <button type="button" class="btn-sm btn-abono"
                                                 onclick="abrirModalAbono(
                                                     {{ $pago->id_pago }},
                                                     '{{ addslashes($pago->nombre_alumno ?? ($user->nombre . ' ' . $user->apaterno)) }}',
@@ -1103,7 +1478,7 @@
                                         @endif
 
                                         @if(in_array($user->rol, ['admin', 'sensei']) && in_array($pago->estado_pago, ['Pendiente', 'Suspendido', 'Rechazado']))
-                                            <button type="button" class="btn-completar"
+                                            <button type="button" class="btn-sm btn-completar"
                                                 onclick="confirmarCompletar({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
                                                 <i class="bi bi-check-circle-fill"></i> Completar
                                             </button>
@@ -1115,8 +1490,7 @@
                                         @endif
 
                                         <button type="button"
-                                            class="btn-abono"
-                                            style="background:#f3e5f5;color:#6a1b9a;border-color:#ce93d8;"
+                                            class="btn-sm btn-abonos-ver"
                                             onclick="verAbonos({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
                                             <i class="bi bi-list-ul"></i> Abonos
                                         </button>
@@ -1128,14 +1502,14 @@
                                         @endif
 
                                         @if($user->rol === 'sensei' && $pago->estado_pago === 'Pendiente')
-                                            <button type="button" class="btn-suspender"
+                                            <button type="button" class="btn-sm btn-suspender"
                                                 onclick="confirmarSuspender({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
                                                 <i class="bi bi-pause-circle"></i> Suspender
                                             </button>
                                         @endif
 
                                         @if($user->rol === 'admin' && $pago->estado_pago !== 'Completado')
-                                            <button type="button" class="btn-eliminar"
+                                            <button type="button" class="btn-sm btn-eliminar"
                                                 onclick="confirmarEliminar({{ $pago->id_pago }}, '{{ addslashes($concepto) }}')">
                                                 <i class="bi bi-trash3"></i> Eliminar
                                             </button>
@@ -1145,13 +1519,17 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="{{ in_array($user->rol, ['admin','sensei']) ? 9 : 8 }}"
-                                    class="text-center" style="padding:40px;color:#9e9e9e;">
-                                    @if(in_array($user->rol, ['admin', 'sensei']))
-                                        No hay pagos registrados aún.
-                                    @else
-                                        No tienes pagos registrados. Usa el formulario de arriba para registrar uno.
-                                    @endif
+                                <td colspan="{{ in_array($user->rol, ['admin','sensei']) ? 9 : 8 }}">
+                                    <div class="empty-state">
+                                        <i class="bi bi-receipt"></i>
+                                        <p>
+                                            @if(in_array($user->rol, ['admin', 'sensei']))
+                                                No hay pagos registrados aún.
+                                            @else
+                                                No tienes pagos registrados. Usa el formulario de arriba para registrar uno.
+                                            @endif
+                                        </p>
+                                    </div>
                                 </td>
                             </tr>
                         @endforelse
@@ -1620,6 +1998,15 @@
         btn.innerHTML             = '<i class="bi bi-check-lg"></i> Registrar Pago';
         btn.style.backgroundColor = '';
         btn.style.borderColor     = '';
+    }
+
+    // ── Sección tutor colapsable ───────────────────────────────────────
+    function toggleTutorSection() {
+        const body    = document.getElementById('tutorSectionBody');
+        const chevron = document.getElementById('tutorChevron');
+        if (!body) return;
+        const isOpen = body.classList.toggle('open');
+        chevron.classList.toggle('open', isOpen);
     }
 </script>
 

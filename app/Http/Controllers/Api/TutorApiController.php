@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class TutorApiController extends Controller
 {
@@ -188,46 +189,34 @@ class TutorApiController extends Controller
         }
     }
 
-    /**
-     * GET /api/tutores/{id}/alumnos
-     * Devuelve los alumnos relacionados de un tutor específico.
-     */
-    public function alumnosRelacionados(int $id)
+   public function alumnosRelacionados(Request $request)
     {
+        $user = Auth::user();
+ 
+        // Solo tutores tienen alumnos relacionados
+        if ($user->rol !== 'tutor') {
+            return response()->json(['success' => true, 'data' => []]);
+        }
+ 
         try {
-            $alumnos = DB::table('tutor_alumno as ta')
+            $lista = DB::table('tutor_alumno as ta')
                 ->join('usuario as a', 'ta.id_alumno', '=', 'a.id_usuario')
-                ->where('ta.id_tutor', $id)
+                ->where('ta.id_tutor', $user->id_usuario)
+                ->where('a.estado', 1)         // solo alumnos activos
                 ->select(
                     'ta.id_alumno',
                     'ta.relacion',
                     DB::raw("CONCAT(a.nombre,' ',a.apaterno,' ',a.amaterno) AS nombre_alumno")
                 )
+                ->orderBy('a.apaterno')
                 ->get();
-
-            return response()->json(['success' => true, 'data' => $alumnos]);
-
+ 
+            return response()->json(['success' => true, 'data' => $lista]);
+ 
         } catch (\Exception $e) {
             Log::error('TutorApi@alumnosRelacionados: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al obtener los alumnos.'], 500);
+            return response()->json(['success' => false, 'message' => 'Error al obtener alumnos.'], 500);
         }
     }
-
-    /**
-     * GET /api/ocupaciones
-     */
-    public function ocupaciones()
-    {
-        try {
-            $ocupaciones = DB::table('ocupacion')
-                ->orderBy('nombre_ocupacion', 'asc')
-                ->get();
-
-            return response()->json(['success' => true, 'data' => $ocupaciones]);
-
-        } catch (\Exception $e) {
-            Log::error('TutorApi@ocupaciones: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al obtener las ocupaciones.'], 500);
-        }
-    }
+    
 }

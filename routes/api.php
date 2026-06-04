@@ -80,6 +80,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tutores',     [TutorApiController::class, 'store']);
     Route::put('/tutores/{id}', [TutorApiController::class, 'update']);
     Route::get('/ocupaciones',  [TutorApiController::class, 'ocupaciones']);
+    // Lista de alumnos vinculados al tutor autenticado
+    Route::get('/tutor/alumnos-relacionados', [TutorApiController::class, 'alumnosRelacionados']);
 
     // ── Pagos ─────────────────────────────────────────────────────────────
     // IMPORTANTE: rutas estáticas ANTES de las dinámicas {id}
