@@ -68,6 +68,8 @@ class PagoController extends Controller
             $alumnos = collect();
             // Todos los conceptos (incluye inactivos) — solo admin/sensei para el panel de gestión
             $conceptos_todos = collect();
+            // Alumnos vinculados — solo tutor para la sección "Mis Alumnos Relacionados" en pagos
+            $alumnosRelacionados = collect();
 
             if (in_array($user->rol, ['admin', 'sensei'])) {
                 $alumnos = DB::table('usuario')
@@ -80,19 +82,35 @@ class PagoController extends Controller
                 $conceptos_todos = DB::table('concepto_pago')->orderBy('nombre')->get();
             }
 
+            if ($user->rol === 'tutor') {
+                $alumnosRelacionados = DB::table('tutor_alumno as ta')
+                    ->join('usuario as a', 'ta.id_alumno', '=', 'a.id_usuario')
+                    ->where('ta.id_tutor', $user->id_usuario)
+                    ->select(
+                        'ta.id_alumno',
+                        'ta.relacion',
+                        DB::raw("CONCAT(a.nombre,' ',a.apaterno,' ',a.amaterno) AS nombre_alumno"),
+                        DB::raw("a.nombre AS primer_nombre"),
+                        DB::raw("a.apaterno AS primer_apellido")
+                    )
+                    ->get();
+            }
+
             return view('pagosViews.pagos', compact(
-                'pagos', 'alumnos', 'tipos_pago', 'conceptos', 'conceptos_todos', 'user'
+                'pagos', 'alumnos', 'tipos_pago', 'conceptos', 'conceptos_todos', 'user',
+                'alumnosRelacionados'
             ));
 
         } catch (\Exception $e) {
             Log::error('PagoController@index: ' . $e->getMessage());
             return view('pagosViews.pagos', [
-                'pagos'           => collect(),
-                'alumnos'         => collect(),
-                'tipos_pago'      => collect(),
-                'conceptos'       => collect(),
-                'conceptos_todos' => collect(),
-                'user'            => Auth::user(),
+                'pagos'                => collect(),
+                'alumnos'              => collect(),
+                'tipos_pago'           => collect(),
+                'conceptos'            => collect(),
+                'conceptos_todos'      => collect(),
+                'alumnosRelacionados'  => collect(),
+                'user'                 => Auth::user(),
             ])->with('mensaje', 'Error al cargar datos.');
         }
     }
@@ -719,4 +737,4 @@ class PagoController extends Controller
             'conceptos'  => $conceptos,
         ]);
     }
-} // <-- Esta llave es la que cierra la clase PagoController y ahora sí engloba a todo.
+} 
