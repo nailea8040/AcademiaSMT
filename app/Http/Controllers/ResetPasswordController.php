@@ -144,7 +144,7 @@ class ResetPasswordController extends Controller
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
-            'api-key: ' . env('BREVO_API_KEY'),
+            'api-key: ' . config('services.brevo.key'),
         ]);
 
         $response = curl_exec($ch);
