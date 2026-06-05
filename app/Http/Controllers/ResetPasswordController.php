@@ -87,71 +87,89 @@ class ResetPasswordController extends Controller
     // ── Enviar correo con enlace de recuperación ──────────────────────────────
 
     public function sendResetLinkEmail(Request $request)
-    {
-        $request->validate([
-            'correo' => 'required|email',
-        ], [
-            'correo.required' => 'El correo electrónico es obligatorio.',
-            'correo.email'    => 'Por favor ingresa un correo válido.',
-        ]);
+{
+    $request->validate([
+        'correo' => 'required|email',
+    ], [
+        'correo.required' => 'El correo electrónico es obligatorio.',
+        'correo.email'    => 'Por favor ingresa un correo válido.',
+    ]);
 
-        $correo = $request->input('correo');
+    $correo = $request->input('correo');
 
-        try {
-            $usuario = DB::table('usuario')
-                ->select('id_usuario', 'nombre', 'correo', 'ultima_solicitud_token')
-                ->where('correo', $correo)
-                ->where('estado', 1)
-                ->first();
+    try {
+        $usuario = DB::table('usuario')
+            ->select('id_usuario', 'nombre', 'correo', 'ultima_solicitud_token')
+            ->where('correo', $correo)
+            ->where('estado', 1)
+            ->first();
 
-            // ✅ Muestra error explícito si el correo no está registrado
-            if (!$usuario) {
-                return redirect()->route('password.request')
-                    ->with('sessionRecuperarContrasennia', 'false')
-                    ->with('mensaje', 'El correo ingresado no está registrado o la cuenta no está activa.');
-            }
-
-            /*
-            // Prevenir spam: mínimo 2 minutos entre solicitudes
-            if ($usuario->ultima_solicitud_token) {
-                $ultimaSolicitud = Carbon::parse($usuario->ultima_solicitud_token);
-                if ($ultimaSolicitud->diffInMinutes(Carbon::now()) < 2) {
-                    return redirect()->route('password.request')
-                        ->with('sessionRecuperarContrasennia', 'true')
-                        ->with('mensaje', '¡Listo! Si el correo está registrado, recibirás el enlace de recuperación.');
-                }
-            }*/
-
-            $token    = Str::uuid()->toString();
-            $expiraEn = Carbon::now()->addMinutes(10);
-
-            // Guardar token directamente en la tabla usuario
-            DB::table('usuario')
-                ->where('id_usuario', $usuario->id_usuario)
-                ->update([
-                    'token_recuperacion'     => $token,
-                    'token_expiracion'       => $expiraEn,
-                    'ultima_solicitud_token' => Carbon::now(),
-                ]);
-
-            Mail::to($correo)->send(new cambiarcontrasenniaMailable($usuario->nombre, $token));
-
-            Log::info("Token de recuperación generado para: {$correo}");
-
-            // ✅ CORREGIDO: redirige a password.request para que el SweetAlert se muestre
-            return redirect()->route('password.request')
-                ->with('sessionRecuperarContrasennia', 'true')
-                ->with('mensaje', '¡Listo! Revisa tu correo para el enlace de recuperación.');
-
-        } catch (\Exception $e) {
-            Log::error('ResetPassword@sendResetLinkEmail: ' . $e->getMessage());
-
-            // ✅ CORREGIDO: redirige a password.request con clave sessionRecuperarContrasennia
+        if (!$usuario) {
             return redirect()->route('password.request')
                 ->with('sessionRecuperarContrasennia', 'false')
-                ->with('mensaje', 'Hubo un error al enviar el correo. Inténtalo de nuevo.');
+                ->with('mensaje', 'El correo ingresado no está registrado o la cuenta no está activa.');
         }
+
+        $token    = Str::uuid()->toString();
+        $expiraEn = Carbon::now()->addMinutes(10);
+
+        DB::table('usuario')
+            ->where('id_usuario', $usuario->id_usuario)
+            ->update([
+                'token_recuperacion'     => $token,
+                'token_expiracion'       => $expiraEn,
+                'ultima_solicitud_token' => Carbon::now(),
+            ]);
+
+        $resetUrl = route('password.reset', ['token' => $token]);
+
+        $htmlContent = view('ResetPasswordViews.mensajecambiarcontrasennia', [
+            'nombreCompleto' => $usuario->nombre,
+            'token'          => $token,
+        ])->render();
+
+        $payload = [
+            'sender'     => [
+                'email' => config('mail.from.address', 'academiacentralkaratedosmt@gmail.com'),
+                'name'  => config('mail.from.name', 'Academia Karate-Do SMT'),
+            ],
+            'to'         => [['email' => $correo, 'name' => $usuario->nombre]],
+            'subject'    => 'Recuperación de Contraseña - Academia Karate-Do SMT',
+            'htmlContent' => $htmlContent,
+        ];
+
+        $ch = curl_init('https://api.brevo.com/v3/smtp/email');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'api-key: ' . env('BREVO_API_KEY'),
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode !== 201) {
+            Log::error('Brevo API error: ' . $response);
+            throw new \Exception('Error al enviar correo via Brevo API. HTTP: ' . $httpCode);
+        }
+
+        Log::info("Token de recuperación generado para: {$correo}");
+
+        return redirect()->route('password.request')
+            ->with('sessionRecuperarContrasennia', 'true')
+            ->with('mensaje', '¡Listo! Revisa tu correo para el enlace de recuperación.');
+
+    } catch (\Exception $e) {
+        Log::error('ResetPassword@sendResetLinkEmail: ' . $e->getMessage());
+
+        return redirect()->route('password.request')
+            ->with('sessionRecuperarContrasennia', 'false')
+            ->with('mensaje', 'Hubo un error al enviar el correo. Inténtalo de nuevo.');
     }
+}
 
     // ── Actualizar contraseña ─────────────────────────────────────────────────
 
