@@ -53,6 +53,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Perfil propio ─────────────────────────────────────────────────────
     Route::put('/perfil', [UsuarioApiController::class, 'updatePerfil']);
 
+    // ── Perfil tutor — alumnos vinculados al tutor autenticado ────────────
+    // FIX: cambiado de /tutor/alumnos-relacionados a /me/alumnos para
+    //      coincidir con la llamada en pagos.tsx fetchAlumnosRelacionados()
+    //      que hace fetch a `${API.base}/me/alumnos`
+    Route::get('/me/alumnos', [TutorApiController::class, 'alumnosRelacionados']);
+
     // ── Usuarios ──────────────────────────────────────────────────────────
     Route::get('/usuarios',                      [UsuarioApiController::class, 'index']);
     Route::post('/usuarios',                     [UsuarioApiController::class, 'store']);
@@ -80,8 +86,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tutores',     [TutorApiController::class, 'store']);
     Route::put('/tutores/{id}', [TutorApiController::class, 'update']);
     Route::get('/ocupaciones',  [TutorApiController::class, 'ocupaciones']);
-    // Lista de alumnos vinculados al tutor autenticado
-    Route::get('/tutor/alumnos-relacionados', [TutorApiController::class, 'alumnosRelacionados']);
 
     // ── Pagos ─────────────────────────────────────────────────────────────
     // IMPORTANTE: rutas estáticas ANTES de las dinámicas {id}
@@ -93,7 +97,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Catálogo de tipos de pago
     Route::get('/tipos-pago', [PagoApiController::class, 'tiposPago']);
 
-    // NUEVO: pagos de un alumno específico para perfil del tutor
+    // Pagos de un alumno específico — para perfil del tutor
     // Va ANTES de /{id} para que 'alumno' no sea interpretado como un {id}
     Route::get('/pagos/alumno/{id_alumno}', [PagoApiController::class, 'pagosAlumnoTutor']);
 
