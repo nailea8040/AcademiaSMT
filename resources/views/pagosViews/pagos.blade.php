@@ -607,14 +607,14 @@
         <div class="table-container" style="margin-bottom:1.5rem;">
             <div class="table-header">
                 <h2 class="table-title">
-                    <i class="bi bi-people-fill"></i> Mis Alumnos Relacionados
+                    <i class="bi bi-people-fill"></i> Mis Alumnos a Cargo
                 </h2>
             </div>
 
             @if($alumnosRelacionados->isEmpty())
                 <div class="alert alert-info d-flex align-items-center gap-2 m-3">
                     <i class="bi bi-info-circle-fill"></i>
-                    <span>No tienes alumnos relacionados en este momento.</span>
+                    <span>No tienes alumnos a cargo en este momento.</span>
                 </div>
             @else
                 <div class="d-flex flex-column gap-3 p-3">

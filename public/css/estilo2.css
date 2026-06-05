@@ -2481,6 +2481,11 @@ input:checked + .slider:before {
     color: white;
 }
 
+.modal-header * {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
 .modal-title {
     font-size: 24px;
     font-weight: 700;
