@@ -50,42 +50,6 @@
         .pagos-wrap { display:flex; flex-direction:column; gap:24px; max-width:1400px; }
 
         /* ══════════════════════════════════════════════
-           STATS ROW
-        ══════════════════════════════════════════════ */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 14px;
-        }
-        @media (max-width:900px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
-        @media (max-width:540px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
-
-        .stat-card {
-            background:#fff;
-            border-radius:var(--radius);
-            padding:16px 18px;
-            box-shadow: var(--card-shadow);
-            display:flex;
-            align-items:center;
-            gap:14px;
-            border:1px solid var(--border);
-            transition: box-shadow .15s;
-        }
-        .stat-card:hover { box-shadow: var(--card-shadow-hover); }
-        .stat-icon {
-            width:44px; height:44px;
-            border-radius:10px;
-            display:flex; align-items:center; justify-content:center;
-            font-size:20px;
-            flex-shrink:0;
-        }
-        .stat-label  { font-size:12px; color:var(--text3); margin-bottom:2px; }
-        .stat-value  { font-size:22px; font-weight:700; color:var(--text); line-height:1; }
-        .stat-value.green  { color:var(--green); }
-        .stat-value.amber  { color:var(--amber); }
-        .stat-value.red    { color:var(--red); }
-
-        /* ══════════════════════════════════════════════
            PANEL FORMULARIO (card unificada)
         ══════════════════════════════════════════════ */
         .panel-card {
@@ -477,57 +441,13 @@
         @endif
 
         {{-- ══════════════════════════════════════════════════════════
-             STATS CARDS
-        ══════════════════════════════════════════════════════════ --}}
-        @php
-            $totalP    = $pagos->count();
-            $comp      = $pagos->where('estado_pago', 'Completado')->count();
-            $pend      = $pagos->where('estado_pago', 'Pendiente')->count();
-            $totPagado = $pagos->sum('monto_pagado');
-            $totSaldo  = $pagos->sum('saldo_restante');
-        @endphp
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon" style="background:#DCFCE7;color:#16A34A;"><i class="bi bi-check-circle-fill"></i></div>
-                <div>
-                    <div class="stat-label">Completados</div>
-                    <div class="stat-value green">{{ $comp }}</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon" style="background:#FEF3C7;color:#D97706;"><i class="bi bi-clock-fill"></i></div>
-                <div>
-                    <div class="stat-label">Pendientes</div>
-                    <div class="stat-value amber">{{ $pend }}</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon" style="background:#EFF6FF;color:#1D4ED8;"><i class="bi bi-wallet2"></i></div>
-                <div>
-                    <div class="stat-label">Total pagado</div>
-                    <div class="stat-value">${{ number_format($totPagado, 0) }}</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon" style="background:#FEF2F2;color:#DC2626;"><i class="bi bi-exclamation-circle-fill"></i></div>
-                <div>
-                    <div class="stat-label">Por cobrar</div>
-                    <div class="stat-value red">${{ number_format($totSaldo, 0) }}</div>
-                </div>
-            </div>
-        </div>
-
-        {{-- ══════════════════════════════════════════════════════════
              BLOQUE ADMIN / SENSEI — formulario + conceptos
         ══════════════════════════════════════════════════════════ --}}
         @if(in_array($user->rol, ['admin', 'sensei']))
-        <div class="panel-card">
-            <div class="panel-head">
-                <div class="panel-head-icon"><i class="bi bi-credit-card-fill"></i></div>
-                <div>
-                    <h2>Panel de Pagos</h2>
-                    <p>Registra cargos a alumnos y gestiona el catálogo de conceptos.</p>
-                </div>
+        <div class="form-container form-theme-red">
+            <div class="form-header">
+                <h2><i class="bi bi-credit-card-fill"></i> Panel de Pagos</h2>
+                <p>Registra cargos para los alumnos y gestiona el catálogo de conceptos.</p>
             </div>
             <div class="tabs-nav">
                 <button class="tab-btn active" onclick="activarTab('tab-registro',this)">
@@ -739,13 +659,10 @@
              BLOQUE ALUMNO / TUTOR — formulario propio
         ══════════════════════════════════════════════════════════ --}}
         @else
-        <div class="panel-card">
-            <div class="panel-head">
-                <div class="panel-head-icon"><i class="bi bi-credit-card-fill"></i></div>
-                <div>
-                    <h2>Registrar Pago</h2>
-                    <p>Elige el concepto, ajusta el monto si pagas parcialmente y selecciona cómo pagas.</p>
-                </div>
+        <div class="form-container form-theme-red">
+            <div class="form-header">
+                <h2><i class="bi bi-credit-card-fill"></i> Registrar Pago</h2>
+                <p>Elige el concepto, ajusta el monto si pagas parcialmente y selecciona cómo pagas.</p>
             </div>
             <div class="panel-body">
                 <div class="info-banner" style="margin-bottom:20px;">
@@ -950,12 +867,14 @@
         }
 
         // ✅ FIX: renderPagosAlumno usa p.estado_pago / p.motivo_pago (snake_case)
-        //    en lugar de p.estadoPago / p.motivoPago (camelCase) — los datos de la BD
-        //    siempre llegan en snake_case y el badge nunca se renderizaba correctamente.
+        //    NUEVO: cada pago Pendiente muestra botones "Pagar en línea" y "Abonar en efectivo"
         function renderPagosAlumno(cuerpo, data, idAlumno) {
             const pagos     = data.pagos;
             const tipos     = data.tipos_pago;
             const conceptos = data.conceptos;
+
+            // Guardamos tipos globalmente para usarlos en el mini-form de abono
+            window._tiposPagoAlumno = tipos;
 
             let filasHtml = '';
             if (!pagos || pagos.length === 0) {
@@ -965,25 +884,92 @@
                 </div>`;
             } else {
                 pagos.forEach(p => {
-                    // ✅ FIX: usar p.estado_pago (snake_case), no p.estadoPago
-                    const estado     = p.estado_pago ?? 'Pendiente';
-                    const motivo     = p.motivo_pago ?? '';
-                    const concepto   = p.nombre_concepto ?? p.nombre_tipo ?? 'Sin concepto';
-                    const badgeClass = 'badge-' + estado;
-                    const monto      = parseFloat(p.monto_total ?? p.monto ?? 0);
+                    const estado      = p.estado_pago ?? 'Pendiente';
+                    const motivo      = p.motivo_pago ?? '';
+                    const concepto    = p.nombre_concepto ?? p.nombre_tipo ?? 'Sin concepto';
+                    const badgeClass  = 'badge-' + estado;
+                    const montoTotal  = parseFloat(p.monto_total ?? p.monto ?? 0);
+                    const montoPagado = parseFloat(p.monto_pagado ?? 0);
+                    const saldo       = Math.max(0, montoTotal - montoPagado);
+                    const porcentaje  = montoTotal > 0 ? Math.min(100, (montoPagado / montoTotal) * 100) : 0;
+                    const esPendiente = estado === 'Pendiente' && saldo > 0;
+
+                    // Barra de progreso + saldo solo si hay abonos parciales o pago incompleto
+                    const barraHtml = montoTotal > 0 ? `
+                        <div style="margin-top:6px;">
+                            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px;">
+                                <span>Pagado: <strong style="color:#16A34A;">$${montoPagado.toFixed(2)}</strong></span>
+                                <span>Saldo: <strong style="color:${saldo > 0 ? 'var(--red)' : '#16A34A'};">$${saldo.toFixed(2)}</strong></span>
+                            </div>
+                            <div style="background:#F3F4F6;border-radius:4px;height:4px;">
+                                <div style="height:4px;border-radius:4px;background:var(--red);width:${porcentaje.toFixed(0)}%;"></div>
+                            </div>
+                        </div>` : '';
+
+                    // Botones de acción — solo en pagos Pendientes con saldo
+                    const accionesHtml = esPendiente ? `
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+                            <a href="{{ url('pagos') }}/${p.id_pago}/pagar"
+                               class="btn-act btn-pagar"
+                               style="font-size:11px;padding:5px 11px;">
+                                <i class="bi bi-credit-card-fill"></i> Pagar en línea
+                            </a>
+                            <button type="button"
+                                class="btn-act btn-abono"
+                                style="font-size:11px;padding:5px 11px;"
+                                onclick="toggleAbonoForm('abono-form-${p.id_pago}')">
+                                <i class="bi bi-plus-circle"></i> Abonar en efectivo
+                            </button>
+                        </div>
+                        <div id="abono-form-${p.id_pago}" style="display:none;margin-top:10px;background:var(--gray-light);border-radius:8px;padding:12px;border:1px solid var(--border);">
+                            <p style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px;">
+                                <i class="bi bi-cash-coin"></i> Registrar abono en efectivo — Saldo: <strong style="color:var(--red);">$${saldo.toFixed(2)}</strong>
+                            </p>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                <div>
+                                    <label class="modal-label" style="margin-top:0;font-size:11px;">Monto del abono <span style="color:var(--red);">*</span></label>
+                                    <input type="number" step="0.01" min="0.01" max="${saldo.toFixed(2)}"
+                                           id="ab_monto_${p.id_pago}" class="modal-input" style="margin-top:0;font-size:13px;"
+                                           placeholder="Máx. $${saldo.toFixed(2)}">
+                                </div>
+                                <div>
+                                    <label class="modal-label" style="margin-top:0;font-size:11px;">Referencia (opcional)</label>
+                                    <input type="text" id="ab_ref_${p.id_pago}" class="modal-input"
+                                           style="margin-top:0;font-size:13px;" placeholder="Núm. recibo">
+                                </div>
+                            </div>
+                            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+                                <button type="button" class="btn-modal-sec"
+                                        style="padding:7px 14px;font-size:12px;flex:none;"
+                                        onclick="toggleAbonoForm('abono-form-${p.id_pago}')">
+                                    Cancelar
+                                </button>
+                                <button type="button"
+                                        class="btn-modal-prim"
+                                        style="padding:7px 14px;font-size:12px;flex:none;"
+                                        onclick="submitAbonoEfectivo(${p.id_pago}, ${saldo.toFixed(2)}, ${idAlumno})">
+                                    <i class="bi bi-check-lg"></i> Registrar Abono
+                                </button>
+                            </div>
+                        </div>` : '';
+
                     filasHtml += `
-                    <div class="pago-row-tutor">
-                        <div>
-                            <div style="font-weight:700;color:var(--text);font-size:14px;">${concepto}</div>
-                            <div style="font-size:12px;color:var(--text3);margin-top:3px;">
-                                <i class="bi bi-calendar3"></i> ${p.fecha_pago ? p.fecha_pago.substring(0,10) : '—'}
-                                ${motivo ? '  ·  ' + motivo : ''}
+                    <div class="pago-row-tutor" style="flex-direction:column;align-items:stretch;">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+                            <div style="flex:1;">
+                                <div style="font-weight:700;color:var(--text);font-size:14px;">${concepto}</div>
+                                <div style="font-size:12px;color:var(--text3);margin-top:3px;">
+                                    <i class="bi bi-calendar3"></i> ${p.fecha_pago ? p.fecha_pago.substring(0,10) : '—'}
+                                    ${motivo ? '  ·  ' + motivo : ''}
+                                </div>
+                                ${barraHtml}
+                            </div>
+                            <div style="text-align:right;flex-shrink:0;">
+                                <div style="font-weight:800;color:var(--red);font-size:16px;">$${montoTotal.toFixed(2)}</div>
+                                <span class="badge-estado ${badgeClass}">${estado}</span>
                             </div>
                         </div>
-                        <div style="text-align:right;">
-                            <div style="font-weight:800;color:var(--red);font-size:16px;">$${monto.toFixed(2)}</div>
-                            <span class="badge-estado ${badgeClass}">${estado}</span>
-                        </div>
+                        ${accionesHtml}
                     </div>`;
                 });
             }
@@ -998,7 +984,7 @@
 
             cuerpo.innerHTML = `
                 <h6 style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:6px;">
-                    <i class="bi bi-list-ul" style="color:var(--red);"></i> Historial de Pagos
+                    <i class="bi bi-list-ul" style="color:var(--red);"></i> Pagos del Alumno
                 </h6>
                 ${filasHtml}
 
@@ -1041,6 +1027,63 @@
                         </div>
                     </form>
                 </div>`;
+        }
+
+        // Mostrar / ocultar el mini-form de abono de cada fila
+        function toggleAbonoForm(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Registrar abono en efectivo desde el modal del tutor
+        function submitAbonoEfectivo(idPago, saldoMax, idAlumno) {
+            const montoInput = document.getElementById('ab_monto_' + idPago);
+            const refInput   = document.getElementById('ab_ref_'   + idPago);
+            const monto      = parseFloat(montoInput?.value ?? 0);
+
+            if (!monto || monto <= 0) {
+                Swal.fire({ icon:'warning', title:'Monto requerido', text:'Ingresa un monto mayor a $0.', timer:2500, showConfirmButton:false });
+                return;
+            }
+            if (monto > saldoMax) {
+                Swal.fire({ icon:'warning', title:'Monto excede el saldo', text:`El abono no puede superar $${saldoMax.toFixed(2)}.`, timer:2500, showConfirmButton:false });
+                return;
+            }
+
+            const btn = document.querySelector(`#abono-form-${idPago} .btn-modal-prim`);
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Guardando...'; }
+
+            fetch(`{{ url('pagos') }}/${idPago}/abono`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    monto_abono: monto,
+                    tipo_abono:  'efectivo',
+                    referencia:  refInput?.value || null,
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success !== false && !data.error) {
+                    Swal.fire({ icon:'success', title:'Abono registrado', text: data.mensaje ?? 'El abono fue registrado correctamente.', timer:2000, showConfirmButton:false });
+                    // Recargar el modal para reflejar el nuevo saldo
+                    setTimeout(() => {
+                        abrirPagosAlumno(idAlumno, document.getElementById('nombreAlumnoModal').textContent);
+                    }, 2100);
+                } else {
+                    Swal.fire({ icon:'error', title:'Error', text: data.message ?? data.mensaje ?? 'No se pudo registrar el abono.' });
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg"></i> Registrar Abono'; }
+                }
+            })
+            .catch(() => {
+                Swal.fire({ icon:'error', title:'Error de conexión', text:'No se pudo conectar con el servidor.' });
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg"></i> Registrar Abono'; }
+            });
         }
 
         function autoMonto(select) {
