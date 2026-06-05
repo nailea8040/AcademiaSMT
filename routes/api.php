@@ -27,17 +27,16 @@ Route::post('/password/reset',  [AuthApiController::class,    'resetPassword']);
 Route::post('/contacto',        [ContactoApiController::class,'enviar']);
 
 // Catálogos públicos
-Route::get('/calendario',       [CalendarioApiController::class,'index']);
-Route::get('/galeria',          [GaleriaApiController::class,   'index']);
-Route::get('/grados',           [GradoApiController::class,     'index']);
-Route::get('/seminarios',       [SeminarioApiController::class, 'index']);
+Route::get('/calendario',  [CalendarioApiController::class,'index']);
+Route::get('/galeria',     [GaleriaApiController::class,   'index']);
+Route::get('/grados',      [GradoApiController::class,     'index']);
+Route::get('/seminarios',  [SeminarioApiController::class, 'index']);
 
-// ── Webhook de MercadoPago — DEBE ser público, MP no envía token ──────────
-Route::post('/pagos/webhook',   [PagoApiController::class, 'webhook']);
-
-Route::get('/conceptos-pago',         [PagoApiController::class, 'conceptosPago']);
-Route::post('/conceptos-pago',        [PagoApiController::class, 'storeConcepto']);
-Route::put('/conceptos-pago/{id}',    [PagoApiController::class, 'updateConcepto']);
+// ── Webhook de MercadoPago ────────────────────────────────────────────────
+// DEBE ser público: MP no envía token Bearer.
+// CRÍTICO 3 FIX: la verificación de firma x-signature se hace DENTRO
+// del método webhook() del controlador, no aquí en la ruta.
+Route::post('/pagos/webhook', [PagoApiController::class, 'webhook']);
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RUTAS PROTEGIDAS — requieren Bearer token (Sanctum)
@@ -53,10 +52,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Perfil propio ─────────────────────────────────────────────────────
     Route::put('/perfil', [UsuarioApiController::class, 'updatePerfil']);
 
-    // ── Perfil tutor — alumnos vinculados al tutor autenticado ────────────
-    // FIX: cambiado de /tutor/alumnos-relacionados a /me/alumnos para
-    //      coincidir con la llamada en pagos.tsx fetchAlumnosRelacionados()
-    //      que hace fetch a `${API.base}/me/alumnos`
+    // ── Alumnos vinculados al tutor autenticado ───────────────────────────
     Route::get('/me/alumnos', [TutorApiController::class, 'alumnosRelacionados']);
 
     // ── Usuarios ──────────────────────────────────────────────────────────
@@ -90,25 +86,29 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Pagos ─────────────────────────────────────────────────────────────
     // IMPORTANTE: rutas estáticas ANTES de las dinámicas {id}
 
-    // Lista y registro
     Route::get('/pagos',  [PagoApiController::class, 'index']);
     Route::post('/pagos', [PagoApiController::class, 'store']);
 
-    // Catálogo de tipos de pago
     Route::get('/tipos-pago', [PagoApiController::class, 'tiposPago']);
 
-    // Pagos de un alumno específico — para perfil del tutor
-    // Va ANTES de /{id} para que 'alumno' no sea interpretado como un {id}
+    // Pagos de un alumno específico (tutor)
     Route::get('/pagos/alumno/{id_alumno}', [PagoApiController::class, 'pagosAlumnoTutor']);
 
-    // Historial por usuario — estático, va antes de /{id}
+    // Historial por usuario
     Route::get('/pagos/historial/{idUsuario}', [PagoApiController::class, 'historialAlumno']);
 
-    // Rutas con {id} de pago — van después de las estáticas
+    // Rutas con {id} — van después de las estáticas
     Route::get('/pagos/{id}/preference', [PagoApiController::class, 'getPreference']);
     Route::get('/pagos/{id}/abonos',     [PagoApiController::class, 'listarAbonos']);
     Route::post('/pagos/{id}/abono',     [PagoApiController::class, 'abono']);
     Route::post('/pagos/{id}/completar', [PagoApiController::class, 'completar']);
+
+    // ── CRÍTICO 1 FIX: conceptos-pago DENTRO del middleware auth:sanctum ──
+    // Antes estaban en el bloque público — cualquiera sin token podía
+    // crear y editar conceptos de pago. Ahora requieren autenticación.
+    Route::get('/conceptos-pago',         [PagoApiController::class, 'conceptosPago']);
+    Route::post('/conceptos-pago',        [PagoApiController::class, 'storeConcepto']);
+    Route::put('/conceptos-pago/{id}',    [PagoApiController::class, 'updateConcepto']);
 
     // ── Calendario ────────────────────────────────────────────────────────
     Route::post('/calendario',        [CalendarioApiController::class, 'store']);
