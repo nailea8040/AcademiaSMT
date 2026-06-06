@@ -138,6 +138,7 @@ class ResetPasswordController extends Controller
             'htmlContent' => $htmlContent,
         ];
 
+        Log::info('BREVO KEY: ' . config('services.brevo.key'));
         $ch = curl_init('https://api.brevo.com/v3/smtp/email');
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
