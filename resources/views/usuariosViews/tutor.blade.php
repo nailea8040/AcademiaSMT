@@ -291,6 +291,18 @@
                     </tbody>
                 </table>
             </div>
+            {{-- Controles de paginación --}}
+            <div id="paginacionTutores" style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding:0 4px;">
+                <button id="btnAnteriorTutores" onclick="cambiarPaginaTutores(-1)"
+                    style="display:flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;border:1.5px solid #e53935;background:#fff;color:#e53935;font-weight:600;cursor:pointer;">
+                    <i class="bi bi-chevron-left"></i> Anterior
+                </button>
+                <span id="infoPaginaTutores" style="font-size:14px;font-weight:600;color:#424242;"></span>
+                <button id="btnSiguienteTutores" onclick="cambiarPaginaTutores(1)"
+                    style="display:flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;border:1.5px solid #e53935;background:#fff;color:#e53935;font-weight:600;cursor:pointer;">
+                    Siguiente <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -517,14 +529,49 @@ function resetAlumnos() {
     agregarFilaAlumno('reg');
 }
 
-// ── Búsqueda ──────────────────────────────────────────────────────────────────
+// ── Búsqueda + Paginación ─────────────────────────────────────────────────────
+const PAGE_SIZE_TUTORES = 20;
+let paginaTutores = 0;
+
+function renderPaginaTutores() {
+    const txt = ($('#searchInput').val() || '').toLowerCase();
+    const todasLasFilas = $('#tutoresTable tr').not('.sin-resultados-row');
+    const filasFiltradas = todasLasFilas.filter(function () {
+        return !txt || $(this).text().toLowerCase().includes(txt);
+    });
+
+    const total        = filasFiltradas.length;
+    const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE_TUTORES));
+    if (paginaTutores >= totalPaginas) paginaTutores = totalPaginas - 1;
+
+    todasLasFilas.hide();
+    filasFiltradas.slice(paginaTutores * PAGE_SIZE_TUTORES, (paginaTutores + 1) * PAGE_SIZE_TUTORES).show();
+
+    const ctrl = document.getElementById('paginacionTutores');
+    if (ctrl) {
+        ctrl.style.display = total > PAGE_SIZE_TUTORES ? 'flex' : 'none';
+        document.getElementById('infoPaginaTutores').textContent =
+            'Página ' + (paginaTutores + 1) + ' de ' + totalPaginas + ' (' + total + ' resultados)';
+        document.getElementById('btnAnteriorTutores').disabled = paginaTutores === 0;
+        document.getElementById('btnAnteriorTutores').style.opacity = paginaTutores === 0 ? '0.4' : '1';
+        document.getElementById('btnSiguienteTutores').disabled = paginaTutores >= totalPaginas - 1;
+        document.getElementById('btnSiguienteTutores').style.opacity = paginaTutores >= totalPaginas - 1 ? '0.4' : '1';
+    }
+}
+
+window.cambiarPaginaTutores = function(delta) {
+    paginaTutores += delta;
+    renderPaginaTutores();
+    document.getElementById('tutoresTable')?.closest('.table-responsive')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     $('#searchInput').on('keyup', function() {
-        const txt = $(this).val().toLowerCase();
-        $('#tutoresTable tr').each(function() {
-            $(this).toggle($(this).text().toLowerCase().includes(txt));
-        });
+        paginaTutores = 0;
+        renderPaginaTutores();
     });
+
+    renderPaginaTutores();
 
     // Mostrar una fila de alumno por defecto al cargar
     agregarFilaAlumno('reg');

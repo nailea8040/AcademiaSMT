@@ -1146,6 +1146,18 @@
                     </tbody>
                 </table>
             </div>
+            {{-- Controles de paginación --}}
+            <div id="paginacionPagos" style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding:0 4px;">
+                <button id="btnAnteriorPagos" onclick="cambiarPaginaPagos(-1)"
+                    style="display:flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;border:1.5px solid #e53935;background:#fff;color:#e53935;font-weight:600;cursor:pointer;">
+                    <i class="bi bi-chevron-left"></i> Anterior
+                </button>
+                <span id="infoPaginaPagos" style="font-size:14px;font-weight:600;color:#424242;"></span>
+                <button id="btnSiguientePagos" onclick="cambiarPaginaPagos(1)"
+                    style="display:flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;border:1.5px solid #e53935;background:#fff;color:#e53935;font-weight:600;cursor:pointer;">
+                    Siguiente <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1313,19 +1325,62 @@
             });
         @endif
 
-        document.getElementById('filterEstado').addEventListener('change', function () {
-            const val = this.value.toLowerCase();
-            document.querySelectorAll('#pagosTable tbody tr').forEach(row => {
-                row.style.display = (!val || row.textContent.toLowerCase().includes(val)) ? '' : 'none';
+        // ── Búsqueda + Filtro + Paginación ─────────────────────────────
+        const PAGE_SIZE_PAGOS = 20;
+        let paginaPagos = 0;
+
+        function getFilasVisibelsPagos() {
+            const txtBuscar = (document.getElementById('searchInput')?.value || '').toLowerCase();
+            const txtEstado = (document.getElementById('filterEstado')?.value || '').toLowerCase();
+            return Array.from(document.querySelectorAll('#pagosTable tbody tr')).filter(row => {
+                const txt = row.textContent.toLowerCase();
+                const matchBuscar = !txtBuscar || txt.includes(txtBuscar);
+                const matchEstado = !txtEstado || txt.includes(txtEstado);
+                return matchBuscar && matchEstado;
             });
+        }
+
+        function renderPaginaPagos() {
+            const todasLasFilas = Array.from(document.querySelectorAll('#pagosTable tbody tr'));
+            todasLasFilas.forEach(r => r.style.display = 'none');
+
+            const filtradas    = getFilasVisibelsPagos();
+            const total        = filtradas.length;
+            const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE_PAGOS));
+            if (paginaPagos >= totalPaginas) paginaPagos = totalPaginas - 1;
+
+            filtradas.slice(paginaPagos * PAGE_SIZE_PAGOS, (paginaPagos + 1) * PAGE_SIZE_PAGOS)
+                .forEach(r => r.style.display = '');
+
+            const ctrl = document.getElementById('paginacionPagos');
+            if (ctrl) {
+                ctrl.style.display = total > PAGE_SIZE_PAGOS ? 'flex' : 'none';
+                document.getElementById('infoPaginaPagos').textContent =
+                    'Página ' + (paginaPagos + 1) + ' de ' + totalPaginas + ' (' + total + ' resultados)';
+                document.getElementById('btnAnteriorPagos').disabled = paginaPagos === 0;
+                document.getElementById('btnAnteriorPagos').style.opacity = paginaPagos === 0 ? '0.4' : '1';
+                document.getElementById('btnSiguientePagos').disabled = paginaPagos >= totalPaginas - 1;
+                document.getElementById('btnSiguientePagos').style.opacity = paginaPagos >= totalPaginas - 1 ? '0.4' : '1';
+            }
+        }
+
+        window.cambiarPaginaPagos = function(delta) {
+            paginaPagos += delta;
+            renderPaginaPagos();
+            document.getElementById('pagosTable')?.closest('.table-responsive')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+
+        document.getElementById('filterEstado').addEventListener('change', function () {
+            paginaPagos = 0;
+            renderPaginaPagos();
         });
 
         document.getElementById('searchInput').addEventListener('keyup', function () {
-            const val = this.value.toLowerCase();
-            document.querySelectorAll('#pagosTable tbody tr').forEach(row => {
-                row.style.display = row.textContent.toLowerCase().includes(val) ? '' : 'none';
-            });
+            paginaPagos = 0;
+            renderPaginaPagos();
         });
+
+        renderPaginaPagos();
 
         const selectAdmin = document.getElementById('id_concepto_admin');
         if (selectAdmin) {

@@ -653,6 +653,18 @@
                     </tbody>
                 </table>
             </div>
+            {{-- Controles de paginación --}}
+            <div id="paginacionAlumnos" style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding:0 4px;">
+                <button id="btnAnteriorAlumnos" onclick="cambiarPaginaAlumnos(-1)"
+                    style="display:flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;border:1.5px solid #e53935;background:#fff;color:#e53935;font-weight:600;cursor:pointer;">
+                    <i class="bi bi-chevron-left"></i> Anterior
+                </button>
+                <span id="infoPaginaAlumnos" style="font-size:14px;font-weight:600;color:#424242;"></span>
+                <button id="btnSiguienteAlumnos" onclick="cambiarPaginaAlumnos(1)"
+                    style="display:flex;align-items:center;gap:6px;padding:8px 18px;border-radius:10px;border:1.5px solid #e53935;background:#fff;color:#e53935;font-weight:600;cursor:pointer;">
+                    Siguiente <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
         </div>{{-- /table-container --}}
 
     </div>{{-- /content-wrapper --}}
@@ -1457,13 +1469,49 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // ── Búsqueda en tabla ──────────────────────────────────────────────
-    $('#searchInput').on('keyup', function () {
-        const txt = $(this).val().toLowerCase();
-        $('#alumnosTable tr').each(function () {
-            $(this).toggle($(this).text().toLowerCase().includes(txt));
+    // ── Búsqueda + Paginación en tabla ────────────────────────────────
+    const PAGE_SIZE_ALUMNOS = 20;
+    let paginaAlumnos = 0;
+
+    function renderPaginaAlumnos() {
+        const txt      = ($('#searchInput').val() || '').toLowerCase();
+        const todasLasFilas = $('#alumnosTable tr').not('.sin-resultados-row');
+        const filasFiltradas = todasLasFilas.filter(function () {
+            return !txt || $(this).text().toLowerCase().includes(txt);
         });
+
+        const total   = filasFiltradas.length;
+        const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE_ALUMNOS));
+        if (paginaAlumnos >= totalPaginas) paginaAlumnos = totalPaginas - 1;
+
+        todasLasFilas.hide();
+        filasFiltradas.slice(paginaAlumnos * PAGE_SIZE_ALUMNOS, (paginaAlumnos + 1) * PAGE_SIZE_ALUMNOS).show();
+
+        // Controles
+        const ctrl = document.getElementById('paginacionAlumnos');
+        if (ctrl) {
+            ctrl.style.display = total > PAGE_SIZE_ALUMNOS ? 'flex' : 'none';
+            document.getElementById('infoPaginaAlumnos').textContent =
+                'Página ' + (paginaAlumnos + 1) + ' de ' + totalPaginas + ' (' + total + ' resultados)';
+            document.getElementById('btnAnteriorAlumnos').disabled = paginaAlumnos === 0;
+            document.getElementById('btnAnteriorAlumnos').style.opacity = paginaAlumnos === 0 ? '0.4' : '1';
+            document.getElementById('btnSiguienteAlumnos').disabled = paginaAlumnos >= totalPaginas - 1;
+            document.getElementById('btnSiguienteAlumnos').style.opacity = paginaAlumnos >= totalPaginas - 1 ? '0.4' : '1';
+        }
+    }
+
+    window.cambiarPaginaAlumnos = function(delta) {
+        paginaAlumnos += delta;
+        renderPaginaAlumnos();
+        document.getElementById('alumnosTable')?.closest('.table-responsive')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    $('#searchInput').on('keyup', function () {
+        paginaAlumnos = 0;
+        renderPaginaAlumnos();
     });
+
+    renderPaginaAlumnos();
 
     // ── Cierre modales con click fuera o ESC ───────────────────────────
     window.addEventListener('click', function (e) {

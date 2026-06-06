@@ -168,7 +168,7 @@
                 <div class="table-header">
                     <h2 class="table-title">
                         <i class="bi bi-table"></i>
-                        Usuarios Registrados ({{ count($usuarios) }})
+                        Usuarios Registrados ({{ $usuarios->total() }})
                     </h2>
 
                     <div class="table-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;width:100%;">
@@ -352,6 +352,12 @@
                         </tbody>
                     </table>
                 </div>
+                {{-- Paginación --}}
+                @if($usuarios->hasPages())
+                <div class="d-flex justify-content-center mt-3">
+                    {{ $usuarios->links() }}
+                </div>
+                @endif
             </div>
 
         </div>

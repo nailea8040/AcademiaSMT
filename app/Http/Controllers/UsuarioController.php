@@ -99,7 +99,7 @@ class UsuarioController extends Controller
             $query->where('estado', (int) $filtros['estado']);
         }
 
-        $usuarios = $query->get();
+        $usuarios = $query->paginate(20)->withQueryString();
 
         return view('usuariosViews.usuarios', compact('usuarios', 'filtros'));
     }
