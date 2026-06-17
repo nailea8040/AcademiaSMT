@@ -103,6 +103,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Contacto Email
+    |--------------------------------------------------------------------------
+    |
+    | Correo destino del formulario de contacto (landing page y API).
+    | Centralizado aquí para no hardcodear en controladores.
+    |
+    */
+
+    'contacto_email' => env('CONTACTO_EMAIL', 'academiacentralkaratedosmt@gmail.com'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Storage Link Check
     |--------------------------------------------------------------------------
     |

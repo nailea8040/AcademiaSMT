@@ -23,6 +23,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\StorageLinkCheck::class,
         ]);
 
+        // Middleware API: verificar que la cuenta siga activa en cada request autenticado
+        $middleware->api(append: [
+            \App\Http\Middleware\VerificarEstadoCuenta::class,
+        ]);
+
         // Alias de roles
         $middleware->alias([
             'rol' => \App\Http\Middleware\VerificarRol::class,

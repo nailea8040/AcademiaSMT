@@ -24,7 +24,8 @@ class ContactoApiController extends Controller
         ]);
  
         try {
-            $destinatario = 'academiacentralkaratedosmt@gmail.com';
+            // Correo destinatario desde config/app.php → CONTACTO_EMAIL
+            $destinatario = config('app.contacto_email');
  
             Mail::send('emails.contacto', $validated, function ($mail) use ($destinatario, $validated) {
                 $mail->to($destinatario)

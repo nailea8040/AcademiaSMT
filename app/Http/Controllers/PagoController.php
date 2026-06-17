@@ -321,6 +321,20 @@ class PagoController extends Controller
         $pago = DB::table('pago')->where('id_pago', $id)->first();
         if (!$pago) abort(404);
 
+        // No permitir abonos sobre pagos ya completados
+        if ($pago->estado_pago === 'Completado') {
+            return redirect()->route('pagos.index')
+                ->with('sessionInsertado', 'false')
+                ->with('mensaje', 'Este pago ya está completado. No se pueden registrar abonos.');
+        }
+
+        // No permitir abonos sobre pagos suspendidos
+        if ($pago->estado_pago === 'Suspendido') {
+            return redirect()->route('pagos.index')
+                ->with('sessionInsertado', 'false')
+                ->with('mensaje', 'Este pago está suspendido. No se pueden registrar abonos.');
+        }
+
         // Alumno/tutor solo pueden abonar a SUS propios pagos
         if (in_array($user->rol, ['alumno', 'tutor']) &&
             (int) $user->id_usuario !== (int) $pago->id_usuario) {

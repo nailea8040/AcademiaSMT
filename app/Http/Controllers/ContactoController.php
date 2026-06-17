@@ -22,8 +22,8 @@ class ContactoController extends Controller
         ]);
 
         try {
-            // Correo destinatario
-            $destinatario = 'academiacentralkaratedosmt@gmail.com';
+            // Correo destinatario desde config/app.php → CONTACTO_EMAIL
+            $destinatario = config('app.contacto_email');
             
             // Enviar correo al administrador con los datos del contacto
             Mail::send('emails.contacto', [

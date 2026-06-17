@@ -211,43 +211,171 @@ class PagoApiController extends Controller
 
     // ─────────────────────────────────────────────────────────────────────────
     //  POST /api/pagos/webhook  — notificación MercadoPago
+    //
+    //  SEGURIDAD:
+    //  1. Valida la firma x-signature enviada por MP (HMAC-SHA256).
+    //  2. Valida idempotencia: no procesa el mismo payment_id dos veces.
+    //  3. Valida que el external_reference corresponda a un pago existente.
+    //
+    //  Flujo:
+    //    MP envía POST → validamos firma → consultamos payment API →
+    //    si approved + pago Pendiente → actualizamos estado + registramos abono.
     // ─────────────────────────────────────────────────────────────────────────
     public function webhook(Request $request)
     {
+        $rawBody = $request->getContent();
+
+        // ── 1. Validar firma x-signature ──────────────────────────────────────
+        $webhookSecret = config('services.mercadopago.webhook_secret');
+
+        if ($webhookSecret) {
+            $signatureHeader = $request->header('x-signature', '');
+
+            if (empty($signatureHeader)) {
+                Log::warning('MP Webhook: firma x-signature ausente. Request rechazado.');
+                return response()->json(['success' => false, 'message' => 'Firma requerida.'], 401);
+            }
+
+            // Formato: ts=TIMESTAMP;v1=HASH
+            $parts = [];
+            parse_str(str_replace(';', '&', $signatureHeader), $parts);
+
+            $ts  = $parts['ts']  ?? null;
+            $v1  = $parts['v1']  ?? null;
+
+            if (!$ts || !$v1) {
+                Log::warning('MP Webhook: formato de firma inválido: ' . $signatureHeader);
+                return response()->json(['success' => false, 'message' => 'Firma inválida.'], 401);
+            }
+
+            // La firma se calcula sobre: ts + request body
+            $payload = $ts . $rawBody;
+            $expectedHash = hash_hmac('sha256', $payload, $webhookSecret);
+
+            if (!hash_equals($expectedHash, $v1)) {
+                Log::warning('MP Webhook: firma x-signature no coincide. Request rechazado.');
+                return response()->json(['success' => false, 'message' => 'Firma inválida.'], 401);
+            }
+        } else {
+            Log::warning('MP Webhook: MP_WEBHOOK_SECRET no configurado. Firma NO validada.');
+        }
+
+        // ── 2. Parsear el body ────────────────────────────────────────────────
         try {
-            $type   = $request->input('type') ?? $request->input('topic');
-            $dataId = $request->input('data.id') ?? $request->input('id');
+            $data = json_decode($rawBody, true);
+        } catch (\Exception $e) {
+            Log::error('MP Webhook: body no es JSON válido.');
+            return response()->json(['success' => false], 400);
+        }
 
-            Log::info('MP Webhook: type=' . $type . ' id=' . $dataId);
+        $type   = $data['type']   ?? $data['topic'] ?? null;
+        $dataId = $data['data']['id'] ?? $data['id']  ?? null;
 
-            if ($type === 'payment' && $dataId) {
-                MercadoPagoConfig::setAccessToken(config('services.mercadopago.access_token'));
+        Log::info("MP Webhook: type={$type} id={$dataId}");
 
-                $paymentClient = new \MercadoPago\Client\Payment\PaymentClient();
-                $payment       = $paymentClient->get((int) $dataId);
+        // ── 3. Procesar solo notificaciones de pago ───────────────────────────
+        if ($type !== 'payment' || !$dataId) {
+            return response()->json(['success' => true], 200);
+        }
 
-                if ($payment && $payment->status === 'approved') {
-                    $extRef = $payment->external_reference;
-                    if ($extRef) {
-                        // ✅ FIX: tabla 'pago' (sin s) + columnas snake_case
-                        DB::table('pago')
-                            ->where('id_pago', (int) $extRef)
-                            ->update([
-                                'estado_pago'    => 'Completado',
-                                'referencia_pago'=> (string) $dataId,
-                                'mp_payment_id'  => (string) $dataId,
-                                'mp_status'      => 'approved',
-                            ]);
-                        Log::info('Pago ' . $extRef . ' marcado como Completado vía webhook.');
+        try {
+            // ── 4. Consultar el pago a la API de MercadoPago ──────────────────
+            MercadoPagoConfig::setAccessToken(config('services.mercadopago.access_token'));
+
+            $paymentClient = new \MercadoPago\Client\Payment\PaymentClient();
+            $payment       = $paymentClient->get((int) $dataId);
+
+            if (!$payment) {
+                Log::warning("MP Webhook: pago MP #{$dataId} no encontrado en la API.");
+                return response()->json(['success' => true], 200);
+            }
+
+            $extRef   = $payment->external_reference;
+            $mpStatus = $payment->status;
+
+            if (!$extRef) {
+                Log::warning("MP Webhook: pago MP #{$dataId} sin external_reference.");
+                return response()->json(['success' => true], 200);
+            }
+
+            $idPago = (int) $extRef;
+
+            // ── 5. Idempotencia: verificar que no se haya procesado ya ────────
+            $pagoActual = DB::table('pago')->where('id_pago', $idPago)->first();
+
+            if (!$pagoActual) {
+                Log::warning("MP Webhook: pago local #{$idPago} no existe. external_reference inválido.");
+                return response()->json(['success' => true], 200);
+            }
+
+            // Si ya está Completado y ya tiene el mismo mp_payment_id → duplicado
+            if ($pagoActual->estado_pago === 'Completado'
+                && (string) $pagoActual->mp_payment_id === (string) $dataId) {
+                Log::info("MP Webhook: pago #{$idPago} ya procesado con mp_payment_id={$dataId}. Idempotente.");
+                return response()->json(['success' => true], 200);
+            }
+
+            // ── 6. Si el pago fue aprobado → marcar Completado ────────────────
+            if ($mpStatus === 'approved') {
+                DB::beginTransaction();
+
+                try {
+                    // Actualizar el pago
+                    DB::table('pago')->where('id_pago', $idPago)->update([
+                        'estado_pago'     => 'Completado',
+                        'referencia_pago' => (string) $dataId,
+                        'mp_payment_id'   => (string) $dataId,
+                        'mp_status'       => $mpStatus,
+                    ]);
+
+                    // Registrar abono automático si no existe uno con este mp_payment_id
+                    $abonoExiste = DB::table('abono')
+                        ->where('id_pago', $idPago)
+                        ->where('referencia', 'MP-' . $dataId)
+                        ->exists();
+
+                    if (!$abonoExiste) {
+                        $montoTotal = $pagoActual->monto_total ?? $pagoActual->monto;
+
+                        DB::table('abono')->insert([
+                            'id_pago'           => $idPago,
+                            'monto_abono'       => $montoTotal,
+                            'fecha_abono'       => now()->toDateTimeString(),
+                            'tipo_abono'        => 'en_linea',
+                            'referencia'        => 'MP-' . $dataId,
+                            'id_registrado_por' => null,
+                            'mp_status'         => $mpStatus,
+                        ]);
+
+                        // Actualizar monto_pagado
+                        DB::table('pago')->where('id_pago', $idPago)->update([
+                            'monto_pagado' => $montoTotal,
+                        ]);
                     }
+
+                    DB::commit();
+
+                    Log::info("MP Webhook: pago #{$idPago} marcado Completado vía webhook. mp_payment_id={$dataId}");
+
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    throw $e;
                 }
+            } else {
+                // Pago rechazado, pendiente, cancelado — solo registrar el estado
+                DB::table('pago')->where('id_pago', $idPago)->update([
+                    'mp_status' => $mpStatus,
+                ]);
+
+                Log::info("MP Webhook: pago #{$idPago} mp_status={$mpStatus} (no es approved).");
             }
 
             return response()->json(['success' => true], 200);
 
         } catch (\Exception $e) {
-            Log::error('PagoApi@webhook: ' . $e->getMessage());
-            return response()->json(['success' => false], 200); // 200 para que MP no reintente
+            Log::error("MP Webhook error: " . $e->getMessage());
+            // Siempre 200 para que MP no reintente indefinidamente
+            return response()->json(['success' => false], 200);
         }
     }
 
@@ -390,16 +518,43 @@ class PagoApiController extends Controller
         ]);
 
         try {
-            // ✅ FIX: tabla 'pago' (sin s)
             $pago = DB::table('pago')->where('id_pago', $id)->first();
             if (!$pago) {
                 return response()->json(['success' => false, 'message' => 'Pago no encontrado.'], 404);
             }
 
+            // No permitir abonos sobre pagos ya completados
+            if ($pago->estado_pago === 'Completado') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Este pago ya está completado. No se pueden registrar abonos.',
+                ], 422);
+            }
+
+            // No permitir abonos sobre pagos suspendidos
+            if ($pago->estado_pago === 'Suspendido') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Este pago está suspendido. No se pueden registrar abonos.',
+                ], 422);
+            }
+
+            // Verificar que el abono no supere el saldo pendiente
+            $montoTotal  = $pago->monto_total ?? $pago->monto;
+            $montoPagado = $pago->monto_pagado ?? 0;
+            $saldo       = $montoTotal - $montoPagado;
+
+            if ($validated['monto_abono'] > $saldo) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El monto del abono ($' . number_format($validated['monto_abono'], 2) . ') supera el saldo pendiente ($' . number_format($saldo, 2) . ').',
+                ], 422);
+            }
+
             DB::table('abono')->insert([
                 'id_pago'           => $id,
                 'monto_abono'       => $validated['monto_abono'],
-                'fecha_abono'       => now()->toDateString(),
+                'fecha_abono'       => now()->toDateTimeString(),
                 'tipo_abono'        => $validated['tipo_abono'],
                 'referencia'        => $validated['referencia'] ?? null,
                 'id_registrado_por' => $user->id_usuario,
@@ -410,9 +565,6 @@ class PagoApiController extends Controller
                 ->where('id_pago', $id)
                 ->sum('monto_abono');
 
-            $montoTotal = $pago->monto_total ?? $pago->monto;
-
-            // ✅ FIX: tabla 'pago' (sin s) + columnas snake_case
             DB::table('pago')->where('id_pago', $id)->update([
                 'monto_pagado' => $totalAbonado,
                 'estado_pago'  => ($totalAbonado >= $montoTotal) ? 'Completado' : $pago->estado_pago,

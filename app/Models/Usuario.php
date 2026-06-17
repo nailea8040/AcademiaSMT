@@ -21,7 +21,7 @@ class Usuario extends Authenticatable
         'fecha_naci',
         'telefono',
         'correo',
-        'pass',
+        // 'pass' — EXCLUIDO por seguridad. Solo se modifica vía setPassword().
         'rol',
         'estado',
         'fecha_registro',
@@ -56,13 +56,22 @@ class Usuario extends Authenticatable
     }
 
     public function getAuthPasswordName(): string
-{
-    return 'pass';
-}
+    {
+        return 'pass';
+    }
 
     public function getAuthIdentifierName(): string
     {
         return 'id_usuario';
+    }
+
+    /**
+     * Establece la contraseña del usuario de forma segura.
+     * Único método permitido para modificar pass — evita mass assignment.
+     */
+    public function setPassword(string $password): void
+    {
+        $this->update(['pass' => \Illuminate\Support\Facades\Hash::make($password)]);
     }
 
     // ── Scopes ────────────────────────────────────────────────────────────────

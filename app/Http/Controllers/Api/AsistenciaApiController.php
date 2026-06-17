@@ -168,15 +168,12 @@ class AsistenciaApiController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            // Loguear el error REAL para poder depurar
             Log::error('AsistenciaApi@store: ' . $e->getMessage());
             Log::error('AsistenciaApi@store trace: ' . $e->getTraceAsString());
 
             return response()->json([
                 'success' => false,
                 'message' => 'Error al registrar asistencia.',
-                // En desarrollo mostrar el error real:
-                'debug'   => app()->environment('production') ? null : $e->getMessage(),
             ], 500);
         }
     }

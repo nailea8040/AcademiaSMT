@@ -48,6 +48,12 @@ return [
         //          false = producción real
         // En Railway: agrega MP_SANDBOX=true para pruebas, MP_SANDBOX=false para producción.
         'sandbox'      => env('MP_SANDBOX', false),
+
+        // Webhook Secret: clave secreta para validar la firma x-signature
+        // que MercadoPago envía en cada notificación webhook.
+        // Obtenerla en: MP Dashboard → Configuración → Webhooks → Tu clave secreta.
+        // Si es null o vacío, la validación de firma se omite (NO recomendado en producción).
+        'webhook_secret' => env('MP_WEBHOOK_SECRET'),
     ],
 
 ];

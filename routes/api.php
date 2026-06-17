@@ -20,11 +20,12 @@ use App\Http\Controllers\Api\SeminarioApiController;
 //  RUTAS PÚBLICAS — sin token
 // ════════════════════════════════════════════════════════════════════════════
 
-Route::post('/login',           [AuthApiController::class,    'login']);
-Route::post('/registro',        [RegistroApiController::class,'store']);
-Route::post('/password/forgot', [AuthApiController::class,    'forgotPassword']);
-Route::post('/password/reset',  [AuthApiController::class,    'resetPassword']);
-Route::post('/contacto',        [ContactoApiController::class,'enviar']);
+// Rate limiting: 5 intentos de login por minuto, 3 solicitudes de recuperación por minuto
+Route::post('/login',           [AuthApiController::class,    'login'])->middleware('throttle:5,1');
+Route::post('/registro',        [RegistroApiController::class,'store'])->middleware('throttle:10,1');
+Route::post('/password/forgot', [AuthApiController::class,    'forgotPassword'])->middleware('throttle:3,1');
+Route::post('/password/reset',  [AuthApiController::class,    'resetPassword'])->middleware('throttle:5,1');
+Route::post('/contacto',        [ContactoApiController::class,'enviar'])->middleware('throttle:10,1');
 
 // Catálogos públicos
 Route::get('/calendario',  [CalendarioApiController::class,'index']);

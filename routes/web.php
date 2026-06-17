@@ -27,11 +27,11 @@ Route::get('/',        fn() => view('landing'))->name('landing');
 Route::get('/landing', fn() => view('landing'));
 
 // Contacto (formulario del landing)
-Route::post('/contacto/enviar', [ContactoController::class, 'enviar'])->name('contacto.enviar');
+Route::post('/contacto/enviar', [ContactoController::class, 'enviar'])->middleware('throttle:10,1')->name('contacto.enviar');
 
 // Login / logout
 Route::get('/login',  [LoginController::class, 'showLoginForm'])->name('login');
-Route::post('/login', [LoginController::class, 'login'])->name('login.attempt');
+Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:5,1')->name('login.attempt');
 Route::get('/logout', fn() => redirect()->route('login'));
 Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
 
@@ -40,11 +40,11 @@ Route::get('/ver-login', [LoginController::class, 'showLoginForm'])->name('verLo
 
 // Registro
 Route::get('/registro',  [RegistroController::class, 'create'])->name('registro.create');
-Route::post('/registro', [RegistroController::class, 'store'])->name('registro.store');
+Route::post('/registro', [RegistroController::class, 'store'])->middleware('throttle:10,1')->name('registro.store');
 
 // Recuperación de contraseña
 Route::get('/olvido-contrasennia',    [ResetPasswordController::class, 'showResetForm'])->name('password.request');
-Route::post('/olvido-contrasennia',   [ResetPasswordController::class, 'sendResetLinkEmail'])->name('password.email');
+Route::post('/olvido-contrasennia',   [ResetPasswordController::class, 'sendResetLinkEmail'])->middleware('throttle:3,1')->name('password.email');
 Route::get('/password/reset/{token}', [ResetPasswordController::class, 'showResetFormWithToken'])->name('password.reset');
 Route::put('/password/update',        [ResetPasswordController::class, 'resetPassword'])->name('password.update');
 
