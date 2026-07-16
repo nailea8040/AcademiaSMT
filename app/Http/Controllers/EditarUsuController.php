@@ -30,7 +30,7 @@ class EditarUsuController extends Controller
      * Devuelve los datos actuales del usuario para precargar el formulario
      * en el frontend o la app móvil.
      */
-    public function edit(int $id)
+    public function edit($id)
     {
         $usuario = DB::table('usuario')
             ->select(
@@ -68,7 +68,7 @@ class EditarUsuController extends Controller
      *   "pass":      "NuevaPass1!"   (opcional — solo si se quiere cambiar)
      * }
      */
-    public function update(Request $request, int $id)
+    public function update(Request $request, $id)
     {
         $usuario = DB::table('usuario')->where('id_usuario', $id)->first();
 
@@ -115,11 +115,9 @@ class EditarUsuController extends Controller
                 ->where('id_usuario', $id)
                 ->first();
 
-            $nombreCompleto = trim($actualizado->nombre . ' ' . $actualizado->apaterno . ' ' . ($actualizado->amaterno ?? ''));
-
             return response()->json([
                 'ok'      => true,
-                'mensaje' => "Usuario {$nombreCompleto} actualizado.",
+                'mensaje' => "Usuario ID {$id} actualizado.",
                 'usuario' => $actualizado,
             ]);
 

@@ -15,6 +15,12 @@ use App\Http\Controllers\Api\GradoApiController;
 use App\Http\Controllers\Api\AsistenciaApiController;
 use App\Http\Controllers\Api\UbicacionApiController;
 use App\Http\Controllers\Api\SeminarioApiController;
+use App\Http\Controllers\Api\TorneoController;
+use App\Http\Controllers\Api\CategoriaController;
+use App\Http\Controllers\Api\InscripcionController;
+use App\Http\Controllers\Api\BracketController;
+use App\Http\Controllers\Api\CombateController;
+use App\Http\Controllers\Api\ResultadoController;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RUTAS PÚBLICAS — sin token
@@ -128,4 +134,56 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Ubicación del dojo ────────────────────────────────────────────────
     Route::get('/ubicacion',  [UbicacionApiController::class, 'index']);
     Route::post('/ubicacion', [UbicacionApiController::class, 'store']);
+
+    // ════════════════════════════════════════════════════════════════════
+    //  MÓDULO DE TORNEOS — Gestión, Brackets, Combates, Resultados
+    // ════════════════════════════════════════════════════════════════════
+
+    // ── Torneos ──────────────────────────────────────────────────────
+    Route::get('/torneos',                          [TorneoController::class, 'index']);
+    Route::post('/torneos',                         [TorneoController::class, 'store'])->middleware('rol:admin');
+    Route::get('/torneos/{id}',                     [TorneoController::class, 'show']);
+    Route::put('/torneos/{id}',                     [TorneoController::class, 'update'])->middleware('rol:admin');
+    Route::delete('/torneos/{id}',                  [TorneoController::class, 'destroy'])->middleware('rol:admin');
+    Route::post('/torneos/{id}/fase',               [TorneoController::class, 'cambiarFase'])->middleware('rol:admin,sensei');
+
+    // ── Responsables de fase (admin) ─────────────────────────────────
+    Route::get('/fase-responsables',                [TorneoController::class, 'responsables'])->middleware('rol:admin');
+    Route::post('/fase-responsables',               [TorneoController::class, 'storeResponsable'])->middleware('rol:admin');
+
+    // ── Plantillas de categorías ─────────────────────────────────────
+    Route::get('/plantillas',                       [CategoriaController::class, 'plantillas']);
+    Route::post('/plantillas',                      [CategoriaController::class, 'storePlantilla'])->middleware('rol:admin');
+    Route::put('/plantillas/{id}',                  [CategoriaController::class, 'updatePlantilla'])->middleware('rol:admin');
+    Route::delete('/plantillas/{id}',               [CategoriaController::class, 'destroyPlantilla'])->middleware('rol:admin');
+
+    // ── Categorías del torneo ────────────────────────────────────────
+    Route::post('/torneos/{torneoId}/categorias',           [CategoriaController::class, 'storeCategoria'])->middleware('rol:admin,sensei');
+    Route::put('/torneos/{torneoId}/categorias/{catId}',    [CategoriaController::class, 'updateCategoria'])->middleware('rol:admin,sensei');
+    Route::delete('/torneos/{torneoId}/categorias/{catId}', [CategoriaController::class, 'destroyCategoria'])->middleware('rol:admin,sensei');
+    Route::post('/torneos/{torneoId}/importar-plantilla',   [CategoriaController::class, 'importarPlantilla'])->middleware('rol:admin');
+
+    // ── Inscripciones ────────────────────────────────────────────────
+    Route::get('/torneos/{torneoId}/inscripciones',                 [InscripcionController::class, 'index']);
+    Route::post('/torneos/{torneoId}/inscripciones',                [InscripcionController::class, 'store'])->middleware('rol:admin,sensei');
+    Route::put('/torneos/{torneoId}/inscripciones/{inscripcionId}', [InscripcionController::class, 'update'])->middleware('rol:admin,sensei');
+    Route::delete('/torneos/{torneoId}/inscripciones/{inscripcionId}', [InscripcionController::class, 'destroy'])->middleware('rol:admin');
+
+    // ── Brackets / Llaves ────────────────────────────────────────────
+    Route::get('/torneos/{torneoId}/brackets/{categoriaId}',            [BracketController::class, 'index']);
+    Route::post('/torneos/{torneoId}/brackets/{categoriaId}/generar',   [BracketController::class, 'generar'])->middleware('rol:admin,sensei');
+    Route::put('/torneos/{torneoId}/brackets/{llaveId}',                [BracketController::class, 'updateNodo'])->middleware('rol:admin,sensei');
+    Route::post('/torneos/{torneoId}/brackets/drag-drop',               [BracketController::class, 'dragDrop'])->middleware('rol:admin,sensei');
+
+    // ── Combates ─────────────────────────────────────────────────────
+    Route::get('/torneos/{torneoId}/combates/{categoriaId}',                [CombateController::class, 'porCategoria']);
+    Route::post('/torneos/{torneoId}/combates/{llaveId}',                   [CombateController::class, 'store'])->middleware('rol:admin,sensei');
+    Route::put('/torneos/{torneoId}/combates/combate/{combateId}',          [CombateController::class, 'update'])->middleware('rol:admin,sensei');
+
+    // ── Resultados / Pódium ──────────────────────────────────────────
+    Route::get('/torneos/{torneoId}/resultados',                           [ResultadoController::class, 'resultados']);
+    Route::post('/torneos/{torneoId}/resultados/{categoriaId}/finalizar',  [ResultadoController::class, 'finalizarCategoria'])->middleware('rol:admin,sensei');
+    Route::get('/torneos/{torneoId}/puntaje-dojo',                         [ResultadoController::class, 'puntajeDojo']);
+    Route::get('/torneos/{torneoId}/mejor-competidor',                     [ResultadoController::class, 'mejorCompetidor']);
+    Route::post('/torneos/{torneoId}/resolver-empate',                     [ResultadoController::class, 'resolverEmpate'])->middleware('rol:admin,sensei');
 });

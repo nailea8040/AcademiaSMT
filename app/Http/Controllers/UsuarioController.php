@@ -342,8 +342,7 @@ class UsuarioController extends Controller
 
             DB::table('usuario')->where('id_usuario', $id)->update($data);
 
-            $nombreCompleto = trim($validated['nombre'] . ' ' . $validated['apaterno'] . ' ' . ($validated['amaterno'] ?? ''));
-            $msg = '¡Usuario ' . $nombreCompleto . ' actualizado con éxito!';
+            $msg = '¡Usuario con ID ' . $id . ' actualizado con éxito!';
 
             if ($request->expectsJson()) {
                 $usuarioActualizado = DB::table('usuario')->where('id_usuario', $id)->first();
@@ -390,7 +389,7 @@ class UsuarioController extends Controller
             if (!$usuario) {
                 return redirect()->route('usuarios.index')
                     ->with('sessionInsertado', 'false')
-                    ->with('mensaje', 'No se encontró el usuario para eliminar.');
+                    ->with('mensaje', 'No se encontró el usuario con ID ' . $id . ' para eliminar.');
             }
 
             // Evitar que el admin se elimine a sí mismo
@@ -429,15 +428,12 @@ class UsuarioController extends Controller
             DB::table('tutor')->where('id_tutor', $id)->delete();
             DB::table('ubicacion_dojo')->where('guardado_por', $id)->delete();
 
-            // Capturar el nombre completo antes de eliminar el registro
-            $nombreCompleto = trim($usuario->nombre . ' ' . $usuario->apaterno . ' ' . ($usuario->amaterno ?? ''));
-
             // ── 2. Eliminar el usuario ─────────────────────────────────────────
             DB::table('usuario')->where('id_usuario', $id)->delete();
 
             return redirect()->route('usuarios.index')
                 ->with('sessionInsertado', 'true')
-                ->with('mensaje', '¡Usuario ' . $nombreCompleto . ' eliminado con éxito!');
+                ->with('mensaje', '¡Usuario con ID ' . $id . ' eliminado con éxito!');
 
         } catch (\Exception $e) {
             Log::error("UsuarioController@destroy ID $id: " . $e->getMessage());
@@ -485,13 +481,12 @@ class UsuarioController extends Controller
 
             $nuevoEstado = $usuario->estado == 1 ? 0 : 1;
             $accion      = $nuevoEstado == 1 ? 'Activado' : 'Desactivado';
-            $nombreCompleto = trim($usuario->nombre . ' ' . $usuario->apaterno . ' ' . ($usuario->amaterno ?? ''));
 
             DB::table('usuario')->where('id_usuario', $id)->update(['estado' => $nuevoEstado]);
 
             return redirect()->route('usuarios.index')
                 ->with('sessionInsertado', 'true')
-                ->with('mensaje', "¡Usuario {$nombreCompleto} ha sido {$accion} con éxito!");
+                ->with('mensaje', "¡Usuario ID $id ha sido $accion con éxito!");
 
         } catch (\Exception $e) {
             Log::error("UsuarioController@toggleActive ID $id: " . $e->getMessage());
