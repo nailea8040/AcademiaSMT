@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{{ asset('css/estilo2.css') }}">
     @viteReactRefresh
-    @vite(['resources/js/torneo/main.jsx'])
+    @vite(['resources/css/app.css', 'resources/js/torneo/main.jsx'])
 </head>
 <body>
     @include('includes.menu')

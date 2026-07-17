@@ -1,6 +1,6 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-CtW5FsCk.css",
+    "file": "assets/app-C4mdSvRY.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -8,14 +8,8 @@
       "app.css"
     ]
   },
-  "resources/js/app.js": {
-    "file": "assets/app-CIomGrQN.js",
-    "name": "app",
-    "src": "resources/js/app.js",
-    "isEntry": true
-  },
   "resources/js/torneo/main.jsx": {
-    "file": "assets/main-DKSnEJt5.js",
+    "file": "assets/main-DyF2_L4G.js",
     "name": "main",
     "src": "resources/js/torneo/main.jsx",
     "isEntry": true

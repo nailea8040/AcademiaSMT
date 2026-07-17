@@ -5,6 +5,7 @@ async function request(method, url, data = null) {
 
     const config = {
         method,
+        credentials: 'same-origin',
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
