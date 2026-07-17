@@ -35,6 +35,8 @@ function App() {
     const [mejorComp, setMejorComp] = useState(null);
     const [showPlantilla, setShowPlantilla] = useState(false);
     const [showCompetidor, setShowCompetidor] = useState(false);
+    const [showCrearTorneo, setShowCrearTorneo] = useState(false);
+    const [nuevoTorneo, setNuevoTorneo] = useState({ nombre: '', fecha: '', descripcion: '', ubicacion: '' });
     const [error, setError] = useState(null);
 
     const { torneo, loading: torneoLoading, recargar, cambiarFase } = useTorneo(torneoId);
@@ -47,11 +49,30 @@ function App() {
             setListaLoading(true);
             const res = await api.getTorneos();
             setTorneos(res.data || []);
-        } catch { setTorneos([]); }
+        } catch (err) {
+            if (err.status === 401) {
+                setError('Debes iniciar sesión para ver los torneos.');
+            }
+            setTorneos([]);
+        }
         finally { setListaLoading(false); }
     };
 
     useEffect(() => { if (!torneoId) cargarTorneos(); }, [torneoId]);
+
+    const handleCrearTorneo = async (e) => {
+        e.preventDefault();
+        if (!nuevoTorneo.nombre || !nuevoTorneo.fecha) return;
+        try {
+            await api.createTorneo(nuevoTorneo);
+            setNuevoTorneo({ nombre: '', fecha: '', descripcion: '', ubicacion: '' });
+            setShowCrearTorneo(false);
+            await cargarTorneos();
+        } catch (err) {
+            setError(err.mensaje || 'Error al crear torneo');
+            setTimeout(() => setError(null), 3000);
+        }
+    };
 
     const cargarBrackets = async (catId) => {
         if (!torneoId || !catId) return;
@@ -126,16 +147,70 @@ function App() {
     if (!torneoId) {
         return (
             <div className="min-h-screen bg-gray-50 p-6">
-                <h1 className="text-3xl font-bold text-gray-800 mb-6">
-                    <i className="bi bi-trophy-fill text-red-600 mr-2"></i>
-                    Módulo de Torneos
-                </h1>
+                <div className="flex items-center justify-between mb-6">
+                    <h1 className="text-3xl font-bold text-gray-800">
+                        <i className="bi bi-trophy-fill text-red-600 mr-2"></i>
+                        Módulo de Torneos
+                    </h1>
+                    <button onClick={() => setShowCrearTorneo(true)}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 flex items-center gap-2">
+                        <i className="bi bi-plus-lg"></i> Crear Torneo
+                    </button>
+                </div>
+
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+                        <i className="bi bi-exclamation-triangle mr-1"></i>{error}
+                    </div>
+                )}
+
+                {showCrearTorneo && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
+                            <h3 className="font-bold text-lg mb-4">Crear Nuevo Torneo</h3>
+                            <form onSubmit={handleCrearTorneo} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                                    <input type="text" required value={nuevoTorneo.nombre}
+                                        onChange={e => setNuevoTorneo({ ...nuevoTorneo, nombre: e.target.value })}
+                                        className="w-full border rounded-lg px-3 py-2" placeholder="Ej: Open Karate-Do 2026" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha *</label>
+                                    <input type="date" required value={nuevoTorneo.fecha}
+                                        onChange={e => setNuevoTorneo({ ...nuevoTorneo, fecha: e.target.value })}
+                                        className="w-full border rounded-lg px-3 py-2" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Ubicación</label>
+                                    <input type="text" value={nuevoTorneo.ubicacion}
+                                        onChange={e => setNuevoTorneo({ ...nuevoTorneo, ubicacion: e.target.value })}
+                                        className="w-full border rounded-lg px-3 py-2" placeholder="Ej: Gimnasio Municipal" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                                    <textarea value={nuevoTorneo.descripcion}
+                                        onChange={e => setNuevoTorneo({ ...nuevoTorneo, descripcion: e.target.value })}
+                                        className="w-full border rounded-lg px-3 py-2" rows="2" placeholder="Detalles del torneo..."></textarea>
+                                </div>
+                                <div className="flex gap-3 pt-2">
+                                    <button type="button" onClick={() => setShowCrearTorneo(false)}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Cancelar</button>
+                                    <button type="submit"
+                                        className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700">Crear</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
                 {listaLoading ? (
                     <div className="text-center py-12"><i className="bi bi-arrow-repeat animate-spin text-3xl text-gray-400"></i></div>
                 ) : torneos.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">
                         <i className="bi bi-calendar-x text-4xl mb-3 block"></i>
                         <p>No hay torneos creados.</p>
+                        <p className="text-sm mt-1">Haz clic en "Crear Torneo" para comenzar.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
