@@ -1,13 +1,9 @@
 @extends('includes.menu')
 
 @section('content')
-<!-- Colocamos ambos IDs comunes para asegurar que React enganche sin importar cuál use tu main.jsx -->
-<div id="torneo-app">
-    <div id="torneo-root">
-        <div id="root"></div>
-    </div>
-</div>
+<div id="torneo-app"></div>
 
-@viteReactRefresh
-@vite(['resources/js/torneo/main.jsx'])
+<!-- FORZAMOS LA RUTA DEL JS COMPILADO -->
+<script type="module" src="{{ asset('build/assets/main-DKSnEJt5.js') }}"></script>
+<link rel="stylesheet" href="{{ asset('build/assets/app-CtW5FsCk.css') }}">
 @endsection
