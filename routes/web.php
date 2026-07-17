@@ -148,6 +148,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/asistencia/excel', [AsistenciaController::class, 'descargarExcel'])->name('asistencia.excel');
 
     // ── Torneos (React SPA embebida) ─────────────────────────────────────
-    Route::get('/torneos', fn() => view('torneo'))->name('torneos.index');
-    Route::get('/torneos/{id}', fn($id) => view('torneo', ['id' => $id]))->name('torneos.show');
+    // ── Torneos (React SPA embebida) ─────────────────────────────────────
+    Route::get('/torneo/{any?}', fn() => view('torneo'))->where('any', '.*')->name('torneos.index');
 });
