@@ -19,10 +19,11 @@ import { FASES, FASE_LABELS } from './utils/constants';
 
 function App() {
     const urlParams = new URLSearchParams(window.location.search);
-    const pathParts = window.location.pathname.split('/');
-    const torneoId = pathParts[pathParts.length - 1] !== 'torneos'
-        ? pathParts[pathParts.length - 1]
-        : urlParams.get('id');
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const lastSegment = pathParts[pathParts.length - 1] || '';
+    const torneoId = (lastSegment && lastSegment !== 'torneos' && !isNaN(lastSegment))
+        ? lastSegment
+        : urlParams.get('id') || null;
 
     const [ruta, setRuta] = useState('general');
     const [torneos, setTorneos] = useState([]);
